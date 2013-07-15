@@ -40,7 +40,7 @@ else
 	mv $TARGET/code/worker.js $TARGET/code/worker-dev.js
 	sed s,//__DEV__,"",g $TARGET/code/worker-dev.js > $TARGET/code/worker.js
 	
-	echo "Check to see if was properly replaced:"
+	echo "Check to see if it was properly replaced:"
 	grep Version $EDITOR
 	# grep "code/" $EDITOR
 	
