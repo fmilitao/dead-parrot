@@ -1,0 +1,40 @@
+
+// Example of encoding a type similar to Behavioral Types
+// the resulting sequential behavior is:
+// setBool ; setInt ; getInt ; dispose
+
+let newBehavior = fun( _ : [] ).
+	open <p,x>= new 0 in
+		let method = 
+		{ // list of methods from which the behavior will be made
+		 getInt = fun( _ : [] :: rw p int ).( !x ),
+		 setBool = fun( y : boolean :: rw p int ). ( x := y ),
+         setInt = fun( y : int :: rw p boolean ).( x := y ),
+         dispose = fun( _ : [] :: rw p int ).( delete x )
+		} in
+           
+            fun(b : boolean).{
+            	// 1st
+				res = method.setBool(b),
+                next = fun(i : int).{
+                	// 2nd
+                	res = method.setInt(i),
+              		next = fun( _ : []).{
+              			// 3rd
+	                	res = method.getInt({}), 
+            	    	next = fun( _ : []).(method.dispose {})
+					}
+				}
+			}
+		end
+	end
+    in
+    
+    // client code, still limited due to the fields' rule limitaitons
+    // note how the behavior type requires no open of existentials
+    let obj = newBehavior {} in
+    	// rather ugly but shows the "behavior" of the object...
+		// bah, kinds of does...
+        obj(false).next(123).next({}).next({})
+    end
+end

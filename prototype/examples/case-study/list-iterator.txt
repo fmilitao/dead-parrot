@@ -1,0 +1,119 @@
+let iterator = func( list : List&Single ). // must be nonempty
+	 // store in its private state access to the *whole* list
+	let current = new list.head in
+		{
+		// the close function is a convenient way to stop the
+		// iteration early and recover the list's capabilities
+		close : func( ). delete current ,
+
+		// the next function moves the pointer to the next
+		// position in the list. Note that the capabilities
+		// returned by either case are not the same
+		// which means we must properly consider a distinguishable
+		// kind of result to ensure we can test and pick the
+		// appropriate case for the state of the program
+		next : func( ).
+			let result = current.elem in
+				case current.next of
+					[] -> // end the iteration
+						delete current;
+						result
+					Node -> // go to next node
+						current := current.next;
+						result
+				end
+			end ,
+
+		hasNext : func( ).
+			if( current )
+				// address still valid
+				true
+			else
+				// was deleted, location marked as invalid at run-time
+				false
+			end
+			// requires making an enumerable distinguishable (and usable in the types)
+			// these enumerate types can be modeled with just pairs and units
+			// (by counting) i.e. false = [] , true = [] * [] , etc.
+
+		}
+			// note that the functions are still persistent (not linear)
+			// but depending on the internal (hidden) state of the iterator
+			// in this case, the internal state of the iterator is not
+			// reachable to client code but can be indirectly inspected with
+			// the 'hasNext' function.
+		end
+	end
+	
+
+
+//
+
+let list = makeList() in
+	add(list, 1);
+	add(list, 2);
+	let it = iterator(list) in
+		next(it); // ignores result
+		if( hasNext(it) )
+			close(it)
+		else
+			// was already closed
+			// we have list's capability back
+			add(list,3)
+		end
+	end
+	add(list,4)
+	// ...			
+	
+
+
+let iterator = func( list : List&Single ).
+	let self = new {} in
+		let current = new list.head
+			in
+			let closeF = func().
+				self := {}; // done
+				delete current
+				in
+			let nextF = func( ).
+				let result = current.elem in
+					case current.next of
+						[] -> // end the iteration
+							self := {}; // nothing else available
+							delete current;
+							result
+						Node -> // go to next node
+							current := current.next;
+							self := { next : nextF , close : closeF };
+							result
+					end
+				end
+				in
+				// there must exist at least 1 element in the list
+				self := { next : nextF , close : closeF };
+				self
+			end
+		end
+	end
+\end{lstlisting}
+
+And some client code (note the extra verbosity due to the linearity of the variable and the fact that we do not allow linear variables, only linear assignables):
+\begin{lstlisting}
+let list = makeList() in
+	add(list, 1);
+	add(list, 2);
+	let it = iterator(list) in
+		!it.next(); // ignores result
+		// case analysis of the state of 'it'
+		case !it of
+			// still open
+			[ next, close ] -> //still has more element
+				!it.close()
+			// iterator closed
+			[] -> // is done
+				add( list, 1)
+		end
+	end
+	add(list,4)
+	// ...			
+	

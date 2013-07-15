@@ -1,0 +1,12 @@
+//OK 0
+//FAIL Invalid call '![a: int,b: int] -o !(ref tx)' ( '[a: !int,b: !int,c: exists t<sub>1</sub>.(ref t<sub>1</sub> :: rw t<sub>1</sub> !int)]' )
+
+open <tx,x> = new 0 in
+    let f = fun( z : ![a: int, b:int] ).x in
+    	// invalid subtyping causes failure to call
+    	// note that extra field has linear type
+    	// cannot be subtyped out of the record's type
+    	f  {a = 1, b = 3 , c = new 0}
+    end;
+    delete x
+end

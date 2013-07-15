@@ -1,0 +1,63 @@
+
+let init( n ) =
+	focus n;
+	case n of
+		[] -> {} // no need to defocus
+	|	RawP -> // reassigning will not break Ready state if already there
+			// the following code creates (more) alias to a node, thus it does
+			// not change the current state of each node
+			let n_left = borrow left = n.left in !left end in
+			let n_right = borrow right = n.right in !right end in
+				
+				// note that nothing remains in a borrowed state
+				defocus n; // would not defocus if there were borrows around
+										
+				init( n_right );  // >> []+ReadyP
+				init( n_left ); // >> []+ReadyP
+					
+				focus n;
+				borrow e = n.e in
+					e := VALUE
+				end;
+// We must either require focusing and testing to be sure the cell mutated to
+// the appropriate type (which would then be problematic since it could still be
+// with its original type; or we can re-assign. Thus, this re-assignment after (re)focus
+// ensures that the node will be left with the appropriate type/state.
+				borrow left = n.left in
+					left := n_left
+				end;
+				borrow right = n.right in
+					right := n_right
+				end;
+				defocus n
+			end
+			end
+	end	
+	in
+
+// client code
+let scan(n) =
+	focus n;
+	case n of
+		[] -> {}
+	|	ReadyP -> 
+			borrow e = n.element in
+				print( e ) // uses element in some way...
+			end;
+			// these cause more aliases
+			let l = borrow left = n.left in !left end in
+			 let r = borrow right = n.right in !right end in
+			 	defocus n;
+			 	scan( l );
+			 	scan( r )
+			 end
+			end
+	end
+	in
+let tree = /* makes tree and shares it*/ in
+	// assume tree contains only empty or E elements
+	init( tree )
+	// now it should only contain E elements
+	
+	scan( tree ) // traverses the tree with only E elements
+	// ...

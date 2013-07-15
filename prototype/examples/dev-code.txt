@@ -1,0 +1,30 @@
+// SCRATCH PAD
+// DONT KEEP GOOD CODE HERE FOR LONG
+
+// idiom for auto open is broken, since it changes the environment, the resulting
+// type is never pure! re-think idiom...
+
+// linked list
+// since we currently do not have recursive types and also
+// because I am intentionally avoiding having to put the capability
+// inside the node, it requires unpack
+
+let listF = {
+
+	newList = fun( e : int ).
+		// labeling the head's reference will cause it to be packed and
+		// stacked on the outer type, thus making the record pure (but not
+		// the contents of the reference)
+		{ head = l_head:new h_tail:new { val = e } }
+	,
+
+	insert = <h><t> fun( e : int, l : !([ head : ref h ]) :: rw h (ref t) ).
+			( l.head := new { val = e , next = !(l.head) } )
+	}
+in
+
+    let list = t: h: (listF.newList 0) in
+    	listF.insert[h][t] 2 list
+    end
+
+end

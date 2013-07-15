@@ -1,0 +1,8 @@
+//FIXME: broken old code... but that caused an (intentional) eternal loop anyway.
+
+let x = fun( x : [ f : (none -o none) ]).( x.f x ) in
+    x {f=x} // FIXME wrong types
+    // loops forever!
+ end
+ 
+// also back pacthing with state?

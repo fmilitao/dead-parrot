@@ -1,0 +1,10 @@
+// TEMPORARY FIX
+//FAIL Invalid field 'a' for record
+
+let x = p1:new { f = p2:new false , g = 1 } in
+
+    !(!x.f) ; 
+	!x.f := { a = 2 }; 
+	!(!x.f).a ;
+	!x.f.a
+end
