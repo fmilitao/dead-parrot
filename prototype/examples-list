@@ -2,11 +2,11 @@ idioms.txt
 example-typestate.txt
 example-behavioral.txt
 example-behavioral-ind.txt
-dev-code.txt
-eternal-loop.txt
-fields-PROBLEM1.txt
-fields-PROBLEM2.txt
-fields-PROBLEM3.txt
+#dev-code.txt
+#eternal-loop.txt
+#fields-PROBLEM1.txt
+#fields-PROBLEM2.txt
+#fields-PROBLEM3.txt
 test-fail1.txt
 test-fail2.txt
 test-fail3.txt

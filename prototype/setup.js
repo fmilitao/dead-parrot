@@ -102,6 +102,22 @@ $(document).ready(function() {
     editor.setShowPrintMargin(false);
 	
 	(function(){ // Examples buttons.
+		var setEditor = function(text){
+			// disable event handlers while updating content
+			// to avoid having to handle incomplete events
+			editor.selection.removeListener('changeCursor', onCursorChange);
+			editor.removeListener('change', onChange);
+						
+			// set new source code and gain focus.
+			editor.getSession().setValue(text);
+			editor.focus();
+						
+			// re-enable event handlers
+			editor.selection.on("changeCursor", onCursorChange);
+			editor.on("change", onChange );
+			onChange();
+		}
+		
 		var addExample = function(file,name){
 			var button = $('<button/>', {
 				class: 'button',
@@ -110,20 +126,7 @@ $(document).ready(function() {
 	        		button.text(name+' (Loading...)');
 	        		
 	        		$.get( file , function(data) {
-	        			// disable event handlers while updating content
-						// to avoid having to handle incomplete events
-						editor.selection.removeListener('changeCursor', onCursorChange);
-						editor.removeListener('change', onChange);
-						
-						// set new source code and gain focus.
-						editor.getSession().setValue(data);
-						editor.focus();
-						
-						// re-enable event handlers
-						editor.selection.on("changeCursor", onCursorChange);
-						editor.on("change", onChange );
-						onChange();
-						
+						setEditor(data);
 						button.text(name);
 					});
 				}
@@ -134,7 +137,8 @@ $(document).ready(function() {
 		$.get( "examples-list" , function(data) {
 			var examples = data.split('\n');
 			for( var i=0 ; i<examples.length ; ++i ){
-				addExample( 'examples/'+examples[i] , examples[i] );
+				if( examples[i][0] != '#' ) // ignore commented stuff
+					addExample( 'examples/'+examples[i] , examples[i] );
 			}
 		});
 		
@@ -142,7 +146,30 @@ $(document).ready(function() {
 	    $("#examples-button").click(function() {
 	        $("#examples").slideToggle(25);
 	    });
+	    
+	    //load examples given as parameters
+	    var parameters = document.URL.split('?');
+	    if( parameters.length > 1 ){
+	    	console.log(document.URL);
+	    	parameters = parameters[1].split('=');
+	    	if( parameters.length > 1 ){
+	    		var option = parameters[0];
+	    		var value = parameters[1];
+	    		switch( option ){
+	    			case 'file': // load file
+		    			$.get( value , function(data) {
+							setEditor(data);
+							console.log(data);
+						});
+	    				break;
+	    			default: // not other options for now.
+	    				break;
+	    		}
+	    	}
+	    }
     })();
+    
+    
 
 	(function(){ // Auto-Run button
 		var autorun = true;
