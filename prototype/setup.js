@@ -96,9 +96,8 @@ $(document).ready(function() {
     var editor = ace.edit(EDITOR);
 
 	(function(){
-    	//editor.setTheme("ace/theme/twilight");
     	editor.setTheme("ace/theme/monokai");
-    		
+    	// selected="selected"
 		var STYLE_LIST = $("#editor-style");
 		$.get( "themes-list" , function(data) {
 			var themes = data.split('\n');
@@ -112,11 +111,11 @@ $(document).ready(function() {
 				});
 				STYLE_LIST.append(option);
 	    	}
+		});
 	    	
-	    	STYLE_LIST.bind("change click", function () {
-	    		editor.setTheme("ace/"+$(this).val());
-    		});
-	   });
+		STYLE_LIST.change(function () {
+	   		editor.setTheme("ace/"+$(this).val());
+    	});
 	})();
 	
     // disable code folding
