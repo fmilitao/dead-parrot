@@ -61,7 +61,10 @@ var receive = {
 	
 			ast = parser( data );
 				
-			send('println', '<b>Type</b>: '+ checker( ast , types ).toHTML() );
+				
+				//FIXME
+			//send('println', '<b>Type</b>: '+ checker( ast , types ).toHTML() );
+			send('println', '<b>FIXME: Type Checker Disabled</b>.');
 			
 			if( autorun )
 				send('println', '<b>Result</b>: '+interpreter( ast,function(msg){ send('println',msg.toString())} ) );

@@ -33,6 +33,18 @@ var Interpreter = function(){
 			return "Record Value";
 		}
 	}
+	
+	var Tagged = function( t, v ) {
+		this.tag = function(){
+			return t;
+		}
+		this.value = function(){
+			return v;
+		}
+		this.toString = function() {
+			return t+"#"+v.toString();
+		}
+	}
 
 	var Reference = function( i ) {
 		var cell = i;
@@ -129,6 +141,39 @@ var Interpreter = function(){
 					return lvalue.free();
 				},"Invalid delete",ast.lvalue);
 			}
+			case AST.kinds.TAGGED: {
+				var exp = run(ast.exp, env);
+				return new Tagged(ast.tag,exp);
+			}
+			case AST.kinds.CASE: {
+				var val = run(ast.exp, env);
+				var tag = wrapError(function(){
+					return val.tag();
+				},"Invalid case",ast.exp);
+				
+				var branch = ast.branches;
+				while( true ) {
+					if( branch.kind == AST.kinds.BRANCH ){
+						if( branch.tag != tag )
+							branch = undefined;
+						break;
+					}
+					if( branch.kind == AST.kinds.BRANCHES ){
+						if( branch.left.tag == tag ){
+							branch = branch.left;
+							break;
+						}else{
+							branch = branch.right;
+						}
+					}
+				}
+				wrapError(function(){return branch;},
+					"No matching branch for "+tag,ast);
+				var newEnv = env;
+				newEnv = env.newScope();
+				newEnv.set(branch.id,val.value());
+				return run(branch.exp, newEnv);
+			}
 			case AST.kinds.FUN: {
 				return new Function(ast.exp, ast.parms.id,env);
 			}
@@ -160,6 +205,15 @@ var Interpreter = function(){
 				return rec;
 			}
 			
+			case AST.kinds.TYPEDEFS:
+				return run(ast.right, env);
+			
+			case AST.kinds.TYPEDEF: // this case should not appear
+			case AST.kinds.FOCUS:
+			case AST.kinds.DEFOCUS:
+			case AST.kinds.SHARE: 
+				return new Record();
+
 			case AST.kinds.CAP_STACK:
 			case AST.kinds.PACK:
 			case AST.kinds.FORALL:

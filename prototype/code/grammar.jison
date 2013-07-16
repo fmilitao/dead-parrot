@@ -131,10 +131,12 @@ field_types :
 program :
 	sequence
 	| typedef program
+		{ $$ = AST.makeTypedefs($1,$2,@$); }
 	;
 
 typedef :
 	TYPEDEF IDENTIFIER "=" type_root
+		{ $$ = AST.makeTypedef($2,$4,@$); }
 	;
 	
 sequence :
@@ -146,8 +148,11 @@ sequence :
 sharing :
 	nonsequence
 	| DEFOCUS
+		{ $$ = AST.makeDefocus(@$); }
 	| FOCUS ids_list
+		{ $$ = AST.makeFocus($2,@$); }
 	| SHARE ids_list AS type '||' type
+		{ $$ = AST.makeShare($2,$4,$6,@$); }
 	;
 
 nonsequence :
@@ -175,7 +180,9 @@ expression :
 	| '<' IDENTIFIER '>' expression
 		{ $$ = AST.makeForall($2,$4,@$); }
 	| '<' IDENTIFIER ',' sequence '>'
-		{ $$ = AST.makePack($2,$4,@$); }
+		{ $$ = AST.makePack($2,null,$4,@$); }
+	| '<' IDENTIFIER ':' IDENTIFIER ',' sequence '>'
+		{ $$ = AST.makePack($2,$4,$6,@$); }
 	| DELETE expression
 		{ $$ = AST.makeDelete($2,@$); }
 	| LET IDENTIFIER '=' sequence IN sequence END
@@ -185,21 +192,24 @@ expression :
 	| "(" sequence ")"
 		{ $$ = $2; }
 	| function
-
-	| '<' IDENTIFIER ':' IDENTIFIER ',' sequence '>'
 	| IDENTIFIER '#' expression
+		{ $$ = AST.makeTagged($1,$3,@$); }
 	| CASE expression OF branches END
+		{ $$ = AST.makeCase($2,$4,@$); }
+		
 	| LET '[' ids_list ']' '=' sequence IN sequence END
 	| REC IDENTIFIER '.' expression
     ;
 
 branches :
-	branch
-	| branches '|' branch
+	  branch
+	| branch '|' branches
+		{ $$ = AST.makeBranches($1,$3,@$); }
 	;
 
 branch :
 	IDENTIFIER '#' IDENTIFIER '->' sequence
+		{ $$ = AST.makeBranch($1,$3,$5,@$); }
 	;
 
 function :
@@ -223,6 +233,7 @@ ids_list :
 	IDENTIFIER
 	| ids_list ',' IDENTIFIER
 	;
+	// FIXME!!!!!!!
 
 value :
       IDENTIFIER 
@@ -242,12 +253,14 @@ record :
 	| '{' fields '}'
 		{ $$ = AST.makeRecord($2,@$); }
 	| '{' values '}'
+		// FIXME!!!!!!!
 	;
 
 values :
 	nonsequence
 	| nonsequence ',' nonsequence
 	;
+	// FIXME!!!!!!!
 	
 field :
 	IDENTIFIER '=' nonsequence

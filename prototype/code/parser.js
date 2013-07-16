@@ -49,6 +49,10 @@ var AST = new function(){
 		'FIELDS',
 		'RECORD',
 		'PARAM',
+		'CASE',
+		'BRANCH',
+		'BRANCHES',
+		'TAGGED',
 		'LET',
 		'SELECT',
 		'ASSIGN',
@@ -56,8 +60,30 @@ var AST = new function(){
 		'DEREF',
 		'NEW',
 		'DELETE',
-		'FUN'
+		'FUN',
+		'SHARE',
+		'FOCUS',
+		'DEFOCUS',
+		'TYPEDEF',
+		'TYPEDEFS'
 	);
+	
+	// FIXME
+	this.makeFocus = function(locs,info){
+		return aux( this.kinds.FOCUS, {locs:locs}, info);
+	}
+	this.makeDefocus = function(info){
+		return aux( this.kinds.DEFOCUS, { }, info);
+	}
+	this.makeShare = function(locs,a,b,info){
+		return aux( this.kinds.SHARE, {locs:locs,a:a,b:b}, info);
+	}
+	this.makeTypedef = function(id,type,info){
+		return aux( this.kinds.TYPEDEF, {id:id,type:type}, info);
+	}
+	this.makeTypedefs = function(left,right,info){
+		return aux( this.kinds.TYPEDEFS, {left:left,right:right}, info);
+	}
 
 	// expressions
 	this.makeLet = function(id,val,exp, info){
@@ -114,8 +140,8 @@ var AST = new function(){
 	this.makeForall = function(id,exp, info){
 		return aux( this.kinds.FORALL, {id: id, exp: exp}, info);
 	}
-	this.makePack = function(id,exp, info){
-		return aux( this.kinds.PACK, {id: id, exp: exp}, info);
+	this.makePack = function(id,label,exp, info){
+		return aux( this.kinds.PACK, {id: id, label:label, exp: exp}, info);
 	}
 	this.makeOpen = function(type,id,val,exp, info){
 		return aux( this.kinds.OPEN, {type: type, id: id, val: val, exp: exp}, info);
@@ -125,6 +151,18 @@ var AST = new function(){
 	}
 	this.makeCapStack = function(exp,type,info){
 		return aux( this.kinds.CAP_STACK, {exp: exp, type: type}, info);
+	}
+	this.makeTagged = function(tag,exp,info){
+		return aux( this.kinds.TAGGED, {tag:tag,exp: exp}, info);
+	}
+	this.makeBranch = function(tag,id,exp,info){
+		return aux( this.kinds.BRANCH, {tag:tag, id:id,exp: exp}, info);
+	}
+	this.makeBranches = function(left,right,info){
+		return aux( this.kinds.BRANCHES, {left:left, right:right}, info);
+	}
+	this.makeCase = function(exp,branches,info){
+		return aux( this.kinds.CASE, {exp:exp, branches:branches}, info);
 	}
 	// types
 	this.makeExistsType = function(id,type, info){

@@ -150,7 +150,7 @@ $(document).ready(function() {
 	    //load examples given as parameters
 	    var parameters = document.URL.split('?');
 	    if( parameters.length > 1 ){
-	    	console.log(document.URL);
+	    	//console.log(document.URL);
 	    	parameters = parameters[1].split('=');
 	    	if( parameters.length > 1 ){
 	    		var option = parameters[0];
@@ -159,7 +159,7 @@ $(document).ready(function() {
 	    			case 'file': // load file
 		    			$.get( value , function(data) {
 							setEditor(data);
-							console.log(data);
+							//console.log(data);
 						});
 	    				break;
 	    			default: // not other options for now.
