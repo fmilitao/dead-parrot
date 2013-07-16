@@ -1,3 +1,7 @@
+// Jison, an LR(0), SLR(1), LARL(1), LR(1) Parser Generator
+// Zachary Carter <zach@carter.name>
+// MIT X Licensed
+
 var require = (function() {
 var require = (function () {
     var modules = {};
