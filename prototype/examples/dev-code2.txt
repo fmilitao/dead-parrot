@@ -1,0 +1,23 @@
+typedef A = forall p.A
+typedef W = int
+
+let x = {2,34,56} in
+
+	// labeled packing
+	< int : MAGIC , 23 >;
+
+	// testing 
+    focus w,e,q;
+    defocus;
+    share p,q as A || C;
+    
+    // ...
+    case N#x of
+        N#a -> 
+        	let [a,b,c] = a in
+        		c
+        	end
+    |	U#b -> x
+    end
+    
+end

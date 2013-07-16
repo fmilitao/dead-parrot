@@ -1,18 +1,23 @@
-WORK PLAN:
- - grammar (including pairs, typedef, recursion)
-	* case, label
-	* focus, defocus, share
-	* recursion
-		rec X.( ... )?
-	* unlabeled records / +let [x,t] = / let x =
-	* packs with convenient labeling 	
-	* typedef
-	
+WORKPLAN:
+
+1. FIXME use concat... the code is quite messy without it.
+why didn't I use concat from the start??
+
+2. Define a convenient recursion
 	HOW TO ADD A FRIENDLY CONSTRUCT FOR RECURSION?
 	REC X.A is actually quite ugly...
 	
-	def f = fun(... ) in
-	end
+3. Write tests.
+
+======================
+
+ - grammar (including pairs, typedef, recursion)
+	* case, label
+	* focus, defocus, share
+	* recursion?
+	* tuples
+	* packs with convenient labeling 	
+	* typedef
 	
  - types:
  	* pair type
@@ -21,14 +26,14 @@ WORK PLAN:
  	* alternative -- tricky to typecheck?
  	* rely + guarantee
 
-========================================
+======================
 
 IDIOMS:
 -- on last element, try to pack:
 	< nloc , e :: all outstanding capabilities >
 -- currying for multi-argument functions
 
-=======
+======================
 
 -- how to throw exceptions from parse so that they look like JISON and check that records have no duplicated field names
 
@@ -67,11 +72,11 @@ Types:
 	> < == !=
 	&& || !
 
->> prepare for typedefs?
-
 - define parsing priorities...
  fun( x ) . e := 2
 	+ priorities, functions and sequence without ( x := 1 )
+
+========================================
 
 - code style:
 	- CONSTANTS ARE CAPPED
