@@ -1,12 +1,5 @@
 WORKPLAN:
 
-1. FIXME use concat... the code is quite messy without it.
-why didn't I use concat from the start??
-
-2. Define a convenient recursion
-	HOW TO ADD A FRIENDLY CONSTRUCT FOR RECURSION?
-	REC X.A is actually quite ugly...
-	
 3. Write tests.
 
 ======================
@@ -14,7 +7,9 @@ why didn't I use concat from the start??
  - grammar (including pairs, typedef, recursion)
 	* case, label
 	* focus, defocus, share
-	* recursion?
+	* recursion, only for functions and of the form:
+		fun NAME( ... )
+		where NAME is the NAME to be used for the recursive call.	
 	* tuples
 	* packs with convenient labeling 	
 	* typedef

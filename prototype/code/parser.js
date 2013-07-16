@@ -31,6 +31,7 @@ var AST = new function(){
 		'FORALL_TYPE',
 		'STACKED_TYPE',
 		'RECORD_TYPE',
+		'TUPLE_TYPE',
 		// constructs
 		'FORALL',
 		'PACK',
@@ -44,14 +45,11 @@ var AST = new function(){
 		'REF_TYPE',
 		'ID',
 		'FIELD_TYPE',
-		'FIELDS_TYPE',
 		'FIELD',
-		'FIELDS',
 		'RECORD',
 		'PARAM',
 		'CASE',
 		'BRANCH',
-		'BRANCHES',
 		'TAGGED',
 		'LET',
 		'SELECT',
@@ -77,8 +75,6 @@ var AST = new function(){
 	this.makeTuple = function(vals,info){
 		return aux( this.kinds.TUPLE, {vals:vals}, info);
 	}
-	
-	// FIXME
 	this.makeRecursion = function(id,exp,info){
 		return aux( this.kinds.RECURSION, {id:id,exp:exp}, info);
 	}
@@ -144,9 +140,6 @@ var AST = new function(){
 	this.makeField = function(id,exp,info){
 		return aux( this.kinds.FIELD, {id : id , exp : exp }, info);
 	}
-	this.makeFields = function(left,right,info){
-		return aux( this.kinds.FIELDS, {left: left, right: right}, info);
-	}
 	this.makeParameters = function(id,type, info){
 		return aux( this.kinds.PARAM, {id: id, type: type}, info);
 	}
@@ -170,9 +163,6 @@ var AST = new function(){
 	}
 	this.makeBranch = function(tag,id,exp,info){
 		return aux( this.kinds.BRANCH, {tag:tag, id:id,exp: exp}, info);
-	}
-	this.makeBranches = function(left,right,info){
-		return aux( this.kinds.BRANCHES, {left:left, right:right}, info);
 	}
 	this.makeCase = function(exp,branches,info){
 		return aux( this.kinds.CASE, {exp:exp, branches:branches}, info);
@@ -202,48 +192,19 @@ var AST = new function(){
 	this.makeBangType = function(type, info){
 		return aux( this.kinds.BANG_TYPE, {type: type}, info);
 	}
-	this.makeUnitType = function(info){
-		return aux( this.kinds.RECORD_TYPE, { }, info);
-	}
 	this.makeRecordType = function(exp, info){
 		return aux( this.kinds.RECORD_TYPE, {exp: exp}, info);
 	}
 	this.makeFieldType = function(id,exp, info){
 		return aux( this.kinds.FIELD_TYPE, {id: id, exp: exp}, info);
 	}
-	this.makeFieldsType = function(left,right, info){
-		return aux( this.kinds.FIELDS_TYPE, { left: left , right: right }, info);
+	this.makeTupleType = function(exp, info){
+		return aux( this.kinds.TUPLE_TYPE, {exp: exp}, info);
 	}
-	
 	this.makeDebug = function(exp, info){
 		return aux( this.kinds.DEBUG, { exp: exp }, info);
 	}
-	
-	// auxiliar record inspector
-	this.onEachField = function(rec,f){
-		var next = rec.exp;
-		while (next != null) {
-			var field = null;
-			switch( next.kind ) {
-				case this.kinds.FIELDS_TYPE:
-				case this.kinds.FIELDS: {
-					field = next.left;
-					next = next.right;
-					break;
-				}
-				case this.kinds.FIELD_TYPE:
-				case this.kinds.FIELD: {
-					field = next;
-					next = null;
-					break;
-				}
-				default:
-					throw new Error('Assertion Failed.');
-				}
-			
-			f( field );	
-		}
-	}
+
 }();
 
 var assertF = function(kind,f,msg,ast){

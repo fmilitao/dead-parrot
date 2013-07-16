@@ -98,21 +98,24 @@ type :
 	 	{ $$ = AST.makeNameType(yytext,@$); }
 	| REF IDENTIFIER
 	 	{ $$ = AST.makeRefType($2,@$); }
-	| '[' ']'
-	 	{ $$ = AST.makeUnitType(@$); }
-	| '[' field_types ']'
-	 	{ $$ = AST.makeRecordType($2,@$); }
 	| '(' type_root ')'
 	 	{ $$ = $2; }
 	| RW IDENTIFIER type
 		{ $$ = AST.makeCapabilityType($2,$3,@$); }
 	| NONE
+	| '[' ']'
+	 	{ $$ = AST.makeRecordType([],@$); }
+	| '[' field_types ']'
+	 	{ $$ = AST.makeRecordType($2,@$); }
 	| '[' type_list ']'
+		{ $$ = AST.makeTupleType($2,@$); }
 	;
 
 type_list :
 	type_root
+		{ $$ = [$1]; }
 	| type_root ',' type_list
+		{ $$ = [$1].concat($3); }
 	;
 
 field_type :
@@ -121,9 +124,10 @@ field_type :
 	;
 	
 field_types :
-	field_type
+	  field_type
+		{ $$ = [$1]; }
 	| field_type ',' field_types
-		{ $$ = AST.makeFieldsType($1,$3,@$); }
+		{ $$ = [$1].concat($3); }
 	;
 
 // EXPRESSIONS
@@ -196,16 +200,15 @@ expression :
 		{ $$ = AST.makeTagged($1,$3,@$); }
 	| CASE expression OF branches END
 		{ $$ = AST.makeCase($2,$4,@$); }
-	| REC IDENTIFIER '.' expression
-		{ $$ = AST.makeRecursion($2,$4,@$); }
 	| LET '[' ids_list ']' '=' sequence IN sequence END
 		{ $$ = AST.makeLetTuple($3,$6,$8,@$); }
     ;
 
 branches :
 	  branch
+	  	{ $$ = [$1]; }
 	| branch '|' branches
-		{ $$ = AST.makeBranches($1,$3,@$); }
+		{ $$ = [$1].concat($3); }
 	;
 
 branch :
@@ -216,6 +219,8 @@ branch :
 function :
 	FUN '(' function_body
 		{ $$ = $3; }
+	| FUN IDENTIFIER '(' function_body
+		{ $$ = AST.makeRecursion($2,$4,@$); }
 	;
 
 function_body :
@@ -251,7 +256,7 @@ value :
 	
 record :
 	  '{' '}'
-	  	{ $$ = AST.makeRecord(null,@$); }
+	  	{ $$ = AST.makeRecord([],@$); }
 	| '{' fields '}'
 		{ $$ = AST.makeRecord($2,@$); }
 	| '{' values '}'
@@ -272,6 +277,7 @@ field :
 
 fields :
 	  field
+	  	{ $$ = [$1]; }
 	| field ',' fields
-		{ $$ = AST.makeFields($1,$3,@$); }
+		{ $$ = [$1].concat($3); }
 	;

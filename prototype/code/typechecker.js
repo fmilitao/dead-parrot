@@ -869,15 +869,15 @@ var TypeChecker = function(){
 				var rec = new RecordType();
 				var bang = true;
 						
-				AST.onEachField( ast,
-					function(field){
-						var id = field.id;
-						var value = check( field.exp, env );
-						assert( rec.add(id, value),
-							"Duplicated field '" + id + "' in '"+rec+"'", field);
-						if( value.type() != types.BangType )
-							bang = false;
-				} );
+				for(var i=0;i<ast.exp.length;++i){
+					var field = ast.exp[i];
+					var id = field.id;
+					var value = check( field.exp, env );
+					assert( rec.add(id, value),
+						"Duplicated field '" + id + "' in '"+rec+"'", field);
+					if( value.type() != types.BangType )
+						bang = false;
+				}
 				
 				if( bang )
 					rec = new BangType(rec);
@@ -977,13 +977,13 @@ var TypeChecker = function(){
 			
 			case AST.kinds.RECORD_TYPE: {
 				var rec = new RecordType();
-				AST.onEachField( ast,
-					function(field){
-						var id = field.id;
-						var value = check( field.exp, env );
-						assert( rec.add(id, value),
-							"Duplicated field '" + id + "' in '"+rec+"'", field);
-					});
+				for(var i=0;i<ast.exp.length;++i){
+					var field = ast.exp[i];
+					var id = field.id;
+					var value = check( field.exp, env );
+					assert( rec.add(id, value),
+						"Duplicated field '" + id + "' in '"+rec+"'", field);
+				}
 				return rec;
 			}
 			

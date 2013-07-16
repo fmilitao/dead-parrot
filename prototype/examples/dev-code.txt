@@ -1,3 +1,1 @@
-let [a,b,c] = {2,34,56} in
-	c
-end
+(fun EternalLoop(x:int). (EternalLoop x)) 1

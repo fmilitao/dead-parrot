@@ -160,31 +160,28 @@ var Interpreter = function(){
 					return val.tag();
 				},"Invalid case",ast.exp);
 				
-				var branch = ast.branches;
-				while( true ) {
-					if( branch.kind == AST.kinds.BRANCH ){
-						if( branch.tag != tag )
-							branch = undefined;
+				var branch = undefined;
+				for(var i=0;i<ast.branches.length;++i){
+					if( ast.branches[i].tag == tag ){
+						branch = ast.branches[i];
 						break;
-					}
-					if( branch.kind == AST.kinds.BRANCHES ){
-						if( branch.left.tag == tag ){
-							branch = branch.left;
-							break;
-						}else{
-							branch = branch.right;
-						}
 					}
 				}
 				wrapError(function(){return branch;},
 					"No matching branch for "+tag,ast);
-				var newEnv = env;
-				newEnv = env.newScope();
+				var newEnv = env.newScope();
 				newEnv.set(branch.id,val.value());
 				return run(branch.exp, newEnv);
 			}
 			case AST.kinds.FUN: {
 				return new Function(ast.exp, ast.parms.id,env);
+			}
+			case AST.kinds.RECURSION: {
+				var newEnv = env.newScope();
+				var fun = ast.exp;
+				var rec = new Function(fun.exp, fun.parms.id,newEnv);
+				newEnv.set(ast.id,rec);
+				return rec;
 			}
 			case AST.kinds.CALL: {
 				var fun = run(ast.fun, env);
@@ -204,13 +201,14 @@ var Interpreter = function(){
 
 			case AST.kinds.RECORD: {
 				var rec = new Record();
-				AST.onEachField(ast, function(field){
+				for(var i=0;i<ast.exp.length;++i) {
+					var field = ast.exp[i];
 					var id = field.id;
 					var value = run(field.exp, env);
 					wrapError(function() {
 						return rec.add(id, value);
 					}, "Duplicated field \'" + id + "\' in record", field);
-				});
+				}
 				return rec;
 			}
 			
