@@ -3,10 +3,16 @@ WORK PLAN:
 	* case, label
 	* focus, defocus, share
 	* recursion
-		rec X.( ... )
+		rec X.( ... )?
 	* unlabeled records / +let [x,t] = / let x =
 	* packs with convenient labeling 	
 	* typedef
+	
+	HOW TO ADD A FRIENDLY CONSTRUCT FOR RECURSION?
+	REC X.A is actually quite ugly...
+	
+	def f = fun(... ) in
+	end
 	
  - types:
  	* pair type

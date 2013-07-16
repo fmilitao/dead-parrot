@@ -196,9 +196,10 @@ expression :
 		{ $$ = AST.makeTagged($1,$3,@$); }
 	| CASE expression OF branches END
 		{ $$ = AST.makeCase($2,$4,@$); }
-		
-	| LET '[' ids_list ']' '=' sequence IN sequence END
 	| REC IDENTIFIER '.' expression
+		{ $$ = AST.makeRecursion($2,$4,@$); }
+	| LET '[' ids_list ']' '=' sequence IN sequence END
+		{ $$ = AST.makeLetTuple($3,$6,$8,@$); }
     ;
 
 branches :
@@ -231,9 +232,10 @@ parameter :
 
 ids_list :
 	IDENTIFIER
-	| ids_list ',' IDENTIFIER
+		{ $$ = [$1]; }
+	| IDENTIFIER ',' ids_list
+		{ $$ = [$1].concat($3); }
 	;
-	// FIXME!!!!!!!
 
 value :
       IDENTIFIER 
@@ -253,14 +255,15 @@ record :
 	| '{' fields '}'
 		{ $$ = AST.makeRecord($2,@$); }
 	| '{' values '}'
-		// FIXME!!!!!!!
+		{ $$ = AST.makeTuple($2,@$); }
 	;
 
 values :
 	nonsequence
-	| nonsequence ',' nonsequence
+		{ $$ = [$1]; }
+	| nonsequence ',' values
+		{ $$ = [$1].concat($3); }
 	;
-	// FIXME!!!!!!!
 	
 field :
 	IDENTIFIER '=' nonsequence

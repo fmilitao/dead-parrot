@@ -65,10 +65,23 @@ var AST = new function(){
 		'FOCUS',
 		'DEFOCUS',
 		'TYPEDEF',
-		'TYPEDEFS'
+		'TYPEDEFS',
+		'TUPLE',
+		'LET_TUPLE',
+		'RECURSION'
 	);
 	
+	this.makeLetTuple = function(ids,val,exp,info){
+		return aux( this.kinds.LET_TUPLE, {ids:ids,val:val,exp:exp}, info);
+	}
+	this.makeTuple = function(vals,info){
+		return aux( this.kinds.TUPLE, {vals:vals}, info);
+	}
+	
 	// FIXME
+	this.makeRecursion = function(id,exp,info){
+		return aux( this.kinds.RECURSION, {id:id,exp:exp}, info);
+	}
 	this.makeFocus = function(locs,info){
 		return aux( this.kinds.FOCUS, {locs:locs}, info);
 	}

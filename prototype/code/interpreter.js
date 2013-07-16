@@ -34,6 +34,15 @@ var Interpreter = function(){
 		}
 	}
 	
+	var Tuple = function( vals ){
+		this.values = function(){
+			return vals;
+		}
+		this.toString = function() {
+			return "Tuple Value";
+		}
+	}
+	
 	var Tagged = function( t, v ) {
 		this.tag = function(){
 			return t;
@@ -203,6 +212,32 @@ var Interpreter = function(){
 					}, "Duplicated field \'" + id + "\' in record", field);
 				});
 				return rec;
+			}
+			
+			case AST.kinds.TUPLE: {
+				var values = [];
+  				for (var i = 0; i < ast.vals.length; ++i) {
+    				values.push( run(ast.vals[i], env) );
+  				}
+  				return new Tuple(values);
+			}
+			case AST.kinds.LET_TUPLE: {
+				var vals = run(ast.val, env);
+				vals = wrapError(function(){
+					return vals.values();
+				},"Invalid tuple",ast.val);
+				var ids = ast.ids;
+				wrapError(function(){
+					if( ids.length != vals.length )
+						return undefined;
+					return null;
+				},"Tuple size mismatch",ast.val);
+				var newEnv = env;
+				newEnv = env.newScope();
+				for (var i = 0; i < vals.length; ++i) {
+					newEnv.set(ids[i], vals[i]);
+  				}
+				return run(ast.exp, newEnv);
 			}
 			
 			case AST.kinds.TYPEDEFS:
