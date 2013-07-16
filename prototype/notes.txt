@@ -1,40 +1,30 @@
-TODO:
+WORK PLAN:
+ - grammar (including pairs, typedef, recursion)
+	* case, label
+	* focus, defocus, share
+	* recursion
+		rec X.( ... )
+	* unlabeled records / +let [x,t] = / let x =
+	* packs with convenient labeling 	
+	* typedef
+	
+ - types:
+ 	* pair type
+ 	* recursive type
+ 	* tagged sum
+ 	* alternative -- tricky to typecheck?
+ 	* rely + guarantee
 
--- vars with types in name?
-
-FIXME:
---- how to auto pack with QUICK_OPEN?
-loc l,t,e;
-	l:e
-	...
-
---- rething type assist panel
---- colision of names on delta and gamma?
-	** needs to be merged
-
-BUG:
-	may be able to access hidden cap with diff name on open
-	open<tx,y> ... may be able to access tx if in upper env?
+========================================
 
 IDIOMS:
 -- on last element, try to pack:
 	< nloc , e :: all outstanding capabilities >
 -- currying for multi-argument functions
 
-....
-
--- on cursor move, no need to send ast
--- on key press, send parsed ast
--- use webworkers to compute result + typecheck
--- how to abort if webworker does not terminate? have a stop flag on run?
-run(...)
-if( stop )
-	return "aborted";
-
 =======
 
 -- how to throw exceptions from parse so that they look like JISON and check that records have no duplicated field names
--- Currying for multiple arguments (just syntax sugar, nothing too complex...)
 
 -- location variables cannot be hidden, or renaming
 - try to stack all "touched" capabilities at the end of a method.

@@ -16,23 +16,40 @@
 "true"                return 'BOOLEAN'
 "false"               return 'BOOLEAN'
 "debug"               return 'DEBUG'
+"case"                return 'CASE'
+"of"                  return 'OF'
+"focus"               return 'FOCUS'
+"defocus"             return 'DEFOCUS'
+"share"               return 'SHARE'
+"as"                  return 'AS'
+"typedef"             return 'TYPEDEF'
+"rec"                 return 'REC'
+"none"                return 'NONE'
+"||"                  return '||'
+"|"                   return '|'
+"#"                   return '#'
 "("                   return '('
 ")"                   return ')'
 "<"                   return '<'
 ">"                   return '>'
 "{"                   return '{'
 "}"                   return '}'
+"(+)"                 return '(+)'
+"+"                   return '+'
+"*"                   return '*'
 "."                   return '.'
 ","                   return ','
 ";"                   return ';'
 ":="                  return ':='
 "::"                  return '::'
 ":"                   return ':'
+"=>"                  return '=>'
 "="                   return '='
 "!"                   return '!'
 "["                   return '['
 "]"                   return ']'
 "-o"                  return '-o'
+"->"                  return '->'
 "rw"                  return 'RW'
 "ref"                 return 'REF'
 "exists"              return 'EXISTS'
@@ -57,38 +74,45 @@ type_root :
 		{ $$ = AST.makeForallType($2,$4,@$); }
 	| EXISTS IDENTIFIER '.' type_root
 		{ $$ = AST.makeExistsType($2,$4,@$); }
+	| REC IDENTIFIER '.' type_root
 	;
 
 type_fun :
 	  type_cap
 	| type_fun '-o' type_cap
 		{ $$ = AST.makeFunType($1,$3,@$); }
+	| type_fun '=>' type_cap
+	| type_fun ';' type_cap
 	;
 
 type_cap :
 	  type
-	| type_cap '::' capability
+	| type_cap '::' type
 		{ $$ = AST.makeStackedType($1,$3,@$); }
 	;
 
 type :
- 	  '!' type
+	 '!' type
  	  	{ $$ = AST.makeBangType($2,@$); }
-	 | IDENTIFIER
+	| IDENTIFIER
 	 	{ $$ = AST.makeNameType(yytext,@$); }
-	 | REF IDENTIFIER
+	| REF IDENTIFIER
 	 	{ $$ = AST.makeRefType($2,@$); }
-	 | '[' ']'
+	| '[' ']'
 	 	{ $$ = AST.makeUnitType(@$); }
-	 | '[' field_types ']'
+	| '[' field_types ']'
 	 	{ $$ = AST.makeRecordType($2,@$); }
-	 | '(' type_root ')'
+	| '(' type_root ')'
 	 	{ $$ = $2; }
-	 ;
+	| RW IDENTIFIER type
+		{ $$ = AST.makeCapabilityType($2,$3,@$); }
+	| NONE
+	| '[' type_list ']'
+	;
 
-capability :
-	RW IDENTIFIER type
-	{ $$ = AST.makeCapabilityType($2,$3,@$); }
+type_list :
+	type_root
+	| type_root ',' type_list
 	;
 
 field_type :
@@ -106,12 +130,24 @@ field_types :
 
 program :
 	sequence
+	| typedef program
+	;
+
+typedef :
+	TYPEDEF IDENTIFIER "=" type_root
 	;
 	
 sequence :
-	nonsequence
-	| nonsequence ';' sequence
+	sharing
+	| sharing ';' sequence
 		{ $$ = AST.makeLet(null,$1,$3,@$); }
+	;
+
+sharing :
+	nonsequence
+	| DEFOCUS
+	| FOCUS ids_list
+	| SHARE ids_list AS type '||' type
 	;
 
 nonsequence :
@@ -126,7 +162,7 @@ nonsequence :
 		{ $$ = AST.makeCall($1,$2,@$); }
 	| nonsequence '[' IDENTIFIER ']'
 		{ $$ = AST.makeTypeApp($1,$3,@$); }
-	| nonsequence '::' capability
+	| nonsequence '::' type
 		{ $$ = AST.makeCapStack($1,$3,@$); }
 	;
 
@@ -148,9 +184,24 @@ expression :
 		{ $$ = AST.makeOpen($3,$5,$8,$10,@$); }
 	| "(" sequence ")"
 		{ $$ = $2; }
-	| function 
+	| function
+
+	| '<' IDENTIFIER ':' IDENTIFIER ',' sequence '>'
+	| IDENTIFIER '#' expression
+	| CASE expression OF branches END
+	| LET '[' ids_list ']' '=' sequence IN sequence END
+	| REC IDENTIFIER '.' expression
     ;
-    
+
+branches :
+	branch
+	| branches '|' branch
+	;
+
+branch :
+	IDENTIFIER '#' IDENTIFIER '->' sequence
+	;
+
 function :
 	FUN '(' function_body
 		{ $$ = $3; }
@@ -166,6 +217,11 @@ function_body :
 parameter : 
 	IDENTIFIER  ':' type_root
 		{ $$ = AST.makeParameters($1,$3,@$); }
+	;
+
+ids_list :
+	IDENTIFIER
+	| ids_list ',' IDENTIFIER
 	;
 
 value :
@@ -185,6 +241,12 @@ record :
 	  	{ $$ = AST.makeRecord(null,@$); }
 	| '{' fields '}'
 		{ $$ = AST.makeRecord($2,@$); }
+	| '{' values '}'
+	;
+
+values :
+	nonsequence
+	| nonsequence ',' nonsequence
 	;
 	
 field :

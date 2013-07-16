@@ -78,7 +78,7 @@ var GrammarHighlightRules = function() {
     // regexps are ordered -> the first match is used
 
 // https://github.com/ajaxorg/ace/wiki/Creating-or-Extending-an-Edit-Mode
-	var keywords = lang.arrayToMap( ("open|let|in|fun|end|new|delete").split("|") );
+	var keywords = lang.arrayToMap( ("rec|case|of|share|focus|defocus|as|typedef|open|let|in|fun|end|new|delete").split("|") );
 	var types = lang.arrayToMap( ("rw|forall|exists|ref|int|boolean|string").split("|") );
     
     this.$rules = {
