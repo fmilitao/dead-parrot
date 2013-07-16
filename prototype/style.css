@@ -37,6 +37,12 @@ h3 {
 	padding: 0 5px;
 }
 
+select {
+	width: 100%;
+	margin: 5px 0 0px 0;
+	padding: 5px 5px 5px 5px;	
+}
+
 .exbuttong{
 	width: 45px;
 	margin: 1px 0 1px 0;

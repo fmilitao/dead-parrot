@@ -94,8 +94,31 @@ $(document).ready(function() {
     //
     
     var editor = ace.edit(EDITOR);
-    //editor.setTheme("ace/theme/twilight");
-    editor.setTheme("ace/theme/monokai");
+
+	(function(){
+    	//editor.setTheme("ace/theme/twilight");
+    	editor.setTheme("ace/theme/monokai");
+    		
+		var STYLE_LIST = $("#editor-style");
+		$.get( "themes-list" , function(data) {
+			var themes = data.split('\n');
+			for( var i=0 ; i<themes.length ; ++i ){
+				var name = themes[i];
+				name = name.replace('-','/');
+				name = name.replace('.js','');
+				var option = $('<option/>', {
+	        		value: name,
+	        		text: name
+				});
+				STYLE_LIST.append(option);
+	    	}
+	    	
+	    	STYLE_LIST.bind("change click", function () {
+	    		editor.setTheme("ace/"+$(this).val());
+    		});
+	   });
+	})();
+	
     // disable code folding
     editor.getSession().setFoldStyle("manual");
     editor.getSession().setMode("ace/mode/grammar");
