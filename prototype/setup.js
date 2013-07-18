@@ -114,7 +114,9 @@ $(document).ready(function() {
 		});
 	    	
 		STYLE_LIST.change(function () {
-	   		editor.setTheme("ace/"+$(this).val());
+			var style = $(this).val();
+			if( style != '' )
+	   			editor.setTheme("ace/"+style);
     	});
 	})();
 	
@@ -189,6 +191,28 @@ $(document).ready(function() {
 	    		}
 	    	}
 	    }
+
+		// tests	    
+	    var TEST_LIST = $("#test-file");
+		$.get( "tests-list" , function(data) {
+			var file = data.split('\n');
+			for( var i=0 ; i<file.length ; ++i ){
+				var option = $('<option/>', {
+	        		value: 'examples/tests/'+file[i],
+	        		text: file[i]
+				});
+				TEST_LIST.append(option);
+	    	}
+		});
+	    	
+		TEST_LIST.change(function () {
+			var file = $(this).val();
+			if( file != '' ){
+				$.get( file , function(data) {
+					setEditor(data);
+				});
+			}
+    	});
     })();
     
     

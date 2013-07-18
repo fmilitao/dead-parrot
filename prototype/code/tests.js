@@ -56,7 +56,7 @@ var fetchCode = function(file) {
 	return res;
 };
 
-var examples_dir = "examples/";
+var examples_dir = "examples/tests/";
 var examples = [];
 
 // synchronous fetch of test list
