@@ -115,11 +115,14 @@ var GrammarHighlightRules = function() {
                 },
                 regex : "[a-zA-Z0-9_]+"
             }, {
+                token : "constant.other",
+                regex : "[{}]"
+            }, {
                 token : "paren.lparen",
-                regex : "[[({]"
+                regex : "[[(]"
             }, {
                 token : "paren.rparen",
-                regex : "[\\])}]"
+                regex : "[\\])]"
             }, {
                 token : "text",
                 regex : "\\s+"
