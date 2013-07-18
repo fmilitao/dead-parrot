@@ -78,7 +78,9 @@ var GrammarHighlightRules = function() {
     // regexps are ordered -> the first match is used
 
 // https://github.com/ajaxorg/ace/wiki/Creating-or-Extending-an-Edit-Mode
-	var keywords = lang.arrayToMap( ("rec|case|of|share|focus|defocus|as|typedef|open|let|in|fun|end|new|delete").split("|") );
+	var keywords = lang.arrayToMap( ("rec|case|of|share|focus|defocus|as|open|let|in|end|").split("|") );
+	var keywords2 = lang.arrayToMap( ("fun|new|delete").split("|") );
+	var keywords3 = lang.arrayToMap( ("typedef|debug").split("|") );
 	var types = lang.arrayToMap( ("rw|forall|exists|ref|int|boolean|string").split("|") );
     
     this.$rules = {
@@ -93,21 +95,23 @@ var GrammarHighlightRules = function() {
                 token : "constant.numeric", // number
                 regex : "[0-9]+"
             }, {
-                token : "operator",
-                regex : "-o"
+                token : "keyword.operator", // FIXME?
+                regex : /-o|--|\+\+|[!$%&*+\-~]|#|;|:|\||===|==|=|!=|!==|<=|>=|<<=|>>=|>>>=|<>|<|>|!|&&|\|\||\?\:|\*=|%=|\+=|\-=|&=|\^=/,
             }, {
 				token : "constant.language.boolean",
                 regex : /(?:true|false)\b/
             }, {
                 token : function(value) {
-                	if( value == 'debug' )
-                		return "entity.type";
+                	if(keywords3.hasOwnProperty(value))
+                		return "constant.language.escape";
+                	else if (keywords2.hasOwnProperty(value))
+                		return "storage.type";
                 	else if (keywords.hasOwnProperty(value))
                 		return "keyword";
                 	else if (types.hasOwnProperty(value))
-                		return "storage.type";
-                	else
                 		return "variable.language";
+                	else
+                		return "identifier";
                 },
                 regex : "[a-zA-Z0-9_]+"
             }, {

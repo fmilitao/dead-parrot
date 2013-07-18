@@ -96,7 +96,7 @@ $(document).ready(function() {
     var editor = ace.edit(EDITOR);
 
 	(function(){
-    	editor.setTheme("ace/theme/monokai");
+    	editor.setTheme("ace/theme/mono_industrial");
     	// selected="selected"
 		var STYLE_LIST = $("#editor-style");
 		$.get( "themes-list" , function(data) {
