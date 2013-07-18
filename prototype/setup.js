@@ -191,6 +191,11 @@ $(document).ready(function() {
 	    				break;
 	    		}
 	    	}
+	    }else{ // no parameters given, load default
+	    	// FIXME clean up on loading default file.
+	    	$.get( 'examples/welcome.txt' , function(data) {
+				setEditor(data);
+			});
 	    }
 
 		// tests	    

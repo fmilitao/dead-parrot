@@ -1,0 +1,6 @@
+// Only one-line comments work.
+
+let x = { a = 2, b = "Hello World!", c = false } in
+	x
+end
+
