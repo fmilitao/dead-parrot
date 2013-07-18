@@ -1,9 +1,9 @@
+TODO:
+	-- use instanceof instead of has prorperty ast for errors
+	-- basic arithmetic?
+	-- multi-open and multi-pack syntax sugar?
+
 WORKPLAN:
-
-3. Write tests.
-
-======================
-
  - grammar (including pairs, typedef, recursion)
 	* case, label
 	* focus, defocus, share

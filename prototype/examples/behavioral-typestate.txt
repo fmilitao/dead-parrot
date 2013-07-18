@@ -1,2 +1,56 @@
 
-"TODO: not done."
+typedef Behavioral = forall A.TODO
+
+//
+// FIXME: Old pair code:
+// 
+
+let newPair = fun( _ : [] ).
+	open <pl,l> = new {} in
+	open <pr,r> = new {} in
+		{ // FIXME: pack locations
+			initL = fun( i : int :: rw pl [] ).( l := i ),
+			initR = fun( i : int :: rw pr [] ).( r := i ),
+			// FIXME needs basic addition, WAS !l+!r
+			sum = fun( _ : [] :: ( rw pl int * rw pr int ) ). !l,
+			destroy = fun ( _ : [] :: ( rw pl int * rw pr int ) ).( delete l; delete r ) 
+		}
+	end
+	end
+	in
+//
+// FIXME behavioral wrapper
+//
+open <EL_ER_L_R, o> = newPair({}) in // FIXME!
+	let behavioral = // the behavioral version of pair
+		open <self,this> = new {} in // 'this' pointer to store behavior
+			this := { // tags used for readability
+				initLeft = fun( i : int :: rw self [] ).
+					let result = o.initL(i) in
+						// set the next behavior
+						this := { initRight = fun( i : int :: rw self [] ).
+							let result = o.initR(i) in
+								this := { // note that it returns the captured capability
+									addBoth =  fun( _ : [] :: rw self [] ). 
+									( delete self ; o.sum({}) ) 
+								}; result end
+						}; result end
+			}; <self, this> end
+	in
+
+//
+// FIXME behavioral-typestate link-back client code is missing
+//
+	let f = <T>fun( o : Behavioral[T] ).( 
+		open <ind,ptr> = o in
+			!ptr.initLeft(1);
+			!ptr.initRight(2);
+			!ptr.addBoth({})
+		end)
+		in
+		0
+	end
+	
+	end
+end
+end
