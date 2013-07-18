@@ -148,7 +148,7 @@ var Interpreter = function(){
 				var lvalue = run(ast.exp, env);
 				return wrapError(function(){
 					return lvalue.free();
-				},"Invalid delete",ast.lvalue);
+				},"Invalid delete",ast.exp);
 			}
 			case AST.kinds.TAGGED: {
 				var exp = run(ast.exp, env);

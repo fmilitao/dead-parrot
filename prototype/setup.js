@@ -143,6 +143,7 @@ $(document).ready(function() {
 		}
 		
 		var addExample = function(file,name){
+			name = name.replace('.txt','');
 			var button = $('<button/>', {
 				class: 'button',
 	        	text: name,
