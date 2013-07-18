@@ -31,9 +31,12 @@ var AST = new function(){
 		'FORALL_TYPE',
 		'STACKED_TYPE',
 		'SUM_TYPE',
+		'ALTERNATIVE_TYPE',
 		'RECORD_TYPE',
 		'TUPLE_TYPE',
 		'TAGGED_TYPE',
+		'RELY_TYPE',
+		'GUARANTEE_TYPE',
 		// constructs
 		'FORALL',
 		'PACK',
@@ -179,8 +182,17 @@ var AST = new function(){
 	this.makeStackedType = function(left,right, info){
 		return aux( this.kinds.STACKED_TYPE, {left: left, right: right}, info);
 	}
+	this.makeRelyType = function(left,right, info){
+		return aux( this.kinds.RELY_TYPE, {left: left, right: right}, info);
+	}
+	this.makeGuaranteeType = function(left,right, info){
+		return aux( this.kinds.GUARANTEE_TYPE, {left: left, right: right}, info);
+	}
 	this.makeSumType = function(left,right, info){
 		return aux( this.kinds.SUM_TYPE, {left: left, right: right}, info);
+	}
+	this.makeAlternativeType = function(left,right, info){
+		return aux( this.kinds.ALTERNATIVE_TYPE, {left: left, right: right}, info);
 	}
 	this.makeFunType = function(arg,exp, info){
 		return aux( this.kinds.FUN_TYPE, {arg: arg, exp: exp}, info);

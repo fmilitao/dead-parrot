@@ -25,6 +25,7 @@
 "typedef"             return 'TYPEDEF'
 "rec"                 return 'REC'
 "none"                return 'NONE'
+"(+)"                 return '(+)'
 "||"                  return '||'
 "|"                   return '|'
 "#"                   return '#'
@@ -34,7 +35,6 @@
 ">"                   return '>'
 "{"                   return '{'
 "}"                   return '}'
-"(+)"                 return '(+)'
 "+"                   return '+'
 "*"                   return '*'
 "."                   return '.'
@@ -82,7 +82,9 @@ type_fun :
 	| type_fun '-o' type_cap
 		{ $$ = AST.makeFunType($1,$3,@$); }
 	| type_fun '=>' type_cap
+		{ $$ = AST.makeRelyType($1,$3,@$); }
 	| type_fun ';' type_cap
+		{ $$ = AST.makeGuaranteeType($1,$3,@$); }
 	;
 
 type_cap :
@@ -91,6 +93,8 @@ type_cap :
 		{ $$ = AST.makeStackedType($1,$3,@$); }
 	| type_cap '+' type
 		{ $$ = AST.makeSumType($1,$3,@$); }
+	| type_cap '(+)' type
+		{ $$ = AST.makeAlternativeType($1,$3,@$); }
 	;
 
 type :
