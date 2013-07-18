@@ -12,5 +12,5 @@
 //  * examples' files are fetched dynamically (AJAX)
 
 let x = { a = 2, b = "Hello World!", c = false } in
-	fun( _ : [] ).(x.b) ({})
+	fun( _ : [] ).(x.b) {}
 end

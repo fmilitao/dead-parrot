@@ -118,12 +118,18 @@ var GrammarHighlightRules = function() {
                 token : "constant.other",
                 regex : "[{}]"
             }, {
+                token : "keyword.operator",
+                regex : "[()]"
+            }, {
+                token : "variable.language", // TODO: is this better?
+                regex : "[[\\]]"
+            }, /*{
                 token : "paren.lparen",
-                regex : "[[(]"
+                regex : "[[]" //"[[(]"
             }, {
                 token : "paren.rparen",
-                regex : "[\\])]"
-            }, {
+                regex : "[\\]]" //"[\\])]"
+            }, */ {
                 token : "text",
                 regex : "\\s+"
             }

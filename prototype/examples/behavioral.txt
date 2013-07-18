@@ -13,16 +13,16 @@ let newBehavior = fun( _ : [] ).
          dispose = fun( _ : [] :: rw p int ).( delete x )
 		} in
            
-            fun(b : boolean).{
-            	// 1st
+			fun(b : boolean).{
+				// 1st
 				res = method.setBool(b),
-                next = fun(i : int).{
-                	// 2nd
-                	res = method.setInt(i),
-              		next = fun( _ : []).{
-              			// 3rd
-	                	res = method.getInt({}), 
-            	    	next = fun( _ : []).(method.dispose {})
+				next = fun(i : int).{
+					// 2nd
+					res = method.setInt(i),
+					next = fun( _ : []).{
+						// 3rd
+						res = method.getInt({}), 
+						next = fun( _ : []).(method.dispose {})
 					}
 				}
 			}
