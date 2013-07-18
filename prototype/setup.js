@@ -124,6 +124,7 @@ $(document).ready(function() {
     editor.getSession().setFoldStyle("manual");
     editor.getSession().setMode("ace/mode/grammar");
     editor.setShowPrintMargin(false);
+    editor.getSession().setTabSize(3);
 	
 	(function(){ // Examples buttons.
 		var setEditor = function(text){

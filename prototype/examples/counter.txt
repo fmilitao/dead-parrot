@@ -1,0 +1,27 @@
+
+typedef N = Z#[] + NZ#int
+typedef P = NZ#int
+
+typedef IncOnly = forall p. rec X.( rw p N => rw p P; X )
+typedef Any = forall p.( rec Y.( rw p N => rw p P ; rw p P => rw p N; Y) )
+
+open <v,value> = new Z#{} in
+	share v as (IncOnly[v]) || (Any[v]);
+	// FIXME parser priorities are messed up
+	// FIXME outside( <v, value > ); // packs IncOnly[v]
+	focus v;
+	case !value of
+		Z#_ -> value := NZ#123
+	| NZ#_ ->  value := NZ#123
+	end;
+	defocus;
+	
+	// ...
+	
+	focus v;
+	case !value of
+		NZ#b ->  value := Z#{}
+	end
+
+end
+	

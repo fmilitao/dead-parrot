@@ -1,0 +1,18 @@
+typedef Alias = forall t.BLAH
+
+
+open <t,x> = new Held#{} in
+	share t as (Alias[t]) || (Alias[t]);
+	// ... SOMETHING THAT CONSUMES ONE ALIAS
+	focus t;
+	case !x of
+		Held#n ->
+			x := Released#42;
+			defocus // returns unit
+	| Released#n ->
+			defocus;
+			x := n; //FIXME needs ADDITION +1;
+			// ...
+			delete x
+	end
+end

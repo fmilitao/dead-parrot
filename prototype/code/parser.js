@@ -37,6 +37,7 @@ var AST = new function(){
 		'TAGGED_TYPE',
 		'RELY_TYPE',
 		'GUARANTEE_TYPE',
+		'STAR_TYPE',
 		// constructs
 		'FORALL',
 		'PACK',
@@ -191,6 +192,9 @@ var AST = new function(){
 	this.makeSumType = function(left,right, info){
 		return aux( this.kinds.SUM_TYPE, {left: left, right: right}, info);
 	}
+	this.makeStarType = function(left,right, info){
+		return aux( this.kinds.STAR_TYPE, {left: left, right: right}, info);
+	}
 	this.makeAlternativeType = function(left,right, info){
 		return aux( this.kinds.ALTERNATIVE_TYPE, {left: left, right: right}, info);
 	}
@@ -261,6 +265,8 @@ var assertD = function(kind,f,msg,ast){
 		// FIXME: if one of our own exceptions don't wrap
 		if ( e.hasOwnProperty('ast') )
 			throw e;
+		if( e instanceof RangeError )
+			msg = e.message;
 	}
 	if( result === undefined ){
 		throw {

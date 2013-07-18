@@ -1,0 +1,93 @@
+
+typedef T = forall p.TODO
+typedef H = forall p.TODO
+
+let newPipe = fun( _ : [] ).
+	// initial node to be shared:
+	open <nloc,node> = new Empty#{} in
+		share nloc as (H[nloc]) || (T[nloc]);
+	open <hloc,head> = new <nloc,node> in
+	open <tloc,tail> = new <nloc,node> in
+		{
+		put = fun( e : int :: rw tloc (exists p.( ref p :: T[p] )) ).
+			open <l1,last> = new Empty#{} in
+				open <l2,oldlast> = !tail in
+					focus l2;
+						share l1 as (H[l1]) || (T[l1]);
+						oldlast := Node#{ e , <l1,last> };
+					defocus;
+					tail := <l1,last>
+				end
+			end,
+	
+		close = fun( _ : [] :: rw tloc (exists p.(ref p :: T[p])) ).
+			open <l1,last> = !tail in
+				delete tail;
+				focus l1;
+					last := Closed#{};
+				defocus
+			end,
+
+		tryTake = fun( _ : [] :: rw hloc (exists p.(ref p :: H[p])) ).
+			open <f1,first> = !head in
+				focus f1;
+				case !first of
+						Empty#_ -> // still empty, no need to change anything
+							first := Empty#{};
+							defocus;
+							head := <f1,first>; // reassign (content was/is linear type)
+							NoResult#{}
+				|		Closed#_ -> // end of pipe, pipe closed
+							delete first;
+							delete head;
+							defocus;
+							Depleted#{}
+				|		Node#n ->
+							delete first;
+							defocus; // defocus moved just to reduce elements in delta,
+								// could be further below
+							let [element, next] = n in
+								head := next; // 'next' is a packed type
+								Result#element
+							end
+				end
+			end
+		}
+	end
+	end
+	end
+	in
+	
+	//
+	// client code
+	//
+	
+	let takeAll = <C>fun Rec( reader :
+		[ tryTake : [] :: C -o NoResult#( [] :: C ) +
+					 Depleted#[] + Result#( int :: C ) ] :: C ).
+		let res = reader.tryTake({}) in
+			case res of
+				Depleted#_ -> {} // pipe closed, done
+			|	Result#_ -> // ignores result
+					Rec ( reader ) // not closed
+			|	NoResult#_ -> "FIXME DIVERGE?" // FIXME error("invalid") 
+			end
+		end
+		in
+
+		open <C,p> = newPipe({}) in
+		open <P,pipe> = p in
+			let writer = pipe in
+				writer.put( 1 );
+				writer.put( 2 );
+				writer.close( {} )
+			end;
+			let reader = pipe in
+				takeAll[C] ( reader ) // all pipe components exhausted
+			end;
+			"done!"
+		end
+		end
+	
+	end
+end

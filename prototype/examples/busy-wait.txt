@@ -1,0 +1,22 @@
+typedef Retry = forall p.TODO
+typedef OneUse = forall p.TODO
+
+open <t,x> = new Held#{} in
+	share t as (Retry[t]) || (OneUse[t]);
+	//FIXME outside( <t,x> ); // packs 'OneUse[t]'
+	fun Y(_:[]).(
+		focus t;
+		case !x of
+			Held#n ->
+				x := Held#n;
+				defocus; // retry, did not consume shared type!
+				Y {}// recursion point
+		|	Released#n -> // recovers
+				defocus;
+				x := n; // FIXME + 1;
+				// ...
+				x := !x; // FIXME + 1;
+				//...
+				delete x
+		end) {}
+end

@@ -6,8 +6,8 @@ behavioral.txt
 behavioral-ind.txt
 behavioral-typestate.txt
 stack.txt
-busy-wait.txt
 sharing.txt
+busy-wait.txt
 counter.txt
 pipe.txt
 #

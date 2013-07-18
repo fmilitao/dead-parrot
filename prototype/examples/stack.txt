@@ -1,0 +1,42 @@
+
+typedef EMPT = forall p.TODO
+typedef ELEM = forall p.TODO
+
+let newStack = <T>fun( _ : [] ).
+	open <h,head> = new E#{} in
+		{
+		
+			push = fun( e : T :: EMPT[h] (+) ELEM[h] ). 
+				open <n,next> = new !head in
+					head := N#{ e , <n,next> }
+				end,
+			
+			pop = fun( _ : [] :: ELEM[h] ).
+				case !head of
+					N#a ->
+						let [e,n] = a in
+							open <t,ptr> = n in
+								head := !ptr;
+								delete ptr;
+								e
+							end
+						end
+				end,
+		
+		isEmpty = fun( _ : [] :: EMPT[h] (+) ELEM[h] ).
+				case !head of
+					E#v ->
+						head := E#v;
+						Empty#{}
+				|	N#n ->
+						head := N#n;
+						NonEmpty#{}
+				end,
+
+		del = fun( _ : [] :: EMPT ).
+			delete head
+		}
+	end
+	in
+	"TODO"
+end

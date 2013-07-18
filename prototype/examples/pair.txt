@@ -1,0 +1,29 @@
+// Pair example + client code.
+
+// In this version we just abstract the location variable.
+// The 'typestate' example file abstracts the capability type, thus
+// creating a proper typestate.
+
+let newPair = fun( _ : [] ).
+	open <pl,l> = new {} in
+	open <pr,r> = new {} in
+		{ // FIXME: pack locations
+			initL = fun( i : int :: rw pl [] ).( l := i ),
+			initR = fun( i : int :: rw pr [] ).( r := i ),
+			// FIXME needs basic addition, WAS !l+!r
+			sum = fun( _ : [] :: ( rw pl int * rw pr int ) ). !l,
+			destroy = fun ( _ : [] :: ( rw pl int * rw pr int ) ).( delete l; delete r ) 
+		}
+	end
+	end
+	in
+
+	// client code
+	open <l,x> = newPair({}) in
+		x.initL(12);
+		x.initR(34);
+		x.sum({});
+		x.destroy({})
+	end
+
+end

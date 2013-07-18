@@ -75,6 +75,8 @@ type_root :
 	| EXISTS IDENTIFIER '.' type_root
 		{ $$ = AST.makeExistsType($2,$4,@$); }
 	| REC IDENTIFIER '.' type_root
+	| type_fun '(+)' type_root
+		{ $$ = AST.makeAlternativeType($1,$3,@$); }
 	;
 
 type_fun :
@@ -85,16 +87,18 @@ type_fun :
 		{ $$ = AST.makeRelyType($1,$3,@$); }
 	| type_fun ';' type_cap
 		{ $$ = AST.makeGuaranteeType($1,$3,@$); }
+	| type_fun '[' type_root ']' // FIXME careful!!
+		{ $$ = AST.makeTypeApp($1,$3,@$); }
 	;
 
 type_cap :
 	  type
 	| type_cap '::' type
 		{ $$ = AST.makeStackedType($1,$3,@$); }
+	| type_cap '*' type
+		{ $$ = AST.makeStarType($1,$3,@$); }
 	| type_cap '+' type
 		{ $$ = AST.makeSumType($1,$3,@$); }
-	| type_cap '(+)' type
-		{ $$ = AST.makeAlternativeType($1,$3,@$); }
 	;
 
 type :
