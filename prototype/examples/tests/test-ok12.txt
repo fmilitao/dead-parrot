@@ -1,0 +1,12 @@
+//OK 123
+//OK !int
+
+let f = // recursion test
+	fun Rec( x: One#!int + Two#!int ).
+		case x of
+		  Two#a -> a
+		| One#b -> debug b; Rec Two#b
+		end
+	in
+	f One#123
+end

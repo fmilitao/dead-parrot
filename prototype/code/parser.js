@@ -30,8 +30,10 @@ var AST = new function(){
 		'EXISTS_TYPE',
 		'FORALL_TYPE',
 		'STACKED_TYPE',
+		'SUM_TYPE',
 		'RECORD_TYPE',
 		'TUPLE_TYPE',
+		'TAGGED_TYPE',
 		// constructs
 		'FORALL',
 		'PACK',
@@ -177,6 +179,9 @@ var AST = new function(){
 	this.makeStackedType = function(left,right, info){
 		return aux( this.kinds.STACKED_TYPE, {left: left, right: right}, info);
 	}
+	this.makeSumType = function(left,right, info){
+		return aux( this.kinds.SUM_TYPE, {left: left, right: right}, info);
+	}
 	this.makeFunType = function(arg,exp, info){
 		return aux( this.kinds.FUN_TYPE, {arg: arg, exp: exp}, info);
 	}
@@ -200,6 +205,9 @@ var AST = new function(){
 	}
 	this.makeTupleType = function(exp, info){
 		return aux( this.kinds.TUPLE_TYPE, {exp: exp}, info);
+	}
+	this.makeTaggedType = function(id,exp, info){
+		return aux( this.kinds.TAGGED_TYPE, {id:id,exp: exp}, info);
 	}
 	this.makeDebug = function(exp, info){
 		return aux( this.kinds.DEBUG, { exp: exp }, info);
@@ -238,6 +246,9 @@ var assertD = function(kind,f,msg,ast){
 		result = f();
 	}catch(e){
 		debug = ( e || e.message );
+		// FIXME: if one of our own exceptions don't wrap
+		if ( e.hasOwnProperty('ast') )
+			throw e;
 	}
 	if( result === undefined ){
 		throw {

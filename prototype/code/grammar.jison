@@ -89,6 +89,8 @@ type_cap :
 	  type
 	| type_cap '::' type
 		{ $$ = AST.makeStackedType($1,$3,@$); }
+	| type_cap '+' type
+		{ $$ = AST.makeSumType($1,$3,@$); }
 	;
 
 type :
@@ -100,6 +102,8 @@ type :
 	 	{ $$ = AST.makeRefType($2,@$); }
 	| '(' type_root ')'
 	 	{ $$ = $2; }
+	| IDENTIFIER '#' type
+	 	{ $$ = AST.makeTaggedType($1,$3,@$); }
 	| RW IDENTIFIER type
 		{ $$ = AST.makeCapabilityType($2,$3,@$); }
 	| NONE
