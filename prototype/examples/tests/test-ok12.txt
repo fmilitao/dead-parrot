@@ -5,7 +5,7 @@ let f = // recursion test
 	fun Rec( x: One#!int + Two#!int ).
 		case x of
 		  Two#a -> a
-		| One#b -> debug b; Rec Two#b
+		| One#b -> b; Rec Two#b
 		| Bal#qwe -> "String?"
 		end
 	in

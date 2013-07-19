@@ -1,67 +1,15 @@
 REMEMBER:
  	- to disable chrome's cache
  	- launch 'static' on trunk/
+ 	- test-fail3.txt is no longer a failing test.
  	
 TODO:
-	-- use instanceof instead of has prorperty ast for errors
 	-- multi-open and multi-pack syntax sugar?
-	-- all recursive types must be declared through typedef?
 
-BASIC LIB:
-	import "code/stdlib.js"
 	
-	...
-	loadCode( heap )
-	loadTypes( env )
-	
-	// lazy man's import
-	
-	// should include:
-	Lib.print T -o T
-	Lib.println T -o T
-	Lib.add
-		type: !(int -o int -o int)
-		code: function(x){return function(y){return x+y;}}
-	Lib.mul
-	Lib.sub
-	Lib.div
-	Lib.rem
-	Lib.not
-	Lib.and
-	Lib.or
-	Lib.if { if= [] -o B, else = [] -o B }
-	
-
-WORKPLAN:
- - grammar (including pairs, typedef, recursion)
-	* case, label
-	* focus, defocus, share
-	* recursion, only for functions and of the form:
-		fun NAME( ... )
-		where NAME is the NAME to be used for the recursive call.	
-	* tuples
-	* packs with convenient labeling 	
-	* typedef
-	
- - types:
- 	* pair type
- 	* recursive type
- 	* tagged sum
- 	* alternative -- tricky to typecheck?
- 	* rely + guarantee
-
 ======================
 
-IDIOMS:
--- on last element, try to pack:
-	< nloc , e :: all outstanding capabilities >
--- currying for multi-argument functions
-
-======================
-
--- how to throw exceptions from parse so that they look like JISON and check that records have no duplicated field names
-
--- location variables cannot be hidden, or renaming
+- location variables cannot be hidden, or renaming
 - try to stack all "touched" capabilities at the end of a method.
 
 - Typing algorithm:
@@ -71,38 +19,18 @@ always possible anyway.
 
 - check that OPEN does not produce a resulting environment/type that
 depends on scoped types.
-
-Types:
-	- location variables
-	- capability
-	- reference
-	- pure type
-	- function type
-	- forall type
-	- exists type
-	- none type??
-	- record type
-	- identifier/type var.
-	- primitive type
 	
 ========================================
 
->> define when parentesis are needed in toHTML for types?
+LOW PRIORITY:
+ - define when parentesis are needed in toHTML
+ - define better parsing priorities to reduce use of parenthesis.
+ 	"fun( x ) . e := 2" should work directly, maybe?
+ 	might be messy to do with the share construct.
 
-+ use finally for exceptions?
-
-- define standard Lib:
-	+ - / *
-	> < == !=
-	&& || !
-
-- define parsing priorities...
- fun( x ) . e := 2
-	+ priorities, functions and sequence without ( x := 1 )
-
-========================================
-
-- code style:
+CODE STYLE:
+	- use 'instanceof' instead of has prorperty ast for errors
+	+ use finally for exceptions?
 	- CONSTANTS ARE CAPPED
 	- console.debug for debug messages
 	- console.error for error messages, it prints stack trace!

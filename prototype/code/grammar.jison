@@ -15,7 +15,6 @@
 "fun"                 return 'FUN'
 "true"                return 'BOOLEAN'
 "false"               return 'BOOLEAN'
-"debug"               return 'DEBUG'
 "case"                return 'CASE'
 "of"                  return 'OF'
 "focus"               return 'FOCUS'
@@ -23,6 +22,7 @@
 "share"               return 'SHARE'
 "as"                  return 'AS'
 "typedef"             return 'TYPEDEF'
+"import"              return 'IMPORT'			
 "rec"                 return 'REC'
 "none"                return 'NONE'
 "(+)"                 return '(+)'
@@ -74,7 +74,7 @@ type_root :
 		{ $$ = AST.makeForallType($2,$4,@$); }
 	| EXISTS IDENTIFIER '.' type_root
 		{ $$ = AST.makeExistsType($2,$4,@$); }
-	// | REC IDENTIFIER '.' type_root // FIXME
+	 | REC IDENTIFIER '.' type_root // FIXME
 	| type_fun '(+)' type_root
 		{ $$ = AST.makeAlternativeType($1,$3,@$); }
 	;
@@ -145,9 +145,33 @@ field_types :
 // EXPRESSIONS
 
 program :
-	sequence
-	| typedef program
-		{ $$ = AST.makeTypedefs($1,$2,@$); }
+	  sequence
+	| imports typedefs sequence
+		{ $$ = AST.makeProgram($1,$2,$3,@$); }
+	| imports sequence
+		{ $$ = AST.makeProgram($1,null,$2,@$); }
+	| typedefs sequence
+		{ $$ = AST.makeProgram(null,$1,$2,@$); }
+	;
+
+imports :
+	import
+		{ $$ = [$1]; }
+	| import imports // only allow one.
+		{ $$ = [$1].concat($2); }
+	;
+
+import :
+	IMPORT STRING
+		{ $$ = $2; }
+	;
+
+
+typedefs :
+	typedef
+		{ $$ = [$1]; }
+	| typedef typedefs
+		{ $$ = [$1].concat($2); }
 	;
 
 typedef :
@@ -173,15 +197,13 @@ sharing :
 
 nonsequence :
 	expression
-	| DEBUG expression
-		{ $$ = AST.makeDebug($2,@$); }
 	| nonsequence "." IDENTIFIER
 		{ $$ = AST.makeSelect($1,$3,@$); }
 	| nonsequence ":=" expression
 		{ $$ = AST.makeAssign($1,$3,@$); }
 	| nonsequence expression
 		{ $$ = AST.makeCall($1,$2,@$); }
-	| nonsequence '[' IDENTIFIER ']'
+	| nonsequence '[' IDENTIFIER ']' // FIXME switch to type
 		{ $$ = AST.makeTypeApp($1,$3,@$); }
 	| nonsequence '::' type
 		{ $$ = AST.makeCapStack($1,$3,@$); }
@@ -209,11 +231,12 @@ expression :
 		{ $$ = AST.makeOpen($3,$5,$8,$10,@$); }
 	| "(" sequence ")"
 		{ $$ = $2; }
-	| function
 	| IDENTIFIER '#' expression
 		{ $$ = AST.makeTagged($1,$3,@$); }
 	| CASE expression OF branches END
 		{ $$ = AST.makeCase($2,$4,@$); }
+	| '{' tuple '}'
+		{ $$ = AST.makeTuple($2,@$); }
     ;
 
 branches :
@@ -226,6 +249,13 @@ branches :
 branch :
 	IDENTIFIER '#' IDENTIFIER '->' sequence
 		{ $$ = AST.makeBranch($1,$3,$5,@$); }
+	;
+
+tuple :
+	nonsequence
+		{ $$ = [$1]; }
+	| nonsequence ',' tuple
+		{ $$ = [$1].concat($3); }
 	;
 
 function :
@@ -264,6 +294,7 @@ value :
     | STRING
 		{ $$ = AST.makeString(yytext,@$); }
     | record
+    | function
  	;
 	
 record :
@@ -271,19 +302,10 @@ record :
 	  	{ $$ = AST.makeRecord([],@$); }
 	| '{' fields '}'
 		{ $$ = AST.makeRecord($2,@$); }
-	| '{' values '}'
-		{ $$ = AST.makeTuple($2,@$); }
-	;
-
-values :
-	nonsequence
-		{ $$ = [$1]; }
-	| nonsequence ',' values
-		{ $$ = [$1].concat($3); }
 	;
 	
 field :
-	IDENTIFIER '=' nonsequence
+	IDENTIFIER '=' value
 		{ $$ = AST.makeField($1,$3,@$); }
 	;
 

@@ -1,4 +1,64 @@
 //
+// Quick and Dirty Standard Lib for basic arithm.
+//
+
+/*
+ * TODO:
+	import "code/stdlib.js"
+	
+	...
+	loadCode( heap )
+	loadTypes( env )
+	
+	// lazy man's import
+	
+	// should include:
+	Lib.print T -o T
+	Lib.println T -o T
+	Lib.add
+		type: !(int -o int -o int)
+		code: function(x){return function(y){return x+y;}}
+	Lib.mul
+	Lib.sub
+	Lib.div
+	Lib.rem
+	Lib.not
+	Lib.and
+	Lib.or
+	Lib.if { if= [] -o B, else = [] -o B }
+ */
+
+// TODO move this elsewhere!
+var Loader = function(file,e,v){ // FIXME only one known library?
+	if( file === 'stdlib' ){
+		var rec = new v.Record();
+		
+		// println
+		var println = new v.Function();
+		println.call = function(msg){
+			send('println',msg.toString());
+			return msg;
+		};
+		rec.add('println',println);
+		
+		// add
+		var add = new v.Function();
+		add.call = function(msg){
+			var tmp = new v.Function();
+			tmp.call = function(arg){ return msg+arg; }
+			return tmp;
+		};
+		rec.add('add',add);
+		
+		e.set('Lib',rec);
+		
+		return null;
+	}
+	
+	return undefined;
+};//importScripts;
+
+//
 // Worker thread
 //
 
@@ -54,7 +114,6 @@ self.addEventListener('message', function(e) {
 		console.error(e);
 	}
 }, false);
-
 
 var receive = {
 	EVAL : function(data){

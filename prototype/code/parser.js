@@ -22,7 +22,8 @@ var AST = new function(){
 	};
 	
 	this.kinds = new Enum (
-		'DEBUG',
+		'PROGRAM',
+		'TYPEDEF',
 		// types
 		'FUN_TYPE',
 		'CAP_TYPE',
@@ -68,13 +69,19 @@ var AST = new function(){
 		'SHARE',
 		'FOCUS',
 		'DEFOCUS',
-		'TYPEDEF',
-		'TYPEDEFS',
 		'TUPLE',
 		'LET_TUPLE',
 		'RECURSION'
 	);
 	
+	this.makeTypedef = function(id,type,info){
+		return aux( this.kinds.TYPEDEF, {id:id,type:type}, info);
+	}
+	this.makeProgram = function(imports,typedefs,exp,info){
+		return aux( this.kinds.PROGRAM, {imports:imports,typedefs:typedefs,exp:exp}, info);
+	}
+	
+	//
 	this.makeLetTuple = function(ids,val,exp,info){
 		return aux( this.kinds.LET_TUPLE, {ids:ids,val:val,exp:exp}, info);
 	}
@@ -93,13 +100,7 @@ var AST = new function(){
 	this.makeShare = function(locs,a,b,info){
 		return aux( this.kinds.SHARE, {locs:locs,a:a,b:b}, info);
 	}
-	this.makeTypedef = function(id,type,info){
-		return aux( this.kinds.TYPEDEF, {id:id,type:type}, info);
-	}
-	this.makeTypedefs = function(left,right,info){
-		return aux( this.kinds.TYPEDEFS, {left:left,right:right}, info);
-	}
-
+	
 	// expressions
 	this.makeLet = function(id,val,exp, info){
 		return aux( this.kinds.LET, {id: id, val: val, exp: exp}, info);
@@ -222,11 +223,8 @@ var AST = new function(){
 	this.makeTupleType = function(exp, info){
 		return aux( this.kinds.TUPLE_TYPE, {exp: exp}, info);
 	}
-	this.makeTaggedType = function(id,exp, info){
-		return aux( this.kinds.TAGGED_TYPE, {id:id,exp: exp}, info);
-	}
-	this.makeDebug = function(exp, info){
-		return aux( this.kinds.DEBUG, { exp: exp }, info);
+	this.makeTaggedType = function(tag,exp, info){
+		return aux( this.kinds.TAGGED_TYPE, {tag:tag,exp: exp}, info);
 	}
 
 }();

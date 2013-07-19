@@ -80,7 +80,7 @@ var GrammarHighlightRules = function() {
 // https://github.com/ajaxorg/ace/wiki/Creating-or-Extending-an-Edit-Mode
 	var keywords = lang.arrayToMap( ("rec|case|of|share|focus|defocus|as|open|let|in|end|").split("|") );
 	var keywords2 = lang.arrayToMap( ("fun|new|delete").split("|") );
-	var keywords3 = lang.arrayToMap( ("typedef|debug").split("|") );
+	var keywords3 = lang.arrayToMap( ("typedef|import").split("|") );
 	var types = lang.arrayToMap( ("rw|forall|exists|ref|int|boolean|string").split("|") );
     
     this.$rules = {

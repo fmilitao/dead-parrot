@@ -1,5 +1,15 @@
+/*
+ * Global vars:
+ * 	- AST.kinds, for all case analysis needs
+ *  - Loader, for dynamically loading a file
+ */
+
 
 var Interpreter = function(){
+	
+	//
+	// Values
+	//
 	
 	var Function = function( body, variable, parent ) {
 		this.call = function( argument ) {
@@ -34,7 +44,6 @@ var Interpreter = function(){
 			for( var i in fields )
 				res.push(i+"="+fields[i].toString());
 			return "{"+res.join()+"}";
-			//return "Record Value";
 		}
 	}
 	
@@ -44,7 +53,6 @@ var Interpreter = function(){
 		}
 		this.toString = function() {
 			return '{'+vals.join()+'}';
-			//return "Tuple Value";
 		}
 	}
 	
@@ -86,6 +94,20 @@ var Interpreter = function(){
 		}
 	}
 
+	//
+	// Dynamics Library Import
+	//
+	
+	var loadCode = function(lib,heap){
+		var valuesFactory = { Function: Function, Record: Record,
+			Tuple: Tuple, Tagged: Tagged };
+		return Loader(lib,heap,valuesFactory);
+	}
+
+	//
+	// Utils
+	//
+
 	var Heap = function( parent ) {
 		var map = {};
 		
@@ -109,6 +131,10 @@ var Interpreter = function(){
 	var wrapError = function( f, msg, ast ){
 		return assertF("Execution error",f,msg,ast);
 	}
+	
+	//
+	// Run
+	//
 	
 	var run = function(ast,env) {
 
@@ -137,11 +163,6 @@ var Interpreter = function(){
 				var exp = run(ast.exp, env);
 				return new Reference(exp);
 			}
-			case AST.kinds.DEBUG: {
-				var exp = run(ast.exp, env);
-				debug(exp);
-				return exp;
-			}
 			case AST.kinds.ASSIGN: {
 				var lvalue = run(ast.lvalue, env);
 				var value = run(ast.exp, env);
@@ -164,7 +185,6 @@ var Interpreter = function(){
 				var tag = wrapError(function(){
 					return val.tag();
 				},"Invalid case",ast.exp);
-				
 				var branch = undefined;
 				for(var i=0;i<ast.branches.length;++i){
 					if( ast.branches[i].tag == tag ){
@@ -195,7 +215,6 @@ var Interpreter = function(){
 					return fun.call(arg);
 				},"Invalid call",ast.arg);
 			}
-
 			case AST.kinds.SELECT: {
 				var rec = run(ast.left, env);
 				var id = ast.right;
@@ -203,10 +222,9 @@ var Interpreter = function(){
 					return rec.select(id);
 				}, "Invalid field \'" + id + "\' for record", ast);
 			}
-
 			case AST.kinds.RECORD: {
 				var rec = new Record();
-				for(var i=0;i<ast.exp.length;++i) {
+				for(var i=0; i < ast.exp.length; ++i) {
 					var field = ast.exp[i];
 					var id = field.id;
 					var value = run(field.exp, env);
@@ -216,10 +234,9 @@ var Interpreter = function(){
 				}
 				return rec;
 			}
-			
 			case AST.kinds.TUPLE: {
 				var values = [];
-  				for (var i = 0; i < ast.exp.length; ++i) {
+  				for (var i=0; i < ast.exp.length; ++i) {
     				values.push( run(ast.exp[i], env) );
   				}
   				return new Tuple(values);
@@ -230,11 +247,7 @@ var Interpreter = function(){
 					return vals.values();
 				},"Invalid tuple",ast.val);
 				var ids = ast.ids;
-				wrapError(function(){
-					if( ids.length != vals.length )
-						return undefined;
-					return null;
-				},"Tuple size mismatch",ast.val);
+				wrapError( ids.length == vals.length,"Tuple size mismatch",ast.val);
 				var newEnv = env;
 				newEnv = env.newScope();
 				for (var i = 0; i < vals.length; ++i) {
@@ -243,15 +256,21 @@ var Interpreter = function(){
 				return run(ast.exp, newEnv);
 			}
 			
-			case AST.kinds.TYPEDEFS:
-				return run(ast.right, env);
-			
-			case AST.kinds.TYPEDEF: // this case should not appear
 			case AST.kinds.FOCUS:
 			case AST.kinds.DEFOCUS:
 			case AST.kinds.SHARE: 
 				return new Record();
 
+			case AST.kinds.PROGRAM:{
+				if( ast.imports !== null ){
+					var libs = ast.imports;
+					for( var i=0; i<libs.length; ++i ){
+						var lib = libs[i].substring(1,libs[i].length-1);
+						wrapError( loadCode(lib,env),"Invalid import: "+lib,ast );
+					}
+				}
+				// intentionally fall through
+			}
 			case AST.kinds.CAP_STACK:
 			case AST.kinds.PACK:
 			case AST.kinds.FORALL:
@@ -265,17 +284,13 @@ var Interpreter = function(){
 			// primitive javascript types.
 				return eval(ast.text);
 			default:
-				wrapError(undefined,"Assertion Error "+ast.kind,ast);
+				wrapError(false,"Assertion Error "+ast.kind,ast);
 				break;
 		}
 
 	}
 
-	var debug = function(arg){};
-
-	return function(ast,printF){
-		if( printF != undefined )
-			debug = printF;
+	return function(ast){
 		return run( ast, new Heap(null) );
 	}
 }

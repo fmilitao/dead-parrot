@@ -5,6 +5,26 @@ var TypeChecker = function(){
 		return assertF("Type error",f,msg,ast);
 	}
 
+/*FIXME
+ *  - star type, auto-stack should first collect all then just stack once
+ *  - ensure star is commutative
+ *  - forall / exists with types and convenient labelling
+ * 		-- this needs way to replace part of the types.
+ * 		-- type substitution TYPE for LABEL
+ *  - case, problem on merging environments and result? subtyping?
+ *  - fields as intersection type, problem on merging environments?
+ *  - ALTERNATIVES ... this will be messy, probably
+ *  - recursion
+ *  - recursive types and typedefs, needs indirection on types?
+ *  - convenient way for stdlib?
+ *  - all sharing bits: focus, defocus, sharing and their framing
+ *  - rely/guarantee
+ * 	- subtyping fixes: tagged sums, pairs, etc. all those rules are missing
+ * 	- recursion, only for functions and of the form:
+		fun NAME( ... )
+		where NAME is the NAME to be used for the recursive call.
+ */
+
 	//
 	// TYPES
 	//
@@ -44,6 +64,16 @@ var TypeChecker = function(){
 		};
 	}();
 
+	var TaggedType = function(){
+		var type = addType('TaggedType');
+		
+		return function( tag, inner ) {
+			inherit( this, type );
+			this.tag = function(){ return tag; }
+			this.inner = function(){ return inner; }
+		};
+	}();
+	
 	var ForallType = function(){
 		var type = addType('ForallType');
 		
@@ -177,6 +207,8 @@ var TypeChecker = function(){
 					isFresh( t.body(), loc );
 			case types.BangType:
 				return isFresh( t.inner(), loc );
+			case types.TaggedType:
+				return isFresh( t.inner(), loc );
 			case types.ExistsType:
 			case types.ForallType:
 				assert( t.id().name() != loc.name(), 'Assertion error: needs renaming?');
@@ -225,6 +257,8 @@ var TypeChecker = function(){
 					return "!("+toString(t.inner())+")";
 				return "!"+toString(t.inner());
 			}
+			case types.TaggedType:
+				return t.tag()+'#'+toString(t.inner());
 			case types.ExistsType:
 				return 'exists '+t.id().name()+'.('+toString(t.inner())+')';
 			case types.ForallType:
@@ -265,6 +299,8 @@ var TypeChecker = function(){
 					return "!("+toHTML(t.inner())+')';	
 				return "!"+toHTML(t.inner());
 			}
+			case types.TaggedType:
+				return t.tag()+'#'+toHTML(t.inner());
 			case types.ExistsType:
 				return '&#8707;'+
 				'<span class="type_location">'+t.id().name()+'</span>'
@@ -317,7 +353,8 @@ var TypeChecker = function(){
 				return new FunctionType( rec(t.argument()), rec(t.body()) );
 			case types.BangType:
 				return new BangType( rec(t.inner()) );
-			
+			case types.TaggedType:
+				return new TaggedType( t.tag(), rec(t.inner()) );
 			case types.ExistsType:
 				// renaming is needed when the bounded location variable
 				// of the exists type is the same as the target name to replace
@@ -691,6 +728,13 @@ var TypeChecker = function(){
 
 				exp = rename( exp , id, loc.name() );
 				return new ExistsType(loc,exp);
+			}
+			
+			case AST.kinds.TAGGED_TYPE:
+			case AST.kinds.TAGGED: {
+				var tag = ast.tag;
+				var exp = check(ast.exp, env);
+				return new TaggedType(tag,exp);
 			}
 			
 			case AST.kinds.ID: {
