@@ -30,7 +30,11 @@ var Interpreter = function(){
 			}
 		}
 		this.toString = function() {
-			return "Record Value";
+			var res = [];
+			for( var i in fields )
+				res.push(i+"="+fields[i].toString());
+			return "{"+res.join()+"}";
+			//return "Record Value";
 		}
 	}
 	
@@ -39,7 +43,8 @@ var Interpreter = function(){
 			return vals;
 		}
 		this.toString = function() {
-			return "Tuple Value";
+			return '{'+vals.join()+'}';
+			//return "Tuple Value";
 		}
 	}
 	
@@ -260,8 +265,7 @@ var Interpreter = function(){
 			// primitive javascript types.
 				return eval(ast.text);
 			default:
-				wrapError(function(){return undefined;},
-					"Assertion Error "+ast.kind,ast);
+				wrapError(undefined,"Assertion Error "+ast.kind,ast);
 				break;
 		}
 

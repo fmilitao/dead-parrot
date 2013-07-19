@@ -2,8 +2,6 @@
 // Worker thread
 //
 
-// TODO remember to manually disable chrome's cache
-
 // convenient debug stuff
 var console = function(){
 	var aux = function(k,arg){
@@ -37,6 +35,12 @@ var checker = TypeChecker();
 var ast = null;
 var types = null;
 var autorun = true;
+
+var handleError = function(e){
+	if( e.stack )
+		console.error( e.stack.toString() );
+	send('errorHandler', JSON.stringify(e));
+}
 
 var send = function(k,msg){
 	self.postMessage({kind: k, data: msg });
@@ -72,9 +76,7 @@ var receive = {
 			// no errors!
 			send('updateAnnotations', null);
 		}catch(e){
-			if( e.stack )
-				console.error( e.stack.toString() );
-			send('errorHandler', JSON.stringify(e));
+			handleError(e);
 		}
 	},
 	AUTO : function(auto){
@@ -83,9 +85,7 @@ var receive = {
 			if( autorun && ast!=null )
 				send('println', "<b>FORCED RUN - Result:</b> "+interpreter( ast,function(msg){ send('println',msg.toString())} ) );
 		}catch(e){
-			if( e.stack )
-				console.error( e.stack.toString() );
-			send('errorHandler', JSON.stringify(e));
+			handleError(e);
 		}
 	},
 	CHECKER: function(data){
@@ -101,9 +101,7 @@ var receive = {
 		    
 			send('printTyping',types.info(pos).toString());
 		}catch(e){
-			if( e.stack )
-				console.error( e.stack.toString() );
-			send('errorHandler', JSON.stringify(e));
+			handleError(e);
 		}
 	}
 };

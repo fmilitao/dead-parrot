@@ -74,7 +74,7 @@ type_root :
 		{ $$ = AST.makeForallType($2,$4,@$); }
 	| EXISTS IDENTIFIER '.' type_root
 		{ $$ = AST.makeExistsType($2,$4,@$); }
-	| REC IDENTIFIER '.' type_root
+	// | REC IDENTIFIER '.' type_root // FIXME
 	| type_fun '(+)' type_root
 		{ $$ = AST.makeAlternativeType($1,$3,@$); }
 	;
@@ -87,7 +87,7 @@ type_fun :
 		{ $$ = AST.makeRelyType($1,$3,@$); }
 	| type_fun ';' type_cap
 		{ $$ = AST.makeGuaranteeType($1,$3,@$); }
-	| type_fun '[' type_root ']' // FIXME careful!!
+	| type_fun '[' type_root ']'
 		{ $$ = AST.makeTypeApp($1,$3,@$); }
 	;
 
@@ -195,14 +195,16 @@ expression :
 		{ $$ = AST.makeNew($2,@$); }
 	| '<' IDENTIFIER '>' expression
 		{ $$ = AST.makeForall($2,$4,@$); }
-	| '<' IDENTIFIER ',' sequence '>'
+	| '<' type_root ',' sequence '>'
 		{ $$ = AST.makePack($2,null,$4,@$); }
-	| '<' IDENTIFIER ':' IDENTIFIER ',' sequence '>'
+	| '<' type_root ':' IDENTIFIER ',' sequence '>'
 		{ $$ = AST.makePack($2,$4,$6,@$); }
 	| DELETE expression
 		{ $$ = AST.makeDelete($2,@$); }
 	| LET IDENTIFIER '=' sequence IN sequence END
 		{ $$ = AST.makeLet($2,$4,$6,@$); }
+	| LET '[' ids_list ']' '=' sequence IN sequence END
+		{ $$ = AST.makeLetTuple($3,$6,$8,@$); }
 	| OPEN '<'IDENTIFIER ',' IDENTIFIER'>' '=' sequence IN sequence END
 		{ $$ = AST.makeOpen($3,$5,$8,$10,@$); }
 	| "(" sequence ")"
@@ -212,8 +214,6 @@ expression :
 		{ $$ = AST.makeTagged($1,$3,@$); }
 	| CASE expression OF branches END
 		{ $$ = AST.makeCase($2,$4,@$); }
-	| LET '[' ids_list ']' '=' sequence IN sequence END
-		{ $$ = AST.makeLetTuple($3,$6,$8,@$); }
     ;
 
 branches :

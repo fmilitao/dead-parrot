@@ -1,7 +1,36 @@
+REMEMBER:
+ 	- to disable chrome's cache
+ 	- launch 'static' on trunk/
+ 	
 TODO:
 	-- use instanceof instead of has prorperty ast for errors
-	-- basic arithmetic?
 	-- multi-open and multi-pack syntax sugar?
+	-- all recursive types must be declared through typedef?
+
+BASIC LIB:
+	import "code/stdlib.js"
+	
+	...
+	loadCode( heap )
+	loadTypes( env )
+	
+	// lazy man's import
+	
+	// should include:
+	Lib.print T -o T
+	Lib.println T -o T
+	Lib.add
+		type: !(int -o int -o int)
+		code: function(x){return function(y){return x+y;}}
+	Lib.mul
+	Lib.sub
+	Lib.div
+	Lib.rem
+	Lib.not
+	Lib.and
+	Lib.or
+	Lib.if { if= [] -o B, else = [] -o B }
+	
 
 WORKPLAN:
  - grammar (including pairs, typedef, recursion)

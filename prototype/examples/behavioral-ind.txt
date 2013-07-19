@@ -52,6 +52,8 @@ let newBehavior = fun( _ : [] ).
         !x.setInt 0;
         !x.getInt {};
         !x.dispose {};
-        delete x
+        delete x // note that the eval yield the old function
+        // the value is there but we have no permission to run it!
+        // the type check blocks its use since it is no longer safe.
     end
 end
