@@ -107,7 +107,7 @@ var Interpreter = function(){
 	}
 	
 	var wrapError = function( f, msg, ast ){
-		return assertD("Execution error",f,msg,ast);
+		return assertF("Execution error",f,msg,ast);
 	}
 	
 	var run = function(ast,env) {

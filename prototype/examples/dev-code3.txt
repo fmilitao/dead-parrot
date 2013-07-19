@@ -1,0 +1,8 @@
+
+let x = {2,34,56} in
+
+	let [a,b,c] = x in
+		c
+	end
+    
+end

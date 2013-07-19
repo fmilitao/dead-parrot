@@ -231,27 +231,6 @@ var AST = new function(){
 
 }();
 
-var assertF = function(kind,f,msg,ast){
-	var result = f;
-	var debug = null;
-	try{
-		if( f !== undefined && f !== false )
-			result = f();
-	}catch(e){
-		debug = ( e || e.message );
-	}
-	if( result === undefined || result === false ){
-		throw {
-			message : msg,
-			kind: kind,
-			ast: ast,
-			debug: debug,
-			stack : new Error().stack.toString()
-		};
-	}
-	return result;
-}
-
 var ErrorWrapper = function(msg,kind,ast,debug){
 	this.message = msg;
 	this.kind = kind;
@@ -260,26 +239,29 @@ var ErrorWrapper = function(msg,kind,ast,debug){
 	this.stack = new Error().stack.toString();
 }
 
-// FIXME: this should be the same as above...?
-// problem if f returns false that value should not be considered for testing?
-// difference between a wrapErrors and assert... rethink this.
-var assertD = function(kind,f,msg,ast){
+// convenient assert function to wrap errors
+var assertF = function(kind,f,msg,ast){
 	var result = undefined;
+	var error = true; // because exceptions
 	var debug = null;
 	try{
-		if( f instanceof Function )
-			result = f(); // FIXME may return false which breaks using the above.
-		else
+		if( f instanceof Function ){
+			result = f();
+			error = result === undefined;
+		}
+		else {
 			result = f;
+			error = result === undefined || result === false;
+		}
 	}catch(e){
 		// if it is already one of our own exceptions don't wrap
 		if ( e instanceof ErrorWrapper )
 			throw e;
-		debug = ( e || e.message );
 		if( e instanceof RangeError )
 			msg = e.message;
+		debug = ( e || e.message );
 	}
-	if( result === undefined )
+	if( error )
 		throw new ErrorWrapper(msg,kind,ast,debug); 
 	return result;
 }
