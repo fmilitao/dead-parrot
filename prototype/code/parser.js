@@ -78,8 +78,8 @@ var AST = new function(){
 	this.makeLetTuple = function(ids,val,exp,info){
 		return aux( this.kinds.LET_TUPLE, {ids:ids,val:val,exp:exp}, info);
 	}
-	this.makeTuple = function(vals,info){
-		return aux( this.kinds.TUPLE, {vals:vals}, info);
+	this.makeTuple = function(exp,info){
+		return aux( this.kinds.TUPLE, {exp:exp}, info);
 	}
 	this.makeRecursion = function(id,exp,info){
 		return aux( this.kinds.RECURSION, {id:id,exp:exp}, info);
@@ -268,7 +268,7 @@ var assertD = function(kind,f,msg,ast){
 	var debug = null;
 	try{
 		if( f instanceof Function )
-			result = f();
+			result = f(); // FIXME may return false which breaks using the above.
 		else
 			result = f;
 	}catch(e){

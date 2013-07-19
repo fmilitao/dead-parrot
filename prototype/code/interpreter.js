@@ -219,8 +219,8 @@ var Interpreter = function(){
 			
 			case AST.kinds.TUPLE: {
 				var values = [];
-  				for (var i = 0; i < ast.vals.length; ++i) {
-    				values.push( run(ast.vals[i], env) );
+  				for (var i = 0; i < ast.exp.length; ++i) {
+    				values.push( run(ast.exp[i], env) );
   				}
   				return new Tuple(values);
 			}

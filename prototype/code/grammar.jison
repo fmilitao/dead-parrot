@@ -195,10 +195,10 @@ expression :
 		{ $$ = AST.makeNew($2,@$); }
 	| '<' IDENTIFIER '>' expression
 		{ $$ = AST.makeForall($2,$4,@$); }
-	| '<' type_root ',' sequence '>'
+	| '<' IDENTIFIER ',' sequence '>' //FIXME: type_root
 		{ $$ = AST.makePack($2,null,$4,@$); }
-	| '<' type_root ':' IDENTIFIER ',' sequence '>'
-		{ $$ = AST.makePack($2,$4,$6,@$); }
+//	 | '<' type_root ':' IDENTIFIER ',' sequence '>'
+//		{ $$ = AST.makePack($2,$4,$6,@$); }
 	| DELETE expression
 		{ $$ = AST.makeDelete($2,@$); }
 	| LET IDENTIFIER '=' sequence IN sequence END

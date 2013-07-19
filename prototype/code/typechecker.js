@@ -95,6 +95,23 @@ var TypeChecker = function(){
 	}();
 
 	var UnitType = new BangType(new RecordType());
+	
+	var TupleType = function(){
+		var type = addType('TupleType');
+		
+		return function(){
+			inherit( this, type );
+
+			var values = [];
+			this.add = function(type) {
+				values.push(type);
+				return null;
+			}
+			this.getValues = function(){
+				return values;
+			}
+		};
+	}();
 
 	var ReferenceType = function(){
 		var type = addType('ReferenceType');
@@ -178,6 +195,14 @@ var TypeChecker = function(){
 				}
 				return true;
 			}
+			case types.TupleType: {
+				var vs = t.getValues();
+				for( var i in vs ){
+					if( !isFresh(vs[i],loc) )
+						return false;
+				}
+				return true;
+			}
 			case types.LocationVariable:
 				return t.name() != loc.name();
 			case types.PrimitiveType:
@@ -217,6 +242,8 @@ var TypeChecker = function(){
 					res.push(i+": "+toString(fields[i]));
 				return "["+res.join()+"]";
 			}
+			case types.TupleType:
+				return "["+t.getValues().join()+"]";
 			case types.LocationVariable:
 			case types.PrimitiveType:
 				return t.name();
@@ -260,6 +287,13 @@ var TypeChecker = function(){
 				var fields = t.getFields();
 				for( var i in fields )
 					res.push('<span class="type_field">'+i+'</span>: '+toHTML(fields[i]));
+				return "["+res.join(', ')+"]";
+			}
+			case types.TupleType: {
+				var res = [];
+				var values = t.getValues();
+				for( var i in values )
+					res.push( toHTML(values[i]) );
 				return "["+res.join(', ')+"]";
 			}
 			case types.LocationVariable:
@@ -319,6 +353,13 @@ var TypeChecker = function(){
 				var fs = t.getFields();
 				for( var i in fs )
 					r.add( i, rec(fs[i]) );
+				return r;
+			}
+			case types.TupleType: {
+				var r = new TupleType();
+				var fs = t.getValues();
+				for( var i in fs )
+					r.add( rec(fs[i]) );
 				return r;
 			}
 			case types.LocationVariable:
@@ -631,18 +672,6 @@ var TypeChecker = function(){
 				return safelyEndScope( res, e, ast);
 			}
 
-/*			
-			case AST.kinds.QUICK_OPEN: {
-				var loc = ast.id;
-				var value = check( ast.exp, env );
-				assert( value.type() == types.ExistsType,
-					"Type '" + value + "' not existential", ast.exp);
-				value = rename( value.inner(), value.id(), loc );
-				value = unstack(value,env,ast);
-				addName( loc, new LocationVariable(loc), env, ast );
-				return value;
-			}
-			*/
 			
 			case AST.kinds.DEBUG:{
 				var exp = check( ast.exp, env);
@@ -883,6 +912,41 @@ var TypeChecker = function(){
 					rec = new BangType(rec);
 
 				return rec;
+			}
+			
+			case AST.kinds.TUPLE: {
+				var rec = new TupleType();
+				var bang = true;
+						
+				for(var i=0;i<ast.exp.length;++i){
+					var value = check( ast.exp[i], env );
+					rec.add(value);
+					if( value.type() != types.BangType )
+						bang = false;
+				}
+				
+				if( bang )
+					rec = new BangType(rec);
+
+				return rec;
+			}
+			
+			case AST.kinds.LET_TUPLE: {
+				var exp = check( ast.val, env );
+				exp = unBang(exp);
+				assert( exp.type() == types.TupleType,
+					"Type '" + exp + "' not tuple", ast.exp);
+				
+				var values = exp.getValues();
+				assert( values.length == ast.ids.length,
+					"Incompatible sizes "+ast.ids.length+" != "+values.length, ast.exp);
+
+				var e = env.newScope();
+				for( var i=0;i<ast.ids.length;++i)
+					addName( ast.ids[i], values[i], e, ast );
+				
+				var res = check( ast.exp, e );
+				return safelyEndScope( res, e, ast);
 			}
 			
 			// TYPES
