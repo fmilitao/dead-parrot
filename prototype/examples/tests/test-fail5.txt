@@ -1,5 +1,5 @@
 //FAIL No matching branch for U
-//FAIL ?
+//FAIL Missing branch for U
 
 case U#3 of
   A#f -> f

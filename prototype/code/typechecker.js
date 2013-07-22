@@ -319,7 +319,8 @@ var TypeChecker = function(){
 				var inner = t.inner();
 				if( inner.type() == types.ReferenceType ||
 					inner.type() == types.FunctionType ||
-					inner.type() == types.StackedType )
+					inner.type() == types.StackedType || 
+					inner.type() == types.SumType )
 					return "!("+toHTML(t.inner())+')';	
 				return "!"+toHTML(t.inner());
 			}
@@ -772,13 +773,6 @@ var TypeChecker = function(){
 				var res = check( ast.exp, e );
 				return safelyEndScope( res, e, ast);
 			}
-
-			
-			case AST.kinds.DEBUG:{
-				var exp = check( ast.exp, env);
-				//FIXME debug_msg += "[ Debug on "+(ast.line+1)+":"+ast.col+"] "+exp.toHTML()+'\n';
-				return exp;
-			}
 			
 			case AST.kinds.PACK: {
 				var exp = check(ast.exp, env);
@@ -794,13 +788,6 @@ var TypeChecker = function(){
 				return new ExistsType(loc,exp);
 			}
 			
-			case AST.kinds.TAGGED: {  // FIXME this should move to tryBang
-				var sum = new SumType();
-				var tag = ast.tag;
-				var exp = check(ast.exp, env);
-				sum.add( tag, exp);
-				return sum;
-			}
 			case AST.kinds.SUM_TYPE: {
 				var sum = new SumType();
 				for( var i=0; i<ast.sums.length;++i ){
@@ -820,7 +807,7 @@ var TypeChecker = function(){
 				var tags = val.tags();
 				var initEnv = env.clone();
 				var endEnv = null;
-				
+				// FIXME match results of all branches.
 				for( var t in tags ){
 					var tag = tags[t];
 					var value = val.inner(tag);
@@ -1272,6 +1259,14 @@ var TypeChecker = function(){
 							var res = check( ast.exp, e );
 							res = safelyEndScope( res, e, ast.exp );
 							return new FunctionType(arg_type, res);
+						}
+						
+						case AST.kinds.TAGGED: {
+							var sum = new SumType();
+							var tag = ast.tag;
+							var exp = check(ast.exp, env);
+							sum.add( tag, exp);
+							return sum;
 						}
 						
 						case AST.kinds.NUMBER:
