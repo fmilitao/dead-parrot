@@ -93,10 +93,10 @@ type_fun :
 
 type_cap :
 	  type
-	| type_cap '::' type
+	| type_cap '::' type // FIXME should multiple stacks be forbidden?
 		{ $$ = AST.makeStackedType($1,$3,@$); }
-	| type_cap '*' type
-		{ $$ = AST.makeStarType($1,$3,@$); }
+	| star_type
+		{ $$ = AST.makeStarType($1,@$); }
 	| sum_type
 		{ $$ = AST.makeSumType($1,@$); }
 	;
@@ -113,6 +113,7 @@ type :
 	| RW IDENTIFIER type
 		{ $$ = AST.makeCapabilityType($2,$3,@$); }
 	| NONE
+		// FIXME!!
 	| '[' ']'
 	 	{ $$ = AST.makeRecordType([],@$); }
 	| '[' field_types ']'
@@ -124,6 +125,13 @@ type :
 tagged :
 	IDENTIFIER '#' type
 	 	{ $$ = AST.makeTaggedType($1,$3,@$); }
+	;
+
+star_type :
+	  type '*' type
+	  	{ $$ = [$1,$3]; }
+	| start_type '*' type
+		{ $$ = $1.concat([$3]); }
 	;
 
 sum_type :

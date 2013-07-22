@@ -9,7 +9,7 @@ TODO:
 	
 ======================
 
-- location variables cannot be hidden, or renaming
+- location variables cannot be hidden, or renamed
 - try to stack all "touched" capabilities at the end of a method.
 
 - Typing algorithm:

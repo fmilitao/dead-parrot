@@ -193,8 +193,8 @@ var AST = new function(){
 	this.makeSumType = function(sums, info){
 		return aux( this.kinds.SUM_TYPE, {sums:sums}, info);
 	}
-	this.makeStarType = function(left,right, info){
-		return aux( this.kinds.STAR_TYPE, {left: left, right: right}, info);
+	this.makeStarType = function(types, info){
+		return aux( this.kinds.STAR_TYPE, {types:types}, info);
 	}
 	this.makeAlternativeType = function(left,right, info){
 		return aux( this.kinds.ALTERNATIVE_TYPE, {left: left, right: right}, info);

@@ -86,6 +86,21 @@ var TypeChecker = function(){
 		};
 	}();
 	
+	var StarType = function(){
+		var type = addType('StarType');
+		
+		return function( ) {
+			inherit( this, type );
+			
+			var types = [];
+			this.add = function( inner ){
+				types.push(inner);
+				return null;
+			}
+			this.inner = function(){ return types; }
+		};
+	}();
+	
 	var ForallType = function(){
 		var type = addType('ForallType');
 		
@@ -245,6 +260,14 @@ var TypeChecker = function(){
 				}
 				return true;
 			}
+			case types.StarType:{
+				var inners = t.inner();
+				var res = [];
+				for( var i=0; i<inners.length; ++i )
+					if( !isFresh(inners[i],loc) )
+						return false;
+				return true;
+			}
 			case types.TupleType: {
 				var vs = t.getValues();
 				for( var i in vs ){
@@ -282,6 +305,13 @@ var TypeChecker = function(){
 					res.push( tags[i]+'#'+toString(t.inner(tags[i])) ); 
 				}	
 				return res.join('+');
+			}
+			case types.StarType:{
+				var inners = t.inner();
+				var res = [];
+				for( var i=0; i<inners.length; ++i )
+					res.push( toString( inners[i] ) ); 
+				return res.join(' * ');
 			}
 			case types.ExistsType:
 				return 'exists '+t.id().name()+'.('+toString(t.inner())+')';
@@ -331,6 +361,13 @@ var TypeChecker = function(){
 					res.push( tags[i]+'#'+toHTML(t.inner(tags[i])) ); 
 				}	
 				return res.join('+');
+			}
+			case types.StarType:{
+				var inners = t.inner();
+				var res = [];
+				for( var i=0; i<inners.length; ++i )
+					res.push( toHTML( inners[i] ) ); 
+				return res.join(' * ');
 			}
 			case types.ExistsType:
 				return '&#8707;'+
@@ -391,6 +428,14 @@ var TypeChecker = function(){
 					sum.add( tags[i], rec(t.inner(tags[i])) ); 
 				}	
 				return sum;
+			}
+			case types.StarType:{
+				var star = new StarType();
+				var inners = t.inner();
+				for( var i=0;i<inners.length;++i){
+					star.add( rec(inners[i]) ); 
+				}	
+				return star;
 			}
 			case types.ExistsType:
 				// renaming is needed when the bounded location variable
@@ -687,6 +732,16 @@ var TypeChecker = function(){
 				assert( d.set( capI , type ) ,
 					'Duplicated capability for '+ capN, ast );
 				return null; // ok but no type
+			case types.StarType:{
+				var tps = type.inner();
+				for( var i=0; i<tps.length; ++i ){
+					var capN = tps[i].location().name(); 
+					var capI = capIndex( capN );
+					assert( d.set( capI , tps[i] ) ,
+						 'Duplicated capability for '+ capN, ast );
+				}
+				return null; // ok but no type
+			}
 		}
 		// default: nothing to unstack
 		return type;
@@ -698,6 +753,8 @@ var TypeChecker = function(){
 	var safelyEndScope = function( type, env, ast){
 		// 1. stack all capabilities
 		var res = type;
+
+// FIXME: this should instead use star type.
 
 		env.elements(function(id,cap){
 			if( res != undefined ){
@@ -827,6 +884,14 @@ var TypeChecker = function(){
 					sum.add( tag, exp);
 				}
 				return sum;
+			}
+			
+			case AST.kinds.STAR_TYPE: {
+				var star = new StarType();
+				for( var i=0; i<ast.types.length;++i ){
+					star.add( check(ast.types[i], env) );
+				}
+				return star;
 			}
 			
 			case AST.kinds.CASE: {
@@ -1021,33 +1086,45 @@ var TypeChecker = function(){
 				var arg = check(ast.arg, env);
 				var fun_arg = fun.argument();
 
-				// try to match stacked type
-				var rec = function(t,c){
-					switch( c.type() ) {
+				// try to match TYPE to function's PARAMETER
+				var rec = function(t,p){ // FIXME
+					switch( p.type() ) {
+						case types.StarType: {
+							var inners = p.inner();
+							if( t.type() == types.StarType ){
+								// already a star type, add the remaining types
+								// if they are not there already.
+								// ignore order
+								// FIXME
+							}
+							else {
+								// FIXME not a star type, push all
+							}
+						}
 						case types.StackedType: {
 							if( t.type() == types.StackedType )
 								return new StackedType(
-									rec( t.left(), c.left() ),
-									rec( t.right(), c.right() ) );
+									rec( t.left(), p.left() ),
+									rec( t.right(), p.right() ) );
 							else
-								return rec( rec( t, c.left() ), c.right() );
+								return rec( rec( t, p.left() ), p.right() );
 						}
 						case types.CapabilityType: {
 							if( t.type() == types.CapabilityType ){
 								var t_loc = t.location().name();
-								var c_loc = c.location().name();
-								assert( t_loc == c_loc,
-									'Incompatible capability '+t_loc+' vs '+c_loc, ast.arg );
+								var p_loc = p.location().name();
+								assert( t_loc == p_loc,
+									'Incompatible capability '+t_loc+' vs '+p_loc, ast.arg );
 								// intentionally fall through
 							} else {
-								var loc = c.location().name();
+								var loc = p.location().name();
 								var capI = capIndex( loc )
 								var cap = assert( env.remove( capI ),
 									'Missing capability '+loc, ast.arg);
 	
 								return new StackedType( t, cap );
 							}
-						}		
+						}	// FIXME	
 					}
 					return t;
 				}
@@ -1076,41 +1153,12 @@ var TypeChecker = function(){
 				return rename( exp.inner(), exp.id(), loc.name() );
 			}
 			
-			
-			case AST.kinds.RECORD: {  // FIXME this should move to tryBang
-				var rec = new RecordType();
-				var bang = true;
-				
-				var initEnv = env.clone();
-				var endEnv = null;
-
-				for(var i=0;i<ast.exp.length;++i){
-					var field = ast.exp[i];
-					var id = field.id;
-					
-					var value;
-					if( endEnv === null ){
-						value = check( field.exp, env );
-						endEnv = env;
-					}else{
-						var tmp_env = initEnv.clone();
-						value = check( field.exp, tmp_env );
-						assert( endEnv.isEqual(tmp_env),
-							"Incompatible effects on field '" + id + "'", field);
-					}
-					assert( rec.add(id, value),
-						"Duplicated field '" + id + "' in '"+rec+"'", field);
-					if( value.type() != types.BangType )
-						bang = false;
-				}
-				
-				if( bang )
-					rec = new BangType(rec);
-
-				return rec;
-			}
-			
-			case AST.kinds.TUPLE: { // FIXME this should move to tryBang
+			case AST.kinds.TUPLE: {
+				// Note that TUPLE cannot move to the auto-bang block
+				// because it may contain pure values that are not in the
+				// typing environment and therefore, its type is only bang
+				// or not as a consequence of each field's type and not just
+				// what it consumes from the environment
 				var rec = new TupleType();
 				var bang = true;
 						
@@ -1247,7 +1295,6 @@ var TypeChecker = function(){
 				return rec;
 			}
 			
-			
 			case AST.kinds.NAME_TYPE:
 				// any primitive type is acceptable but only ints, booleans
 				// and strings have actual values that match a primitive type.
@@ -1307,6 +1354,33 @@ var TypeChecker = function(){
 							var exp = check(ast.exp, env);
 							sum.add( tag, exp);
 							return sum;
+						}
+						
+						case AST.kinds.RECORD: {
+							var rec = new RecordType();
+							
+							var initEnv = env.clone();
+							var endEnv = null;
+			
+							for(var i=0;i<ast.exp.length;++i){
+								var field = ast.exp[i];
+								var id = field.id;
+								
+								var value;
+								if( endEnv === null ){
+									value = check( field.exp, env );
+									endEnv = env;
+								}else{
+									var tmp_env = initEnv.clone();
+									value = check( field.exp, tmp_env );
+									assert( endEnv.isEqual(tmp_env),
+										"Incompatible effects on field '" + id + "'", field);
+								}
+								assert( rec.add(id, value),
+									"Duplicated field '" + id + "' in '"+rec+"'", field);
+							}
+			
+							return rec;
 						}
 						
 						case AST.kinds.NUMBER:
