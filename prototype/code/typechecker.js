@@ -623,7 +623,7 @@ var TypeChecker = function(){
 	
 	// The only types that can be merged... for now?
 	var merge = function(t1,t2){
-		if( t1.type() !== t1.type () )
+		if( t1.type() !== t2.type () )
 			return undefined;
 		
 		if( t1.type() == types.BangType ){
