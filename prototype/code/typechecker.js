@@ -7,15 +7,15 @@ var TypeChecker = function(){
 
 /*FIXME
  *  X fields as intersection type.
- * 	-- all effects the same.
- * 	-- TODO: better way to merge environments?
- 
- * *  - star type, auto-stack should first collect all then just stack once
- *  - ensure star is commutative
+ *  X case, problem on merging environments and result? subtyping?
+ * 	-- TODO: better way to merge environments/types?
+
  *  - forall / exists with types and convenient labelling
  * 		-- this needs way to replace part of the types.
  * 		-- type substitution TYPE for LABEL
- *  - case, problem on merging environments and result? subtyping?
+ 
+ * *  - star type, auto-stack should first collect all then just stack once
+ *  - ensure star is commutative
  *  - ALTERNATIVES ... this will be messy, probably
  *  - recursion
  *  - recursive types and typedefs, needs indirection on types?
@@ -651,8 +651,8 @@ var TypeChecker = function(){
 			return tmp;
 		}
 		return undefined;
-	}
 	// TODO: needs match (type) and equals (type)
+	}
 
 	// removes all BangTypes
 	var unBang = function(t){

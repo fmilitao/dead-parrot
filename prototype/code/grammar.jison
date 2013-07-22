@@ -229,7 +229,7 @@ expression :
 		{ $$ = AST.makeForall($2,$4,@$); }
 	| '<' IDENTIFIER ',' sequence '>' //FIXME: type_root
 		{ $$ = AST.makePack($2,null,$4,@$); }
-//	 | '<' type_root ':' IDENTIFIER ',' sequence '>'
+//	 | '<' type_root ':' IDENTIFIER ',' sequence '>' // FIXME
 //		{ $$ = AST.makePack($2,$4,$6,@$); }
 	| DELETE expression
 		{ $$ = AST.makeDelete($2,@$); }

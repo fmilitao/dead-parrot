@@ -1,7 +1,6 @@
 REMEMBER:
  	- to disable chrome's cache
  	- launch 'static' on trunk/
- 	- test-fail3.txt is no longer a failing test.
  	-- MESSY USE OF == VS ===
  	
 TODO:

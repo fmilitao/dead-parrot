@@ -1,12 +1,8 @@
-//OK 0
-//OK !int
+//OK {a=2,b=3,c=Function Value}
+//FAIL Incompatible effects on field 'c'
 
-open <tx,x> = new 0 in
-    let f = fun( z : ![a: int, b:int] ).x in
-    	// invalid subtyping causes failure to call
-    	// note that extra field has linear type
-    	// cannot be subtyped out of the record's type
-    	f  {a = 1, b = 3 , c = x}
-    end;
-    delete x
+let y = new 0 in
+    let f = fun( z : [] ).y in
+    	{a = 2, b = 3 , c = f}
+    end
 end
