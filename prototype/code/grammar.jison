@@ -6,6 +6,7 @@
 
 \s+                   /* skip whitespace */
 \/\/.*                /* skip comments */
+// "/*"(.|\n|\r)*?"*/"  /* ignore multiline comment BROKEN HIGHGLIGHT https://github.com/benatkin/eon/blob/master/eon-jison.jisonlex*/
 "let"                 return 'LET'
 "open"                return 'OPEN'
 "in"                  return 'IN'
@@ -97,8 +98,8 @@ type_cap :
 		{ $$ = AST.makeStackedType($1,$3,@$); }
 	| type_cap '*' type
 		{ $$ = AST.makeStarType($1,$3,@$); }
-	| type_cap '+' type
-		{ $$ = AST.makeSumType($1,$3,@$); }
+	| sum_type
+		{ $$ = AST.makeSumType($1,@$); }
 	;
 
 type :
@@ -110,8 +111,6 @@ type :
 	 	{ $$ = AST.makeRefType($2,@$); }
 	| '(' type_root ')'
 	 	{ $$ = $2; }
-	| IDENTIFIER '#' type
-	 	{ $$ = AST.makeTaggedType($1,$3,@$); }
 	| RW IDENTIFIER type
 		{ $$ = AST.makeCapabilityType($2,$3,@$); }
 	| NONE
@@ -121,6 +120,18 @@ type :
 	 	{ $$ = AST.makeRecordType($2,@$); }
 	| '[' type_list ']'
 		{ $$ = AST.makeTupleType($2,@$); }
+	;
+
+tagged :
+	IDENTIFIER '#' type
+	 	{ $$ = AST.makeTaggedType($1,$3,@$); }
+	;
+
+sum_type :
+	tagged
+		{ $$ = [$1]; }
+	| tagged '+' sum_type
+		{ $$ = [$1].concat($3); }
 	;
 
 type_list :

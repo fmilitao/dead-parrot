@@ -190,8 +190,8 @@ var AST = new function(){
 	this.makeGuaranteeType = function(left,right, info){
 		return aux( this.kinds.GUARANTEE_TYPE, {left: left, right: right}, info);
 	}
-	this.makeSumType = function(left,right, info){
-		return aux( this.kinds.SUM_TYPE, {left: left, right: right}, info);
+	this.makeSumType = function(sums, info){
+		return aux( this.kinds.SUM_TYPE, {sums:sums}, info);
 	}
 	this.makeStarType = function(left,right, info){
 		return aux( this.kinds.STAR_TYPE, {left: left, right: right}, info);

@@ -6,17 +6,21 @@ var TypeChecker = function(){
 	}
 
 /*FIXME
- *  - star type, auto-stack should first collect all then just stack once
+ *  X fields as intersection type.
+ * 	-- all effects the same.
+ * 	-- TODO: better way to merge environments?
+ 
+ * *  - star type, auto-stack should first collect all then just stack once
  *  - ensure star is commutative
  *  - forall / exists with types and convenient labelling
  * 		-- this needs way to replace part of the types.
  * 		-- type substitution TYPE for LABEL
  *  - case, problem on merging environments and result? subtyping?
- *  - fields as intersection type, problem on merging environments?
  *  - ALTERNATIVES ... this will be messy, probably
  *  - recursion
  *  - recursive types and typedefs, needs indirection on types?
- *  - convenient way for stdlib?
+ 
+ * *  - convenient way for stdlib?
  *  - all sharing bits: focus, defocus, sharing and their framing
  *  - rely/guarantee
  * 	- subtyping fixes: tagged sums, pairs, etc. all those rules are missing
@@ -64,13 +68,21 @@ var TypeChecker = function(){
 		};
 	}();
 
-	var TaggedType = function(){
-		var type = addType('TaggedType');
+	var SumType = function(){
+		var type = addType('SumType');
 		
-		return function( tag, inner ) {
+		return function( ) {
 			inherit( this, type );
-			this.tag = function(){ return tag; }
-			this.inner = function(){ return inner; }
+			
+			var tags = {};
+			this.add = function( tag, inner ){
+				if ( tags.hasOwnProperty(tag) )
+					return undefined; // already exists!
+				tags[tag] = inner;
+				return null;
+			}
+			this.tags = function(){ return Object.keys(tags); }
+			this.inner = function(tag){ return tags[tag]; }
 		};
 	}();
 	
@@ -207,8 +219,14 @@ var TypeChecker = function(){
 					isFresh( t.body(), loc );
 			case types.BangType:
 				return isFresh( t.inner(), loc );
-			case types.TaggedType:
-				return isFresh( t.inner(), loc );
+			case types.SumType:{
+				var tags = t.tags();
+				for( var i in tags ){
+					if( !isFresh(t.inner(tags[i]),loc) )
+						return false; 
+				}	
+				return true;
+			}
 			case types.ExistsType:
 			case types.ForallType:
 				assert( t.id().name() != loc.name(), 'Assertion error: needs renaming?');
@@ -257,8 +275,14 @@ var TypeChecker = function(){
 					return "!("+toString(t.inner())+")";
 				return "!"+toString(t.inner());
 			}
-			case types.TaggedType:
-				return t.tag()+'#'+toString(t.inner());
+			case types.SumType:{
+				var tags = t.tags();
+				var res = [];
+				for( var i in tags ){
+					res.push( tags[i]+'#'+toString(t.inner(tags[i])) ); 
+				}	
+				return res.join('+');
+			}
 			case types.ExistsType:
 				return 'exists '+t.id().name()+'.('+toString(t.inner())+')';
 			case types.ForallType:
@@ -299,8 +323,14 @@ var TypeChecker = function(){
 					return "!("+toHTML(t.inner())+')';	
 				return "!"+toHTML(t.inner());
 			}
-			case types.TaggedType:
-				return t.tag()+'#'+toHTML(t.inner());
+			case types.SumType:{
+				var tags = t.tags();
+				var res = [];
+				for( var i in tags ){
+					res.push( tags[i]+'#'+toHTML(t.inner(tags[i])) ); 
+				}	
+				return res.join('+');
+			}
 			case types.ExistsType:
 				return '&#8707;'+
 				'<span class="type_location">'+t.id().name()+'</span>'
@@ -353,8 +383,14 @@ var TypeChecker = function(){
 				return new FunctionType( rec(t.argument()), rec(t.body()) );
 			case types.BangType:
 				return new BangType( rec(t.inner()) );
-			case types.TaggedType:
-				return new TaggedType( t.tag(), rec(t.inner()) );
+			case types.SumType:{
+				var sum = new SumType();
+				var tags = t.tags();
+				for( var i in tags ){
+					sum.add( tags[i], rec(t.inner(tags[i])) ); 
+				}	
+				return sum;
+			}
 			case types.ExistsType:
 				// renaming is needed when the bounded location variable
 				// of the exists type is the same as the target name to replace
@@ -556,12 +592,36 @@ var TypeChecker = function(){
 			});
 			return env;
 		}
+		
+		this.isEqual = function(other){
+			if( this.size() != other.size() )
+				return false;
+				
+			var mine = this.allElements();
+			var theirs = other.allElements();
+			for( var id in mine ){
+				if( !theirs.hasOwnProperty(id) )
+					return false;
+				// FIXME: missing comparing capabilities and subtyping
+			}
+			return true;
+		}
 	};
 	
 	//
 	// TYPE CHECKER
 	//
 		
+	var findBranch = function(tag,ast){
+		for( var i=0; i<ast.branches.length; ++i ){
+			if( ast.branches[i].tag == tag )
+				return ast.branches[i];
+		}
+		return undefined;
+	}
+	
+	// TODO: needs match (type) and equals (type)
+
 	// removes all BangTypes
 	var unBang = function(t){
 		if( t.type() == types.BangType )
@@ -669,6 +729,10 @@ var TypeChecker = function(){
 		
 		switch(ast.kind) {
 			
+			case AST.kinds.PROGRAM:
+			// FIXME: temporary ignores important stuff!!
+				return check( ast.exp, env );
+			
 			// EXPRESSIONS
 			case AST.kinds.LET: {
 				var value = check( ast.val, env );
@@ -730,11 +794,59 @@ var TypeChecker = function(){
 				return new ExistsType(loc,exp);
 			}
 			
-			case AST.kinds.TAGGED_TYPE:
-			case AST.kinds.TAGGED: {
+			case AST.kinds.TAGGED: {  // FIXME this should move to tryBang
+				var sum = new SumType();
 				var tag = ast.tag;
 				var exp = check(ast.exp, env);
-				return new TaggedType(tag,exp);
+				sum.add( tag, exp);
+				return sum;
+			}
+			case AST.kinds.SUM_TYPE: {
+				var sum = new SumType();
+				for( var i=0; i<ast.sums.length;++i ){
+					var tag = ast.sums[i].tag;
+					var exp = check(ast.sums[i].exp, env);
+					sum.add( tag, exp);
+				}
+				return sum;
+			}
+			
+			case AST.kinds.CASE: {
+				var val = check(ast.exp, env);
+				val = unBang(val);
+				assert( val.type() == types.SumType,
+					"'" + val.type() + "' not a SumType", ast);
+				// checks only the branches that are listed in the sum type
+				var tags = val.tags();
+				var initEnv = env.clone();
+				var endEnv = null;
+				
+				for( var t in tags ){
+					var tag = tags[t];
+					var value = val.inner(tag);
+					var branch = findBranch(tag,ast);
+					assert( branch, 'Missing branch for '+tag, ast);
+
+					var e = env;
+					if( endEnv !== null ){
+						e = initEnv.clone();
+					}
+					
+					e = e.newScope();
+					value = unstack( value, e, branch.exp );
+					value = purify( value );
+					addName( branch.id, value, e, ast );
+					var res = check( branch.exp, e );
+					
+					if( endEnv === null ){
+						endEnv = e.endScope();
+					}else{
+						assert( endEnv.isEqual( e.endScope() ),
+							"Incompatible effects on field '" + id + "'", field);
+					}
+					safelyEndScope( res, e, ast.exp );
+				}
+				return UnitType;
 			}
 			
 			case AST.kinds.ID: {
@@ -938,14 +1050,27 @@ var TypeChecker = function(){
 			}
 			
 			
-			case AST.kinds.RECORD: {
+			case AST.kinds.RECORD: {  // FIXME this should move to tryBang
 				var rec = new RecordType();
 				var bang = true;
-						
+				
+				var initEnv = env.clone();
+				var endEnv = null;
+
 				for(var i=0;i<ast.exp.length;++i){
 					var field = ast.exp[i];
 					var id = field.id;
-					var value = check( field.exp, env );
+					
+					var value;
+					if( endEnv === null ){
+						value = check( field.exp, env );
+						endEnv = env;
+					}else{
+						var tmp_env = initEnv.clone();
+						value = check( field.exp, tmp_env );
+						assert( endEnv.isEqual(tmp_env),
+							"Incompatible effects on field '" + id + "'", field);
+					}
 					assert( rec.add(id, value),
 						"Duplicated field '" + id + "' in '"+rec+"'", field);
 					if( value.type() != types.BangType )
@@ -958,7 +1083,7 @@ var TypeChecker = function(){
 				return rec;
 			}
 			
-			case AST.kinds.TUPLE: {
+			case AST.kinds.TUPLE: { // FIXME this should move to tryBang
 				var rec = new TupleType();
 				var bang = true;
 						

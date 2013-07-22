@@ -85,10 +85,21 @@ var GrammarHighlightRules = function() {
     
     this.$rules = {
         "start" : [
+        	// comments
             {
                 token : "comment",
                 regex : "\\/\\/.*$"
-            }, {
+            }, 
+            // { FIXME
+                // token : "comment-start", // multi line comment
+                // regex : /\/\*/,
+                // next : "comment-end"
+            // }, {
+                // token: "comment-end",
+                // regex: /^#!.*$/
+            // },
+            // others...
+            {
                 token : "string", // single line
                 regex : '["](?:(?:\\\\.)|(?:[^"\\\\]))*?["]'
             }, {

@@ -1,15 +1,9 @@
 
-import "stdlib"
 
-typedef a = qwe
-typedef b = qwe
+fun( x : A#int + B#int ).(
+	case x of
+		A#a -> a
+	| B#b -> 0
+	| C#c -> 0
+	end)
 
-let x = {2,34,56} in
-
-	let [a,b,c] = x in
-		c
-	end;
-	Lib.println 2;
-	Lib.add 2 5
-    
-end
