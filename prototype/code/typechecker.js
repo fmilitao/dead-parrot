@@ -621,6 +621,37 @@ var TypeChecker = function(){
 		return undefined;
 	}
 	
+	// The only types that can be merged... for now?
+	var merge = function(t1,t2){
+		if( t1.type() !== t1.type () )
+			return undefined;
+		
+		if( t1.type() == types.BangType ){
+			var tmp = merge(t1.inner(),t2.inner());
+			if( tmp !== undefined )
+				return new BangType( tmp );
+		}
+		
+		if( t1.type() == types.PrimitiveType && 
+			t1.name() === t2.name() )
+			return t1;
+		
+		if( t1.type() == types.SumType ){
+			// merge both types
+			var tmp = new SumType();
+			var tags = t1.tags();
+			for( var i in tags ){
+				tmp.add( tags[i], t1.inner(tags[i] ) )
+			}
+			tags = t2.tags();
+			for( var i in tags ){
+				if( tmp.add( tags[i], t2.inner(tags[i] ) ) === undefined )
+					return undefined;
+			}
+			return tmp;
+		}
+		return undefined;
+	}
 	// TODO: needs match (type) and equals (type)
 
 	// removes all BangTypes
@@ -807,7 +838,8 @@ var TypeChecker = function(){
 				var tags = val.tags();
 				var initEnv = env.clone();
 				var endEnv = null;
-				// FIXME match results of all branches.
+				
+				var result = undefined;
 				for( var t in tags ){
 					var tag = tags[t];
 					var value = val.inner(tag);
@@ -831,9 +863,17 @@ var TypeChecker = function(){
 						assert( endEnv.isEqual( e.endScope() ),
 							"Incompatible effects on field '" + id + "'", field);
 					}
-					safelyEndScope( res, e, ast.exp );
+					res = safelyEndScope( res, e, ast.exp );
+					if( result === undefined )
+						result = res;
+					else {
+						var tmp = merge(result,res);
+						assert( tmp,"Incompatible branch results: "+
+							result+' vs '+res, ast);
+						result = tmp;
+					}
 				}
-				return UnitType;
+				return result;
 			}
 			
 			case AST.kinds.ID: {

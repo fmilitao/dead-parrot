@@ -2,8 +2,8 @@
 
 fun( x : A#int + B#int ).(
 	case x of
-		A#a -> a
-	| B#b -> 0
+		A#a -> My#123
+	| B#b -> Gutt#123
 	| C#c -> 0
 	end)
 

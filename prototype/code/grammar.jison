@@ -6,7 +6,6 @@
 
 \s+                   /* skip whitespace */
 \/\/.*                /* skip comments */
-// "/*"(.|\n|\r)*?"*/"  /* ignore multiline comment BROKEN HIGHGLIGHT https://github.com/benatkin/eon/blob/master/eon-jison.jisonlex*/
 "let"                 return 'LET'
 "open"                return 'OPEN'
 "in"                  return 'IN'
