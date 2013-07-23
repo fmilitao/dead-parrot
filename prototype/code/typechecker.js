@@ -1089,6 +1089,7 @@ var TypeChecker = function(){
 				// try to match TYPE to function's PARAMETER
 				var rec = function(t,p){ // FIXME
 					switch( p.type() ) {
+						/*
 						case types.StarType: {
 							var inners = p.inner();
 							if( t.type() == types.StarType ){
@@ -1101,6 +1102,8 @@ var TypeChecker = function(){
 								// FIXME not a star type, push all
 							}
 						}
+						return undefined;
+						*/
 						case types.StackedType: {
 							if( t.type() == types.StackedType )
 								return new StackedType(
