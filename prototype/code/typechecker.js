@@ -497,6 +497,8 @@ var TypeChecker = function(){
 	
 	var subtypeOf = function( t1 , t2 ){
 			
+							//console.log('HERE!: '+t1+' VS '+t2); // FIXME
+							
 		// types that can be "banged"
 		if ( ( t1.type() == types.ReferenceType || t1.type() == types.PrimitiveType 
 			|| ( t1.type() == types.RecordType && t1.isEmpty() ) ) // TODO tmp rule
@@ -553,6 +555,30 @@ var TypeChecker = function(){
 			case types.StackedType:
 				return subtypeOf( t1.left(), t2.left() ) &&
 					subtypeOf( t1.right(), t2.right() );
+			case types.StarType:{
+				var i1s = t1.inner();
+				var i2s = t2.inner();
+
+				if( i1s.length != i2s.length )
+					return false;
+				// for *-type, any order will do
+				var tmp_i2s = i2s.splice(0); // copies array
+				for(var i=0;i<i1s.length;++i){
+					var curr = i1s[i];
+					var found = false;
+					for(var j=0;j<tmp_i2s.length;++j){
+						var tmp = tmp_i2s[j];
+						if( subtypeOf(curr,tmp) ){
+							tmp_i2s.splice(j,1); // removes element
+							found = true;
+							break; // continue to next
+						}
+					}
+					if( !found )
+						return false;
+				}
+				return true;
+			}
 			case types.LocationVariable:
 				return t1.name() == t2.name();
 			case types.CapabilityType:
@@ -750,7 +776,7 @@ var TypeChecker = function(){
 	// to properly end a scope we use the following idiom of stacking all
 	// outstanding capability of the delta environment on top of the result
 	// 'type' and then pack all bounded location variables of the result
-	var safelyEndScope = function( type, env, ast){
+	var safelyEndScope = function( type, env, ast ){
 		// 1. stack all capabilities
 		var res = type;
 
@@ -1089,21 +1115,32 @@ var TypeChecker = function(){
 				// try to match TYPE to function's PARAMETER
 				var rec = function(t,p){ // FIXME
 					switch( p.type() ) {
-						/*
 						case types.StarType: {
 							var inners = p.inner();
 							if( t.type() == types.StarType ){
 								// already a star type, add the remaining types
 								// if they are not there already.
 								// ignore order
-								// FIXME
+								
+								// TODO: if this was manually added, assume all is there
+								/*
+								for(var i=0;i<inners.length;++i){
+									var tt = inners[i];
+									//FIXME: needs to make sure it is not adding
+									// the samething twice, but this should be fixed
+									// when proper abstracted types are added.
+									t.add(tt);	
+								}
+								*/
+								return t;
 							}
 							else {
-								// FIXME not a star type, push all
+								var tmp = new StarType();
+								for(var i=0;i<inners.length;++i)
+									tmp.add( inners[i] );
+								return new StackedType( t, tmp );
 							}
 						}
-						return undefined;
-						*/
 						case types.StackedType: {
 							if( t.type() == types.StackedType )
 								return new StackedType(
@@ -1264,23 +1301,45 @@ var TypeChecker = function(){
 			case AST.kinds.CAP_STACK: {
 				var exp = check( ast.exp, env );
 				var cap = check( ast.type, env );
-				var loc = cap.location().name();
-				var capI = capIndex( loc )
 				
-				var c = assert( env.remove( capI ),
-					'Missing capability '+loc, ast.type);
+				var capStack = function(cap){
+					assert( cap.type() == types.CapabilityType, // FIXME 
+						'Cannot stack ' +cap.type(), ast);
+					var loc = cap.location().name();
+					var capI = capIndex( loc )
+					var c = assert( env.remove( capI ),
+						'Missing capability '+loc, ast.type);
+		
+					var u = unBang(cap.value());
+		
+					// MINOR HACK, if the type of the capability has name '_' just 
+					// stack all of that type instead of 'cap'. This is only sound
+					// as long as there is not type variable with name '_' since
+					// there are no valid primitive types of that name. 
+					if( u.type() == types.PrimitiveType && u.name() == '_')
+						cap = c;
+					else{
+						assert( subtypeOf( c.value() , cap.value() ),
+							'Incompatible capability '+c.value()+' vs '+cap.value(), ast.type );
+					}
+					return cap;
+				};
+				
+				switch( cap.type() ){
+					default:
+						assert( false, 'Cannot stack '+cap.type(), ast.type );
+					case types.CapabilityType:
+						cap = capStack(cap);
+						break;
 
-				var u = unBang(cap.value());
-
-				// MINOR HACK, if the type of the capability has name '_' just 
-				// stack all of that type instead of 'cap'. This is only sound
-				// as long as there is not type variable with name '_' since
-				// there are no valid primitive types of that name. 
-				if( u.type() == types.PrimitiveType && u.name() == '_')
-					cap = c;
-				else{
-					assert( subtypeOf( c.value() , cap.value() ),
-						'Incompatible capability '+c.value()+' vs '+cap.value(), ast.type );
+					case types.StarType:
+						var tmp = new StarType();
+						var inners = cap.inner();
+						for(var i=0;i<inners.length;++i){
+							tmp.add( capStack(inners[i]) );
+						}
+						cap = tmp;
+						break;
 				}
 				
 				return new StackedType( exp, cap );

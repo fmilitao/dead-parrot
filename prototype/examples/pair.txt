@@ -7,7 +7,8 @@
 let newPair = fun( _ : [] ).
 	open <pl,l> = new {} in
 	open <pr,r> = new {} in
-		{ // FIXME: pack locations
+		{ // note that locations 'pl' and 'pr' are automatically packed
+		// since otherwise they could not leave this scope.
 			initL = fun( i : int :: rw pl [] ).( l := i ),
 			initR = fun( i : int :: rw pr [] ).( r := i ),
 			// FIXME needs basic addition, WAS !l+!r
@@ -23,7 +24,9 @@ let newPair = fun( _ : [] ).
 	open <r,x> = tmp in
 		x.initL(12);
 		x.initR(34);
-		x.sum({});
+		//x.sum({});
+		// intentionally switch order for testing
+		x.sum({}::(rw r int * rw l int));
 		x.destroy({})
 	end
 	end
