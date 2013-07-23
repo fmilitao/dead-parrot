@@ -39,6 +39,7 @@ var AST = new function(){
 		'RELY_TYPE',
 		'GUARANTEE_TYPE',
 		'STAR_TYPE',
+		'PRIMITIVE_TYPE',
 		// constructs
 		'FORALL',
 		'PACK',
@@ -207,6 +208,9 @@ var AST = new function(){
 	}
 	this.makeNameType = function(text, info){
 		return aux( this.kinds.NAME_TYPE, {text: text}, info);
+	}
+	this.makePrimitiveType = function(text, info){
+		return aux( this.kinds.PRIMITIVE_TYPE, {text: text}, info);
 	}
 	this.makeRefType = function(text, info){
 		return aux( this.kinds.REF_TYPE, {text: text}, info);

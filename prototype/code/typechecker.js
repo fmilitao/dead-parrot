@@ -1,16 +1,10 @@
 
-var TypeChecker = function(){
-
-	var assert = function(f,msg,ast){
-		return assertF("Type error",f,msg,ast);
-	}
-
-/*FIXME
+/* INCOMPLETE STUFF:
  *  X fields as intersection type.
  *  X case, problem on merging environments and result? subtyping?
  *  X star type, auto-stack should first collect all then just stack once
  *  X ensure star is commutative
- * 	-- TODO: better way to merge environments/types?
+ * 	-- Find better way to merge environments/types?
 
  *  - forall / exists with types and convenient labelling
  * 		-- this needs way to replace part of the types.
@@ -27,6 +21,12 @@ var TypeChecker = function(){
 		fun NAME( ... )
 		where NAME is the NAME to be used for the recursive call.
  */
+
+var TypeChecker = function(){
+
+	var assert = function(f,msg,ast){
+		return assertF("Type error",f,msg,ast);
+	}
 
 	//
 	// TYPES
@@ -205,8 +205,19 @@ var TypeChecker = function(){
 		return function(name){
 			inherit( this, type );
 			
-			// loc_counter should ensure unique name
-			var n = name==null ? 't<sub>'+(loc_counter++)+'</sub>' : name;
+			var n = name==null ? 't<sub>'+(unique_counter++)+'</sub>' : name;
+			
+			this.name = function(){ return n; }
+		};
+	}();
+	
+	var TypeVariable = function(){
+		var type = addType('TypeVariable');
+		
+		return function(name){
+			inherit( this, type );
+			
+			var n = name==null ? 'T<sub>'+(unique_counter++)+'</sub>' : name;
 			
 			this.name = function(){ return n; }
 		};
@@ -221,11 +232,26 @@ var TypeChecker = function(){
 		};
 	}();
 	
+	var NameType = function(){
+		var type = addType('NameType');
+		
+		return function(name){
+			inherit( this, type );
+			this.name = function(){ return name; }
+		};
+	}();
+	
 	//
 	// VISITORS
 	//
 	
-	// true : if location variable (loc) is not in type (t)
+	/**
+	 * Searchs types 't' for location variable 'loc'. isFresh if NOT present.
+	 * @param {Type} t that is to be traversed
+	 * @param {LocationVariable} loc that is to be found
+	 * @return {Boolean} true if location variableis NOT in type.
+	 */
+	//FIXME: this needs to be adapted for TypeVariables too. {LocationVariable,TypeVariable}
 	var isFresh = function (t,loc){
 		switch ( t.type() ){
 			case types.FunctionType:
@@ -243,7 +269,9 @@ var TypeChecker = function(){
 			}
 			case types.ExistsType:
 			case types.ForallType:
-				assert( t.id().name() != loc.name(), 'Assertion error: needs renaming?');
+				if( t.id().name() === loc.name() )
+					// the name is already bounded, so loc must be fresh
+					return true;
 				return isFresh(t.id(),loc) && isFresh(t.inner(),loc);
 			case types.ReferenceType:
 				return isFresh( t.location(), loc );
@@ -277,6 +305,7 @@ var TypeChecker = function(){
 			}
 			case types.LocationVariable:
 				return t.name() != loc.name();
+			case types.NameType:
 			case types.PrimitiveType:
 				return true;
 			default:
@@ -332,6 +361,7 @@ var TypeChecker = function(){
 			case types.TupleType:
 				return "["+t.getValues().join()+"]";
 			case types.LocationVariable:
+			case types.NameType:
 			case types.PrimitiveType:
 				return t.name();
 			default:
@@ -401,6 +431,7 @@ var TypeChecker = function(){
 			}
 			case types.LocationVariable:
 				return "<b>loc</b>";
+			case types.NameType:
 			case types.PrimitiveType:
 				return '<b>'+t.name()+'</b>';
 			default:
@@ -409,12 +440,26 @@ var TypeChecker = function(){
 			}
 	};
 	
-	// original : LocationVariable, target : string
-	// returns copied type with the renamed resulting type
-	// renames the location variables of type so that if there is one
-	// with label 'original' it will be changed to 'target'
+	/**
+	 * Substitutes in 'type' any occurances of 'original' to 'target'
+	 * 		type[original/target] ('original' for 'target')
+	 * @param {Type} type that is to be searched
+	 * @param {Type} when 'original' is found, it is replaced with
+	 * @param {LocationVariable} 'target'
+	 * @return a *copy* of 'type' where all instances of 'original' have been
+	 * 	replaced with 'target' (note that each target is the same and never
+	 * 	cloned).
+	 *  Note that it also RENAMES any bounded variable that colides with the
+	 *  'original' name so that bounded names are never wrongly substituted.
+	 */
 	var rename = function(type,original,target){
+		// FIXME: this will eventually be generalize to all types, not just location variables
+		assert( target.type() == types.LocationVariable , 'FIXME TMP' );
+		
 		function rec(t){
+			if( equals(t,original) )
+				return target;
+			
 			switch ( t.type() ){
 			case types.FunctionType:
 				return new FunctionType( rec(t.argument()), rec(t.body()) );
@@ -447,7 +492,7 @@ var TypeChecker = function(){
 				if( t.id().name() == original.name() ||
 					t.id().name() == target ){
 					var nloc = new LocationVariable(null); // fresh name
-					var ninner = rename( t.inner(), t.id(), nloc.name() );
+					var ninner = rename( t.inner(), t.id(), nloc );
 					return new ExistsType( nloc, rec(ninner) );	
 				}
 				return new ExistsType( t.id(), rec(t.inner()) );
@@ -455,11 +500,10 @@ var TypeChecker = function(){
 				if( t.id().name() == original.name() ||
 					t.id().name() == target ){
 					var nloc = new LocationVariable(null); // fresh name
-					var ninner = rename( t.inner(), t.id(), nloc.name() );
+					var ninner = rename( t.inner(), t.id(), nloc );
 					return new ForallType( nloc, rec(ninner) );	
 				}
 				return new ForallType( t.id(), rec(t.inner()) );
-				
 			case types.ReferenceType:
 				return new ReferenceType( rec(t.location()) );
 			case types.StackedType:
@@ -480,11 +524,9 @@ var TypeChecker = function(){
 					r.add( rec(fs[i]) );
 				return r;
 			}
-			case types.LocationVariable:
-				if( t.name() === original.name() )
-					return new LocationVariable(target);
-				return t;
 			case types.PrimitiveType:
+			case types.NameType:
+			case types.LocationVariable:
 				return t;
 			default:
 				assert( false, "Assertion error on " +t.type() );
@@ -494,6 +536,117 @@ var TypeChecker = function(){
 		return rec(type);
 	};
 	
+	/**
+	 * Tests if types 'a' and 'b' are the same.
+	 * Up to renaming of bounded variables, so that it renames existentials
+	 * and foralls. Thus, returns true when they are structurally equal, even
+	 * if their labels in existentials are of different strings values.
+	 * @param {Type} a
+	 * @param {Type} b
+	 * @return {Boolean} if the types are equal up to renaming.
+	 */
+	var equals = function(a,b){
+		if( a.type() !== b.type() )
+			return false;
+		
+		// assuming both same type
+		switch ( a.type() ){
+			case types.FunctionType:
+				return equals(a.argument(),b.argument()) &&
+					equals(a.body(),b.body());
+			case types.BangType:
+				return equals(a.inner(),b.inner());
+			case types.SumType:{
+				var as = a.tags();
+				var bs = b.tags();
+				if( Object.keys(as).length != Object.keys(bs).length )
+					return false;
+				for( var i in as )
+					if( !bs.hasOwnProperty(i) || !equals(as[i],bs[i]) )
+						return false;
+				return true;
+			}
+
+			/* FIXME
+			case types.StarType:{
+				var star = new StarType();
+				var inners = t.inner();
+				for( var i=0;i<inners.length;++i){
+					star.add( rec(inners[i]) ); 
+				}	
+				return star;
+			} */
+			
+			/* FIXME
+			case types.ExistsType:
+				// renaming is needed when the bounded location variable
+				// of the exists type is the same as the target name to replace
+				// or when it is the same as the original name to replace
+				// 1. when variable to be renamed is the same as bounded var:
+				// (exists t.(ref t)){t/X} -> must rename location of exists
+				// 2. when target name is the same as bounded var:
+				// (exists t.(ref t)){g/t} -> must rename location of exists
+				if( t.id().name() == original.name() ||
+					t.id().name() == target ){
+					var nloc = new LocationVariable(null); // fresh name
+					var ninner = rename( t.inner(), t.id(), nloc );
+					return new ExistsType( nloc, rec(ninner) );	
+				}
+				return new ExistsType( t.id(), rec(t.inner()) );
+			case types.ForallType:
+				if( t.id().name() == original.name() ||
+					t.id().name() == target ){
+					var nloc = new LocationVariable(null); // fresh name
+					var ninner = rename( t.inner(), t.id(), nloc );
+					return new ForallType( nloc, rec(ninner) );	
+				}
+				return new ForallType( t.id(), rec(t.inner()) );
+				*/
+			
+			case types.ReferenceType:
+				return equals( a.location(), b.location() );
+			case types.StackedType:
+				return equals( a.left(), b.left() ) &&
+					equals( a.rigth(), b.rigth() );
+			case types.CapabilityType:
+				return equals( a.location(), b.location() ) &&
+					equals( a.value(), b.value() );
+			case types.RecordType: {
+				var as = a.getFields();
+				var bs = b.getFields();
+				if( Object.keys(as).length != Object.keys(bs).length )
+					return false;
+				for( var i in as )
+					if( !bs.hasOwnProperty(i) || !equals(as[i],bs[i]) )
+						return false;
+				return r;
+			} 
+			case types.TupleType: {
+				var as = a.getValues();
+				var bs = b.getValues();
+				if( as.length != bs.length )
+					return false;
+				for( var i=0;i<as.length;++i )
+					if( !equals(as[i],bs[i]) )
+						return false;
+				return true;
+			}
+			case types.PrimitiveType:
+			case types.NameType:
+			case types.LocationVariable:
+				return a.name() === b.name();
+			default:
+				assert( false, "Assertion error on " +t.type() );
+				break;
+			}
+	};
+	
+	/**
+	 * Subtyping two types.
+	 * @param {Type} t1
+	 * @param {Type} t2
+	 * @return {Boolean} true if t1 <: t2 (if t1 can be used as t2).
+	 */
 	var subtypeOf = function( t1 , t2 ){
 			
 							//console.log('SUBTYPE:');
@@ -502,7 +655,8 @@ var TypeChecker = function(){
 							//console.log(t1.type()+'-----'+t2.type());
 
 		// types that can be "banged"
-		if ( ( t1.type() == types.ReferenceType || t1.type() == types.PrimitiveType 
+		if ( ( t1.type() == types.ReferenceType
+			|| t1.type() == types.PrimitiveType
 			|| ( t1.type() == types.RecordType && t1.isEmpty() ) )
 			&& t2.type() == types.BangType )
 			return subtypeOf( t1, t2.inner() );
@@ -523,8 +677,9 @@ var TypeChecker = function(){
 		
 		//else: safe to assume same type from here on
 		switch ( t1.type() ){
+			case types.NameType:
 			case types.PrimitiveType:
-				return t1.toString() == t2.toString();
+				return t1.name() == t2.name();
 			case types.BangType:
 				// if t2 is unit: "top" rule
 				if( t2.inner().type() == types.RecordType && t2.inner().isEmpty() )
@@ -589,7 +744,7 @@ var TypeChecker = function(){
 			
 			case types.ForallType:		
 			case types.ExistsType:{
-				var loc = t1.id().name();
+				var loc = t1.id();
 				// renamed to ensure location variables names match
 				var rn = rename( t2.inner(), t2.id(), loc);
 				return subtypeOf( t1.inner(), rn );
@@ -744,9 +899,8 @@ var TypeChecker = function(){
 		return t;
 	}
 	
-	var capIndex = function(id){
-		return "."+id;
-	}
+	var capIndex = function(id){ return "."+id; }
+	var namIndex = function(id){ return "$"+id; }
 	
 	// unstacks to 'delta' all capabilities stacked in type
 	var unstack = function( type, d, ast ){
@@ -760,6 +914,7 @@ var TypeChecker = function(){
 				assert( d.set( capI , type ) ,
 					'Duplicated capability for '+ capN, ast );
 				return null; // ok but no type
+			// FIXME also NameType ?
 			case types.StarType:{
 				var tps = type.inner();
 				for( var i=0; i<tps.length; ++i ){
@@ -770,8 +925,8 @@ var TypeChecker = function(){
 				}
 				return null; // ok but no type
 			}
-		}
 		// default: nothing to unstack
+		}
 		return type;
 	}
 	
@@ -813,7 +968,7 @@ var TypeChecker = function(){
 		env.elements(function(e,el){
 			if( el.type() == types.LocationVariable && !isFresh(res,el) ){
 				var loc = new LocationVariable(null);
-				res = new ExistsType( loc, rename( res, el, loc.name() ) );
+				res = new ExistsType( loc, rename( res, el, loc ) );
 			}
 		});
 		return res;	
@@ -822,6 +977,9 @@ var TypeChecker = function(){
 	var addName = function(id,value,e,ast){
 		// check for collisions
 		var ee;
+		// FIXME TypeVariables are like location variables
+		// FIXME PrimitiveTypes and NameTypes are indexed by their name and .#
+		// problem with duplicates when sharing is introduced?
 		if( value.type() == types.LocationVariable ){
 			// cannot occur anywhere
 			ee = e.get(id);
@@ -849,7 +1007,6 @@ var TypeChecker = function(){
 		var res = check_inner(ast,env);
 		return res;
 	};
-	
 
 	// returns a type or throws exception with type error
 	var check_inner = function( ast, env ) {
@@ -886,13 +1043,13 @@ var TypeChecker = function(){
 
 				var e = env.newScope();
 				var loc = ast.type;
+				var locvar = new LocationVariable(loc);
 
-				value = rename( value.inner(), value.id(), loc );
+				value = rename( value.inner(), value.id(), locvar );
 				value = unstack( value, e, ast);
 				
 				value = purify(value);
 
-				var locvar = new LocationVariable(loc);
 				addName( ast.id, value, e, ast );
 				addName( loc, locvar, e, ast );
 				
@@ -905,7 +1062,7 @@ var TypeChecker = function(){
 				
 				var packed = check(ast.id, env);
 				switch( packed.type() ){
-					case types.PrimitiveType:
+					case types.NameType:
 						var loc;
 						if( ast.label === null ) // no label given
 							loc = new LocationVariable(null);
@@ -921,7 +1078,7 @@ var TypeChecker = function(){
 						assert( isFresh(exp,loc),
 							'Label "'+loc.name()+'" is not fresh in '+exp, ast);
 		
-						exp = rename( exp , id, loc.name() );
+						exp = rename( exp , id, loc );
 						return new ExistsType(loc,exp);
 					//TODO: remaining types
 					default:
@@ -1145,20 +1302,10 @@ var TypeChecker = function(){
 						case types.StarType: {
 							var inners = p.inner();
 							if( t.type() == types.StarType ){
-								// already a star type, add the remaining types
-								// if they are not there already.
-								// ignore order
-								
-								// TODO: if this was manually added, assume all is there
-								/*
-								for(var i=0;i<inners.length;++i){
-									var tt = inners[i];
-									// needs to make sure it is not adding
-									// the samething twice, but this should be fixed
-									// when proper abstracted types are added.
-									t.add(tt);	
-								}
-								*/
+								// if the type is already a star type, we 
+								// assume that it has all types there and do not
+								// auto-stack anything since otherwise we would
+								// need to compare and see what is missing, etc.
 								return t;
 							}
 							else {
@@ -1213,14 +1360,14 @@ var TypeChecker = function(){
 				
 				var packed = check(ast.id, env);
 				switch( packed.type() ){
-					case types.PrimitiveType:
+					case types.NameType:
 						var id = packed.name();
 						var loc = env.get( id );
 						
-						assert( loc != undefined && loc.type() == types.LocationVariable,
+						assert( loc !== undefined && loc.type() === types.LocationVariable,
 							'Unknow Location Variable '+id, ast );
 		
-						return rename( exp.inner(), exp.id(), loc.name() );
+						return rename( exp.inner(), exp.id(), loc );
 					//TODO: remaining types
 					default:
 						assert(false, 'FIXME'); // FIXME
@@ -1284,6 +1431,7 @@ var TypeChecker = function(){
 				
 				var loc = new LocationVariable(id);
 				e.set( id, loc );
+				// toUpperCase
 
 				return new ExistsType( loc,
 					check( ast.type, e ) );
@@ -1350,7 +1498,7 @@ var TypeChecker = function(){
 					// stack all of that type instead of 'cap'. This is only sound
 					// as long as there is not type variable with name '_' since
 					// there are no valid primitive types of that name. 
-					if( u.type() == types.PrimitiveType && u.name() == '_')
+					if( u.type() == types.NameType && u.name() == '_')
 						cap = c;
 					else{
 						assert( subtypeOf( c.value() , cap.value() ),
@@ -1392,6 +1540,8 @@ var TypeChecker = function(){
 			}
 			
 			case AST.kinds.NAME_TYPE:
+				return new NameType(ast.text);
+			case AST.kinds.PRIMITIVE_TYPE:
 				// any primitive type is acceptable but only ints, booleans
 				// and strings have actual values that match a primitive type.
 				return new PrimitiveType(ast.text);
@@ -1526,11 +1676,11 @@ var TypeChecker = function(){
 	
 	var type_info = [];
 	//var debug_msg = '';
-	var loc_counter = 0;
+	var unique_counter = 0;
 
 	return function(ast,typeinfo){
 		// reset typechecke's state.
-		loc_counter = 0;
+		unique_counter = 0;
 		type_info = [];
 		//debug_msg = '';
 		

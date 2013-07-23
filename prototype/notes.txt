@@ -1,7 +1,6 @@
 REMEMBER:
  	- to disable chrome's cache
  	- launch 'static' on trunk/
- 	-- MESSY USE OF == VS ===
  	
 TODO:
 	-- multi-open and multi-pack syntax sugar? use arrays of stuff
@@ -29,7 +28,8 @@ LOW PRIORITY:
  	might be messy to do with the share construct.
 
 CODE STYLE:
-	- use 'instanceof' instead of has prorperty ast for errors
+ 	--- ALWAYS USE IDENTITY === and !==
+	- use 'instanceof' instead of has prorperty 'ast' for errors
 	+ use finally for exceptions?
 	- CONSTANTS ARE CAPPED
 	- console.debug for debug messages

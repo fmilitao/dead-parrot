@@ -6,6 +6,9 @@
 
 \s+                   /* skip whitespace */
 \/\/.*                /* skip comments */
+"int"                 return 'INT_TYPE'
+"boolean"             return 'BOOLEAN_TYPE'
+"string"              return 'STRING_TYPE'
 "let"                 return 'LET'
 "open"                return 'OPEN'
 "in"                  return 'IN'
@@ -118,6 +121,13 @@ type :
 	 	{ $$ = AST.makeRecordType($2,@$); }
 	| '[' type_list ']'
 		{ $$ = AST.makeTupleType($2,@$); }
+	// Primitive Types
+	| INT_TYPE
+	 	{ $$ = AST.makePrimitiveType(yytext,@$); }
+	| BOOLEAN_TYPE
+	 	{ $$ = AST.makePrimitiveType(yytext,@$); }
+	| STRING_TYPE
+	 	{ $$ = AST.makePrimitiveType(yytext,@$); }
 	//| NONE
 		// FIXME!!
 	;

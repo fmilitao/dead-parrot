@@ -1,4 +1,3 @@
 
 
-// free
-0
+(<X>fun( x : X ).x) [ [f:int] ]
