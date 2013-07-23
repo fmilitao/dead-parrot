@@ -1,9 +1,0 @@
-//TODO: this code is broken pending the field selection fix.
-
-let x = new { f = new false , g = 1 } in
-
-	let y = !x.f in
-		y := 1
-	end;
-	x // packed as: "ref [ f : ref int , g : int ]" so that it can move outside this scope
-end

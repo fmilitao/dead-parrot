@@ -4,12 +4,10 @@ REMEMBER:
  	-- MESSY USE OF == VS ===
  	
 TODO:
- 	test-ok12.txt can only be readded once recursion is typing.
 	-- multi-open and multi-pack syntax sugar? use arrays of stuff
 	open <a,b,c,d,x> = <p,q,X, ... >
-
 	
-======================
+=========================================
 
 - location variables cannot be hidden, or renamed
 - try to stack all "touched" capabilities at the end of a method.
@@ -22,7 +20,7 @@ always possible anyway.
 - check that OPEN does not produce a resulting environment/type that
 depends on scoped types.
 	
-========================================
+=========================================
 
 LOW PRIORITY:
  - define when parentesis are needed in toHTML

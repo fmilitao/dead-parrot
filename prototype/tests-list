@@ -9,6 +9,7 @@ test-ok8.txt
 test-ok9.txt
 test-ok10.txt
 test-ok11.txt
+#test-ok12.txt #requires recursion
 test-ok13.txt
 test-ok14.txt
 test-ok15.txt
@@ -18,3 +19,5 @@ test-fail3.txt
 test-fail4.txt
 test-fail5.txt
 test-fail6.txt
+#test-fail7.txt #requires recursion
+test-fail8.txt

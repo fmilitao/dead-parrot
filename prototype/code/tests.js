@@ -65,7 +65,13 @@ $.ajax({
 		async : false,
 		url : "tests-list",
 		success : function(data) {
-			examples = data.split('\n'); 
+			examples = data.split('\n');
+			var tmp = [];
+			for(var i=0;i<examples.length;++i){
+				if( examples[i][0] != '#' ) // ignore commented stuff
+					tmp.push( examples[i] );
+			}
+			examples = tmp;
 		}
 	});
 
