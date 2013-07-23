@@ -1,5 +1,6 @@
 
 // BROKEN: type checking is not ready yet
+// FIXME: broken multi-open syntax sugar
 
 typedef Behavioral = forall A.TODO
 

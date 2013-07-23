@@ -4,7 +4,9 @@ REMEMBER:
  	-- MESSY USE OF == VS ===
  	
 TODO:
-	-- multi-open and multi-pack syntax sugar?
+ 	test-ok12.txt can only be readded once recursion is typing.
+	-- multi-open and multi-pack syntax sugar? use arrays of stuff
+	open <a,b,c,d,x> = <p,q,X, ... >
 
 	
 ======================

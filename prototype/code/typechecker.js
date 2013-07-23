@@ -8,14 +8,13 @@ var TypeChecker = function(){
 /*FIXME
  *  X fields as intersection type.
  *  X case, problem on merging environments and result? subtyping?
+ *  X star type, auto-stack should first collect all then just stack once
+ *  X ensure star is commutative
  * 	-- TODO: better way to merge environments/types?
 
  *  - forall / exists with types and convenient labelling
  * 		-- this needs way to replace part of the types.
- * 		-- type substitution TYPE for LABEL
  
- * *  - star type, auto-stack should first collect all then just stack once
- *  - ensure star is commutative
  *  - ALTERNATIVES ... this will be messy, probably
  *  - recursion
  *  - recursive types and typedefs, needs indirection on types?
@@ -504,11 +503,11 @@ var TypeChecker = function(){
 
 		// types that can be "banged"
 		if ( ( t1.type() == types.ReferenceType || t1.type() == types.PrimitiveType 
-			|| ( t1.type() == types.RecordType && t1.isEmpty() ) ) // TODO tmp rule
+			|| ( t1.type() == types.RecordType && t1.isEmpty() ) )
 			&& t2.type() == types.BangType )
 			return subtypeOf( t1, t2.inner() );
 		
-		// FIXME if all fields of a record are pure, then type should be pure?
+		// TODO all subtyping rules need to be synced with paper
 		
 		// "ref" t1: (ref p) <: !(ref p)
 		if ( t1.type() == types.ReferenceType && t2.type() == types.BangType )
@@ -842,7 +841,6 @@ var TypeChecker = function(){
 		e.set( id, value );
 	}
 
-	// FIXME more information?
 	// this wrapper function allows us to inspect the type and envs
 	// of some node, while leaving the checker mostly clean.
 	var check = function(ast,env) {
@@ -904,24 +902,31 @@ var TypeChecker = function(){
 			
 			case AST.kinds.PACK: {
 				var exp = check(ast.exp, env);
-				var loc;
-				if( ast.label === null ) // no label given
-					loc = new LocationVariable(null);
-				else
-					loc = new LocationVariable(ast.label);
 				
-				var id = env.get( ast.id ); // old location variable
-				
-				assert( id, "Identifier '" + ast.id + "' not found", ast);
-				
-				assert( id.type() == types.LocationVariable,
-					"'" + ast.id + "' not a Location Variable", ast);
-
-				assert( isFresh(exp,loc),
-					'Label "'+loc.name()+'" is not fresh in '+exp, ast);
-
-				exp = rename( exp , id, loc.name() );
-				return new ExistsType(loc,exp);
+				var packed = check(ast.id, env);
+				switch( packed.type() ){
+					case types.PrimitiveType:
+						var loc;
+						if( ast.label === null ) // no label given
+							loc = new LocationVariable(null);
+						else
+							loc = new LocationVariable(ast.label);
+						var id = env.get( packed.name() ); // old location variable
+						
+						assert( id, "Identifier '" + ast.id + "' not found", ast);
+						
+						assert( id.type() == types.LocationVariable,
+							"'" + ast.id + "' not a Location Variable", ast);
+		
+						assert( isFresh(exp,loc),
+							'Label "'+loc.name()+'" is not fresh in '+exp, ast);
+		
+						exp = rename( exp , id, loc.name() );
+						return new ExistsType(loc,exp);
+					//TODO: remaining types
+					default:
+						assert(false, 'FIXME'); // FIXME
+				}
 			}
 			
 			case AST.kinds.SUM_TYPE: {
@@ -1135,7 +1140,7 @@ var TypeChecker = function(){
 				var fun_arg = fun.argument();
 
 				// try to match TYPE to function's PARAMETER
-				var rec = function(t,p){ // FIXME
+				var rec = function(t,p){
 					switch( p.type() ) {
 						case types.StarType: {
 							var inners = p.inner();
@@ -1148,7 +1153,7 @@ var TypeChecker = function(){
 								/*
 								for(var i=0;i<inners.length;++i){
 									var tt = inners[i];
-									//FIXME: needs to make sure it is not adding
+									// needs to make sure it is not adding
 									// the samething twice, but this should be fixed
 									// when proper abstracted types are added.
 									t.add(tt);	
@@ -1186,7 +1191,7 @@ var TypeChecker = function(){
 	
 								return new StackedType( t, cap );
 							}
-						}	// FIXME	
+						}	
 					}
 					return t;
 				}
@@ -1206,13 +1211,20 @@ var TypeChecker = function(){
 				assert( exp.type() == types.ForallType , 
 					'Not a Forall '+exp.toString(), ast.exp );
 				
-				var id = ast.id;
-				var loc = env.get( id );
-				
-				assert( loc != undefined && loc.type() == types.LocationVariable,
-					'Unknow Location Variable '+id, ast );
-
-				return rename( exp.inner(), exp.id(), loc.name() );
+				var packed = check(ast.id, env);
+				switch( packed.type() ){
+					case types.PrimitiveType:
+						var id = packed.name();
+						var loc = env.get( id );
+						
+						assert( loc != undefined && loc.type() == types.LocationVariable,
+							'Unknow Location Variable '+id, ast );
+		
+						return rename( exp.inner(), exp.id(), loc.name() );
+					//TODO: remaining types
+					default:
+						assert(false, 'FIXME'); // FIXME
+				}
 			}
 			
 			case AST.kinds.TUPLE: {
@@ -1325,7 +1337,8 @@ var TypeChecker = function(){
 				var cap = check( ast.type, env );
 				
 				var capStack = function(cap){
-					assert( cap.type() == types.CapabilityType, // FIXME 
+					 // FIXME this is limited to caps only, should allow types
+					assert( cap.type() == types.CapabilityType, 
 						'Cannot stack ' +cap.type(), ast);
 					var loc = cap.location().name();
 					var capI = capIndex( loc )
@@ -1487,7 +1500,7 @@ var TypeChecker = function(){
 		
 		for( var i=0; i<keys.length; ++i ){
 			var val = env.get(keys[i]);
-			// if duplicated do not print it... sort of lame FIXME
+			// if duplicated do not print it... sort of lame
 			if( keys.indexOf(keys[i]) < i ){
 				continue;
 			}

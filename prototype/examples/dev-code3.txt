@@ -1,7 +1,5 @@
 
-<p><t>fun( x : int :: ( rw p int * rw t int ) ).(
-	let y = x in
-		0
-	end
-)
+// Free
+
+0
 

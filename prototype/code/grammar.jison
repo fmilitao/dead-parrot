@@ -74,9 +74,9 @@ type_root :
 		{ $$ = AST.makeForallType($2,$4,@$); }
 	| EXISTS IDENTIFIER '.' type_root
 		{ $$ = AST.makeExistsType($2,$4,@$); }
-	 | REC IDENTIFIER '.' type_root // FIXME
 	| type_fun '(+)' type_root
 		{ $$ = AST.makeAlternativeType($1,$3,@$); }
+	| REC IDENTIFIER '.' type_root // FIXME
 	;
 
 type_fun :
@@ -93,7 +93,7 @@ type_fun :
 
 type_cap :
 	  type
-	| type_cap '::' type // FIXME should multiple stacks be forbidden?
+	| type_cap '::' type
 		{ $$ = AST.makeStackedType($1,$3,@$); }
 	| star_type
 		{ $$ = AST.makeStarType($1,@$); }
@@ -112,14 +112,14 @@ type :
 	 	{ $$ = $2; }
 	| RW IDENTIFIER type
 		{ $$ = AST.makeCapabilityType($2,$3,@$); }
-	//| NONE
-		// FIXME!!
 	| '[' ']'
 	 	{ $$ = AST.makeRecordType([],@$); }
 	| '[' field_types ']'
 	 	{ $$ = AST.makeRecordType($2,@$); }
 	| '[' type_list ']'
 		{ $$ = AST.makeTupleType($2,@$); }
+	//| NONE
+		// FIXME!!
 	;
 
 tagged :
@@ -184,7 +184,6 @@ import :
 		{ $$ = $2; }
 	;
 
-
 typedefs :
 	typedef
 		{ $$ = [$1]; }
@@ -221,7 +220,7 @@ nonsequence :
 		{ $$ = AST.makeAssign($1,$3,@$); }
 	| nonsequence expression
 		{ $$ = AST.makeCall($1,$2,@$); }
-	| nonsequence '[' IDENTIFIER ']' // FIXME switch to type
+	| nonsequence '[' type_root ']'
 		{ $$ = AST.makeTypeApp($1,$3,@$); }
 	| nonsequence '::' type
 		{ $$ = AST.makeCapStack($1,$3,@$); }
@@ -235,9 +234,9 @@ expression :
 		{ $$ = AST.makeNew($2,@$); }
 	| '<' IDENTIFIER '>' expression
 		{ $$ = AST.makeForall($2,$4,@$); }
-	| '<' IDENTIFIER ',' sequence '>' //FIXME: type_root
+	| '<' type_root ',' sequence '>'
 		{ $$ = AST.makePack($2,null,$4,@$); }
-	| '<' IDENTIFIER ':' IDENTIFIER ',' sequence '>'
+	| '<' type_root ':' IDENTIFIER ',' sequence '>'
 		{ $$ = AST.makePack($2,$4,$6,@$); }
 	| DELETE expression
 		{ $$ = AST.makeDelete($2,@$); }

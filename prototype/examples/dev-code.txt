@@ -1,1 +1,4 @@
-(fun EternalLoop(x:int). (EternalLoop x)) 1
+
+
+// free
+0
