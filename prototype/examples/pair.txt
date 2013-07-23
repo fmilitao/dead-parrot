@@ -1,20 +1,23 @@
 // Pair example + client code.
 
-// In this version we just abstract the location variable.
-// The 'typestate' example file abstracts the capability type, thus
-// creating a proper typestate.
+// In this version we just abstract the location variables.
+// The 'typestate' version of this example abstracts the capability
+// type, thus creating a proper typestate.
 
 let newPair = fun( _ : [] ).
 	open <pl,l> = new {} in
 	open <pr,r> = new {} in
-		{ // note that locations 'pl' and 'pr' are automatically packed
-		// since otherwise they could not leave this scope.
+		// packs 'pl' as "left" and 'pr' as "right"
+		<pl:left,<pr:right,
+			{
 			initL = fun( i : int :: rw pl [] ).( l := i ),
 			initR = fun( i : int :: rw pr [] ).( r := i ),
 			// FIXME needs basic addition, WAS !l+!r
 			sum = fun( _ : [] :: ( rw pl int * rw pr int ) ). !l,
 			destroy = fun ( _ : [] :: ( rw pl int * rw pr int ) ).( delete l; delete r ) 
-		}
+			}::( rw pr [] * rw pl [] )
+			// we must explicitly stacks caps to ensure they are placed inside the packed value
+		>>
 	end
 	end
 	in

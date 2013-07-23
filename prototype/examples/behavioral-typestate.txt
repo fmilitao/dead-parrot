@@ -1,4 +1,6 @@
 
+// BROKEN: type checking is not ready yet
+
 typedef Behavioral = forall A.TODO
 
 //

@@ -497,8 +497,11 @@ var TypeChecker = function(){
 	
 	var subtypeOf = function( t1 , t2 ){
 			
-							//console.log('HERE!: '+t1+' VS '+t2); // FIXME
-							
+							//console.log('SUBTYPE:');
+							//console.log(t1);
+							//console.log(t2);
+							//console.log(t1.type()+'-----'+t2.type());
+
 		// types that can be "banged"
 		if ( ( t1.type() == types.ReferenceType || t1.type() == types.PrimitiveType 
 			|| ( t1.type() == types.RecordType && t1.isEmpty() ) ) // TODO tmp rule
@@ -778,23 +781,34 @@ var TypeChecker = function(){
 	// 'type' and then pack all bounded location variables of the result
 	var safelyEndScope = function( type, env, ast ){
 		// 1. stack all capabilities
-		var res = type;
-
-// FIXME: this should instead use star type.
+		var tmp = new StarType();
 
 		env.elements(function(id,cap){
-			if( res != undefined ){
-				if( cap.type() == types.CapabilityType )
-					res = new StackedType( res, cap );
-				else // fails if attempty to stack something else, unless
-					// it is a location variable or bangtyped 
-				if( cap.type() != types.LocationVariable &&
-					cap.type() != types.BangType )
+			
+			switch( cap.type() ){
+				case types.CapabilityType:
+					tmp.add( cap );
+					break;
+				// these can be ignored
+				case types.BangType:
+				case types.LocationVariable:
+					break;
+				default:
+					// fails if attempting to stack something else
 					assert( false, 'Auto-stack failure: '+cap.type(), ast );
 			}
+
 		});
-		//TODO forEach fix name.
-		assert( res, 'Auto-stack failure, not capability?', ast );
+		
+		var res = type;
+		// if there's something to stack
+		var ll = tmp.inner().length;
+		if( ll > 0 ){
+			if( ll == 1 ) // no need for star when there is just one
+				res = new StackedType( res, tmp.inner()[0] );
+			else
+				res = new StackedType( res, tmp );
+		}
 
 		// 2. pack all bounded location variables
 		env.elements(function(e,el){
@@ -890,13 +904,21 @@ var TypeChecker = function(){
 			
 			case AST.kinds.PACK: {
 				var exp = check(ast.exp, env);
-				var loc = new LocationVariable(null);
+				var loc;
+				if( ast.label === null ) // no label given
+					loc = new LocationVariable(null);
+				else
+					loc = new LocationVariable(ast.label);
+				
 				var id = env.get( ast.id ); // old location variable
 				
 				assert( id, "Identifier '" + ast.id + "' not found", ast);
 				
 				assert( id.type() == types.LocationVariable,
 					"'" + ast.id + "' not a Location Variable", ast);
+
+				assert( isFresh(exp,loc),
+					'Label "'+loc.name()+'" is not fresh in '+exp, ast);
 
 				exp = rename( exp , id, loc.name() );
 				return new ExistsType(loc,exp);
@@ -1309,7 +1331,6 @@ var TypeChecker = function(){
 					var capI = capIndex( loc )
 					var c = assert( env.remove( capI ),
 						'Missing capability '+loc, ast.type);
-		
 					var u = unBang(cap.value());
 		
 					// MINOR HACK, if the type of the capability has name '_' just 
