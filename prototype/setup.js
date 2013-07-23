@@ -204,11 +204,13 @@ $(document).ready(function() {
 		$.get( "tests-list" , function(data) {
 			var file = data.split('\n');
 			for( var i=0 ; i<file.length ; ++i ){
-				var option = $('<option/>', {
-	        		value: 'examples/tests/'+file[i],
-	        		text: file[i]
-				});
-				TEST_LIST.append(option);
+				if( file[i][0] != '#' ){ // ignore commented out file
+					var option = $('<option/>', {
+		        		value: 'examples/tests/'+file[i],
+		        		text: file[i]
+					});
+					TEST_LIST.append(option);
+				}
 	    	}
 		});
 	    	
