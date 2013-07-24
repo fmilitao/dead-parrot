@@ -1,5 +1,14 @@
 
-<int:P,0>
+// FIXME: move this to test case.
+open <T,x> = <int,new 0> in
+   open <t,y> = x in
+      <t:a,!y::rw t !T>
+   end
+end
+
+
+
+//<int:P,0>
 
 //<int:TESTING,
 //	<X>fun( x : X ).0

@@ -17,9 +17,9 @@
  *  - all sharing bits: focus, defocus, sharing and their framing
  *  - rely/guarantee
  * 	- subtyping fixes: tagged sums, pairs, etc. all those rules are missing
- * 	- recursion, only for functions and of the form:
-		fun NAME( ... )
-		where NAME is the NAME to be used for the recursive call.
+
+ ---> problem: indexing must be rethought to allow duplicated entries once 
+ sharing is introduced.
  */
 
 var TypeChecker = function(){
@@ -248,10 +248,11 @@ var TypeChecker = function(){
 	/**
 	 * Searchs types 't' for location variable 'loc'. isFresh if NOT present.
 	 * @param {Type} t that is to be traversed
-	 * @param {LocationVariable} loc that is to be found
+	 * @param {LocationVariable,TypeVariable} loc that is to be found
 	 * @return {Boolean} true if location variableis NOT in type.
+	 * Note that all variable names collide so that checking for 
+	 * LocationVariable versus TypeVariable is not necessary.
 	 */
-	//FIXME: this needs to be adapted for TypeVariables too. {LocationVariable,TypeVariable}
 	var isFresh = function (t,loc){
 		switch ( t.type() ){
 			case types.FunctionType:
@@ -468,8 +469,6 @@ var TypeChecker = function(){
 	 *  'original' name so that bounded names are never wrongly substituted.
 	 */
 	var rename = function(type,original,target){
-		// FIXME: this will eventually be generalize to all types, not just location variables
-		//assert( target.type() == types.LocationVariable , 'FIXME TMP' );
 		
 		function rec(t){
 			if( equals(t,original) )
@@ -929,33 +928,43 @@ var TypeChecker = function(){
 	}
 	
 	var capIndex = function(id){ return "."+id; }
-	var namIndex = function(id){ return "$"+id; }
 	
 	// unstacks to 'delta' all capabilities stacked in type
 	var unstack = function( type, d, ast ){
-		switch( type.type() ){
-			case types.StackedType:
-				unstack( type.right(), d, ast );
-				return unstack( type.left(), d, ast );
-			case types.CapabilityType:
-				var capN = type.location().name(); 
-				var capI = capIndex( capN );
-				assert( d.set( capI , type ) ,
-					'Duplicated capability for '+ capN, ast );
-				return null; // ok but no type
-			// FIXME also NameType ?
-			case types.StarType:{
-				var tps = type.inner();
-				for( var i=0; i<tps.length; ++i ){
-					var capN = tps[i].location().name(); 
+		
+		if( type.type() === types.StackedType ){
+			
+			var unstackType = function(t){
+				switch( t.type() ){
+				case types.CapabilityType:
+					var capN = t.location().name(); 
 					var capI = capIndex( capN );
-					assert( d.set( capI , tps[i] ) ,
-						 'Duplicated capability for '+ capN, ast );
+					assert( d.set( capI , t ) ,
+						'Duplicated capability for '+ capN, ast );
+					break;
+				case types.TypeVariable:
+					var capN = t.name(); 
+					var capI = capIndex( capN );
+					assert( d.set( capI , t ) ,
+					 'Duplicated capability for '+ capN, ast );
+					break;
+				case types.StarType:{
+					var tps = t.inner();
+					for( var i=0; i<tps.length; ++i )
+						unstackType(tps[i]);
+					break;
 				}
-				return null; // ok but no type
+				default: 
+					assert( false, 'Cannot unstack: '+t+' of '+t.type(), ast);
+				}
 			}
-		// default: nothing to unstack
+			
+			// all types are on the right, recursion is on left
+			unstackType( type.right() );
+			
+			return unstack( type.left(), d, ast );
 		}
+		
 		return type;
 	}
 	
@@ -975,7 +984,13 @@ var TypeChecker = function(){
 				// these can be ignored
 				case types.BangType:
 				case types.LocationVariable:
+					break;
 				case types.TypeVariable:
+					// HACK, only ignores the type variables with name name as
+					// abstracted type, since all other are regular (linear?)
+					// variables that should be auto-stack or consumed.
+					if( id !== cap.name() )
+						tmp.add( cap );
 					break;
 				default:
 					// fails if attempting to stack something else
@@ -1044,7 +1059,8 @@ var TypeChecker = function(){
 		switch(ast.kind) {
 			
 			case AST.kinds.PROGRAM:
-			// FIXME: temporary ignores important stuff!!
+				assert( ast.imports === null , 'FIXME: imports not done.' , ast);
+				assert( ast.typedefs === null , 'FIXME: typedefs not done.' , ast);
 				return check( ast.exp, env );
 			
 			// EXPRESSIONS
@@ -1073,7 +1089,14 @@ var TypeChecker = function(){
 
 				var e = env.newScope();
 				var loc = ast.type;
-				var locvar = new LocationVariable(loc);
+				var locvar;
+				if( loc[0] === loc[0].toUpperCase() )
+					locvar = new TypeVariable(loc);
+				else
+					locvar = new LocationVariable(loc);
+
+				assert( locvar.type() === value.id().type(),
+					'Variable mismatch, expecting '+locvar.type()+' got '+value.id().type(), ast.val);
 
 				value = rename( value.inner(), value.id(), locvar );
 				value = unstack( value, e, ast);
@@ -1114,10 +1137,10 @@ var TypeChecker = function(){
 						return new ExistsType(loc,exp);
 					default:
 						var label = ast.label;
-						assert( label[0] === label[0].toUpperCase(),
+						assert( label===null || label[0] === label[0].toUpperCase(),
 							'TypeVariables must be upper-cased',ast);
 							
-						var variable = new TypeVariable(ast.label);
+						var variable = new TypeVariable(label);
 
 						assert( isFresh(exp,variable),
 							'Label "'+variable.name()+'" is not fresh in '+exp, ast);
@@ -1737,19 +1760,22 @@ var TypeChecker = function(){
 			if( keys.indexOf(keys[i]) < i ){
 				continue;
 			}
-			if( val.type() == types.BangType ||
-				val.type() == types.LocationVariable ||
-				val.type() == types.TypeVariable ){
-				if( val.type() == types.TypeVariable && keys[i] === val.name() )// HACK?
-				gamma.push('<span class="type_name">'+keys[i]+'</span>'+": <b>type</b>");
-				else
+			if( val.type() == types.BangType || val.type() == types.LocationVariable ){
 				gamma.push('<span class="type_name">'+keys[i]+'</span>'+": "+val.toHTML());
-			}else{
-				if( val.type() == types.CapabilityType )
-					delta.push( val.toHTML() );
-				else
-					delta.push('<span class="type_name">'+keys[i]+'</span>'+": "+val.toHTML());
+				continue;
+			}			
+			if( keys[i][0] === '.' ){
+				delta.push( val.toHTML() );
+				continue;
 			}
+			// HACK to find type variable declaration (has same name as abstracted type)
+			if( val.type() == types.TypeVariable && keys[i] === val.name() ){
+				gamma.push('<span class="type_name">'+keys[i]+'</span>'+": <b>type</b>");
+				continue;
+			}
+			
+			delta.push('<span class="type_name">'+keys[i]+'</span>'+": "+val.toHTML());
+
 		}
 		
 		gamma.sort(); // to ensure always the same order

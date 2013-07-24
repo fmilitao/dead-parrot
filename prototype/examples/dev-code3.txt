@@ -1,5 +1,5 @@
 
 // Free
 
-0
+<p><X>fun( x : int :: (X * rw p int) ).x
 
