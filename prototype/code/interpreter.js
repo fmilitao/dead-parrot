@@ -199,14 +199,13 @@ var Interpreter = function(){
 				return run(branch.exp, newEnv);
 			}
 			case AST.kinds.FUN: {
+				if( ast.rec !== null ){ //recursion function
+					var newEnv = env.newScope();
+					var rec = new Function(ast.exp, ast.parms.id,newEnv);
+					newEnv.set(ast.rec,rec);
+					return rec;
+				}
 				return new Function(ast.exp, ast.parms.id,env);
-			}
-			case AST.kinds.RECURSION: {
-				var newEnv = env.newScope();
-				var fun = ast.exp;
-				var rec = new Function(fun.exp, fun.parms.id,newEnv);
-				newEnv.set(ast.id,rec);
-				return rec;
 			}
 			case AST.kinds.CALL: {
 				var fun = run(ast.fun, env);

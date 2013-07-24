@@ -2,7 +2,7 @@
 //OK !int
 
 let f = // recursion test
-	fun Rec( x: One#!int + Two#!int ).
+	fun Rec( x: One#!int + Two#!int ) : !int.
 		case x of
 		  Two#a -> a
 		| One#b -> b; Rec Two#b

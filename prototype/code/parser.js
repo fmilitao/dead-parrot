@@ -71,8 +71,7 @@ var AST = new function(){
 		'FOCUS',
 		'DEFOCUS',
 		'TUPLE',
-		'LET_TUPLE',
-		'RECURSION'
+		'LET_TUPLE'
 	);
 	
 	this.makeTypedef = function(id,type,info){
@@ -88,9 +87,6 @@ var AST = new function(){
 	}
 	this.makeTuple = function(exp,info){
 		return aux( this.kinds.TUPLE, {exp:exp}, info);
-	}
-	this.makeRecursion = function(id,exp,info){
-		return aux( this.kinds.RECURSION, {id:id,exp:exp}, info);
 	}
 	this.makeFocus = function(locs,info){
 		return aux( this.kinds.FOCUS, {locs:locs}, info);
@@ -127,8 +123,8 @@ var AST = new function(){
 	this.makeDelete = function(exp,info){
 		return aux( this.kinds.DELETE, {exp: exp}, info);
 	}
-	this.makeFun = function(parms,exp,info){
-		return aux( this.kinds.FUN, {parms: parms, exp: exp}, info);
+	this.makeFunction = function(rec,parms,exp,result,info){
+		return aux( this.kinds.FUN, {rec:rec,parms: parms, result:result,exp: exp}, info);
 	}
 	this.makeID = function(id,info){
 		return aux( this.kinds.ID, {text: id}, info);

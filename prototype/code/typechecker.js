@@ -4,13 +4,13 @@
  *  X case, problem on merging environments and result? subtyping?
  *  X star type, auto-stack should first collect all then just stack once
  *  X ensure star is commutative
+ *  X recursion
  * 	-- Find better way to merge environments/types?
 
  *  - forall / exists with types and convenient labelling
  * 		-- this needs way to replace part of the types.
  
  *  - ALTERNATIVES ... this will be messy, probably
- *  - recursion
  *  - recursive types and typedefs, needs indirection on types?
  
  * *  - convenient way for stdlib?
@@ -732,6 +732,17 @@ var TypeChecker = function(){
 						}
 					}
 					if( !found )
+						return false;
+				}
+				return true;
+			}
+			case types.SumType:{
+				var i1s = t1.tags();
+				var i2s = t2.tags();
+				for( var i in i1s ){
+					var j = t2.inner(i1s[i]);
+					if( j === undefined || // missing tag
+						!subtypeOf( t1.inner(i1s[i]), j ) )
 						return false;
 				}
 				return true;
@@ -1582,15 +1593,36 @@ var TypeChecker = function(){
 			
 						case AST.kinds.FUN: {
 							var id = ast.parms.id;
+							var result = undefined;
+							var initial_size = env.size();
 							var e = env.newScope();
-							
 							var arg_type = check( ast.parms.type, e );
+							
+							if( ast.rec !== null ){ // recursive function
+								result = check( ast.result, e );
+								
+								// note that all recursive functions must be pure
+								var rec_fun = new BangType(
+									new FunctionType(arg_type, result)
+								);
+								addName( ast.rec, rec_fun, e, ast );
+							}
+							
+							
 							var unstacked = unstack(arg_type,e,ast);
 							
 							addName( id, purify(unstacked), e, ast );
-							
+
 							var res = check( ast.exp, e );
 							res = safelyEndScope( res, e, ast.exp );
+							
+							if( ast.rec !== null ){
+								assert( subtypeOf( res, result ),
+									"Invalid result type '"+res+"' expecting '"+result+"'", ast);
+								assert( initial_size === env.size(),
+									'Linear recursive function.', ast );
+							}
+							
 							return new FunctionType(arg_type, res);
 						}
 						

@@ -286,17 +286,28 @@ tuple :
 	;
 
 function :
-	FUN '(' function_body
-		{ $$ = $3; }
-	| FUN IDENTIFIER '(' function_body
-		{ $$ = AST.makeRecursion($2,$4,@$); }
+	FUN IDENTIFIER '(' parameter ends_with_type
+		{ $$ = AST.makeFunction( $2, $4, $5.exp, $5.result, @$ ); }
+	| FUN '(' parameter ends_with_or_without_type
+		{ $$ = AST.makeFunction( null, $3, $4.exp, $4.result, @$ ); }
 	;
 
-function_body :
-	  parameter ')' '.' expression
-		{ $$ = AST.makeFun($1,$4,@$); }
-	| parameter ',' function_body
-		{ $$ = AST.makeFun($1,$3,@$); }
+ends_with_type :
+	')' ':' type_root '.' expression
+		{ $$ = { result : $3, exp : $5 }; }
+	| ',' parameter ends_with_type
+		{ $$ = { result : AST.makeFunType($2.type,$3.result),
+			exp : AST.makeFunction( null , $2, $3.exp, $3.result, @$ ) }; }
+	;
+
+ends_with_or_without_type :
+	')' ':' type_root '.' expression
+		{ $$ = { result : $3, exp : $5 }; }
+	| ')' '.' expression
+		{ $$ = { result : null, exp : $3 }; }
+	| ',' parameter ends_with_or_without_type
+		{ $$ = { result : AST.makeFunType($2.type,$3.result),
+			exp : AST.makeFunction( null , $2, $3.exp, $3.result, @$ ) }; }
 	;
 	
 parameter : 
