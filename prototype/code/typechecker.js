@@ -5,10 +5,8 @@
  *  X star type, auto-stack should first collect all then just stack once
  *  X ensure star is commutative
  *  X recursion
+ *  X forall / exists with types and convenient labelling
  * 	-- Find better way to merge environments/types?
-
- *  - forall / exists with types and convenient labelling
- * 		-- this needs way to replace part of the types.
  
  *  - ALTERNATIVES ... this will be messy, probably
  *  - recursive types and typedefs, needs indirection on types?
@@ -18,8 +16,7 @@
  *  - rely/guarantee
  * 	- subtyping fixes: tagged sums, pairs, etc. all those rules are missing
 
- ---> problem: indexing must be rethought to allow duplicated entries once 
- sharing is introduced.
+ ---> PROBLEM: indexing must be rethought to allow duplicated entries once sharing is introduced.
  */
 
 var TypeChecker = function(){
@@ -503,14 +500,18 @@ var TypeChecker = function(){
 				// (exists t.(ref t)){t/X} -> must rename location of exists
 				// 2. when target name is the same as bounded var:
 				// (exists t.(ref t)){g/t} -> must rename location of exists
-				if( t.id().name() === target.name() ){
+				if( ( target.type() === types.LocationVariable ||
+					  target.type() === types.TypeVariable )
+					&& t.id().name() === target.name() ){
 					var nvar = cloneVar( t.id() );
 					var ninner = rename( t.inner(), t.id(), nvar );
 					return new ExistsType( nvar, rec(ninner) );	
 				}
 				return new ExistsType( t.id(), rec(t.inner()) );
 			case types.ForallType:
-				if( t.id().name() === target.name() ){
+				if( ( target.type() === types.LocationVariable ||
+					  target.type() === types.TypeVariable )
+					&& t.id().name() === target.name() ){
 					var nvar = cloneVar( t.id() );
 					var ninner = rename( t.inner(), t.id(), nvar );
 					return new ForallType( nvar, rec(ninner) );	
@@ -632,7 +633,7 @@ var TypeChecker = function(){
 				for( var i in as )
 					if( !bs.hasOwnProperty(i) || !equals(as[i],bs[i]) )
 						return false;
-				return r;
+				return true;
 			} 
 			case types.TupleType: {
 				var as = a.getValues();
@@ -1009,9 +1010,17 @@ var TypeChecker = function(){
 
 		// 2. pack all bounded location variables
 		env.elements(function(e,el){
+			if( e[0] === '.' ) // ignore hidden elements
+				return;
 			if( el.type() == types.LocationVariable && !isFresh(res,el) ){
 				var loc = new LocationVariable(null);
 				res = new ExistsType( loc, rename( res, el, loc ) );
+				return;
+			}
+			if( el.type() == types.TypeVariable && !isFresh(res,el) ){
+				var loc = new TypeVariable(null);
+				res = new ExistsType( loc, rename( res, el, loc ) );
+				return;
 			}
 		});
 		return res;	
@@ -1058,7 +1067,13 @@ var TypeChecker = function(){
 			
 			case AST.kinds.PROGRAM:
 				assert( ast.imports === null , 'FIXME: imports not done.' , ast);
-				assert( ast.typedefs === null , 'FIXME: typedefs not done.' , ast);
+				// FIXME allow recursion?
+				for(var i=0;i<ast.typedefs.length;++i){
+					var type = ast.typedefs[i];
+					assert( !typedefs.hasOwnProperty(type.id),
+						'Duplicated typedef: '+type.id, type )
+					typedefs[type.id] = check( type.type, env );
+				}
 				return check( ast.exp, env );
 			
 			// EXPRESSIONS
@@ -1372,8 +1387,30 @@ var TypeChecker = function(){
 							}
 							else {
 								var tmp = new StarType();
-								for(var i=0;i<inners.length;++i)
-									tmp.add( inners[i] );
+								for(var i=0;i<inners.length;++i){
+									var tt = inners[i];
+									
+									switch( tt.type() ){ // TODO: code clean up
+										case types.CapabilityType:
+											var loc = tt.location().name();
+											var capI = capIndex( loc )
+											var cap = assert( env.remove( capI ),
+												'Missing capability '+loc, ast.arg);
+											tt = cap;
+											break;
+										case types.TypeVariable:
+											var loc = tt.name();
+											var capI = capIndex( loc )
+											var cap = assert( env.remove( capI ),
+												'Missing capability '+loc, ast.arg);
+											tt = cap;
+											break;
+										default:
+											assert( false, 'Auto-stack on '+tt, ast.arg);	
+									}
+
+									tmp.add( tt );
+								}
 								return new StackedType( t, tmp );
 							}
 						}
@@ -1627,10 +1664,14 @@ var TypeChecker = function(){
 			}
 			
 			case AST.kinds.NAME_TYPE: {
-				var tmp = env.get( ast.text );
+				var label = ast.text;
+				if( typedefs.hasOwnProperty(label) )
+					return typedefs[label];
+				
+				var tmp = env.get( label );
 				// returns a TypeVariable, if it was defined
 				if( tmp === undefined || tmp.type() !== types.TypeVariable )
-					return new NameType(ast.text);
+					return new NameType( label );
 				else
 					return tmp;
 			}
@@ -1801,15 +1842,16 @@ var TypeChecker = function(){
 			   "\u0394 = "+delta;
 	}
 	
-	var type_info = [];
-	//var debug_msg = '';
-	var unique_counter = 0;
+	
+	var type_info;
+	var unique_counter;
+	var typedefs;
 
 	return function(ast,typeinfo){
 		// reset typechecke's state.
 		unique_counter = 0;
 		type_info = [];
-		//debug_msg = '';
+		typedefs = {};
 		
 		var start = new Date().getTime();
 		try{

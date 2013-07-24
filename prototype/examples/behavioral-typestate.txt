@@ -1,59 +1,59 @@
 
-// BROKEN: type checking is not ready yet
-// FIXME: broken multi-open syntax sugar
+typedef addType = forall T.forall t.( [addBoth : [] :: rw t [] -o int :: T] )
+typedef initRType = forall T.forall t.( [initRight: int :: rw t [] -o [] :: rw t (addType[T][t])] )
+typedef initLType = forall T.forall t.( [initLeft: int :: rw t [] -o [] :: rw t (initRType[T][t])] )
+typedef Behavioral = forall T.exists t.( ref t :: rw t (initLType[T][t]) )
 
-typedef Behavioral = forall A.TODO
-
-//
-// FIXME: Old pair code:
-// 
-
+// typestate pair object
 let newPair = fun( _ : [] ).
 	open <pl,l> = new {} in
 	open <pr,r> = new {} in
-		{ // FIXME: pack locations
+		<rw pl []: EL, // Empty Left
+		<rw pr []: ER, // Empty Right
+		<rw pl int : L, // Left
+		<rw pr int : R, // Right
+		{
 			initL = fun( i : int :: rw pl [] ).( l := i ),
 			initR = fun( i : int :: rw pr [] ).( r := i ),
-			// FIXME needs basic addition, WAS !l+!r
-			sum = fun( _ : [] :: ( rw pl int * rw pr int ) ). !l,
+			sum = fun( _ : [] :: ( rw pl int * rw pr int ) ). !l, // FIXME needs basic addition, WAS !l+!r
 			destroy = fun ( _ : [] :: ( rw pl int * rw pr int ) ).( delete l; delete r ) 
-		}
+		}:: ( rw pl [] * rw pr [] )
+		>>>>
 	end
 	end
-	in
-//
-// FIXME behavioral wrapper
-//
-open <EL_ER_L_R, o> = newPair({}) in // FIXME!
-	let behavioral = // the behavioral version of pair
-		open <self,this> = new {} in // 'this' pointer to store behavior
-			this := { // tags used for readability
-				initLeft = fun( i : int :: rw self [] ).
-					let result = o.initL(i) in
-						// set the next behavior
-						this := { initRight = fun( i : int :: rw self [] ).
-							let result = o.initR(i) in
-								this := { // note that it returns the captured capability
-									addBoth =  fun( _ : [] :: rw self [] ). 
-									( delete self ; o.sum({}) ) 
-								}; result end
-						}; result end
-			}; <self, this> end
 	in
 
-//
-// FIXME behavioral-typestate link-back client code is missing
-//
-	let f = <T>fun( o : Behavioral[T] ).( 
-		open <ind,ptr> = o in
-			!ptr.initLeft(1);
-			!ptr.initRight(2);
-			!ptr.addBoth({})
-		end)
-		in
-		0
-	end
-	
-	end
+	// behavioral wrapper
+	open <EL,o0> = newPair({}) in
+	open <ER,o1> = o0 in
+	open <L,o2> = o1 in
+	open <R,o> = o2 in
+		let behavioral = // the behavioral version of pair
+			open <self,this> = new {} in // 'this' pointer to store behavior
+				this := { // tags used for readability
+					initLeft = fun( i : int :: rw self [] ).
+						let result = o.initL(i) in
+							// set the next behavior
+							this := { initRight = fun( i : int :: rw self [] ).
+								let result = o.initR(i) in
+									this := { // note that it returns the captured capability
+										addBoth =  fun( _ : [] :: rw self [] ). 
+										( delete this ; o.sum({}) ) 
+									}; result end
+							}; result end
+				}; <self : ptr, this :: rw self _ >
+			end
+			in
+			let f = <T>fun( o : Behavioral[T] ).( 
+				open <ind,ptr> = o in
+					!ptr.initLeft(1);
+					!ptr.initRight(2);
+					!ptr.addBoth({})
+				end)
+			in
+				f[R*L] behavioral
+			end
+		end
+	end end end end
 end
-end
+
