@@ -3,3 +3,16 @@
 
 <p><X>fun( x : int :: (X * rw p int) ).x
 
+
+	open <t,obj> = newObject {} in
+		obj.getInt {};
+		obj.setBool false;
+		obj.setInt 31337;
+       	
+		// we have to either destroy the object
+		// or pass it as a result to the outside context
+       	
+		// a bit silly that dispose requires 'int' typestate
+		obj.dispose {}
+		//<t,obj::rw t int>
+	end

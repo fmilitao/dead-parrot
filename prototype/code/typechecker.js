@@ -503,16 +503,14 @@ var TypeChecker = function(){
 				// (exists t.(ref t)){t/X} -> must rename location of exists
 				// 2. when target name is the same as bounded var:
 				// (exists t.(ref t)){g/t} -> must rename location of exists
-				if( t.id().name() === original.name() ||
-					t.id().name() === target.name() ){
+				if( t.id().name() === target.name() ){
 					var nvar = cloneVar( t.id() );
 					var ninner = rename( t.inner(), t.id(), nvar );
 					return new ExistsType( nvar, rec(ninner) );	
 				}
 				return new ExistsType( t.id(), rec(t.inner()) );
 			case types.ForallType:
-				if( t.id().name() === original.name() ||
-					t.id().name() === target.name() ){
+				if( t.id().name() === target.name() ){
 					var nvar = cloneVar( t.id() );
 					var ninner = rename( t.inner(), t.id(), nvar );
 					return new ForallType( nvar, rec(ninner) );	
@@ -1393,7 +1391,7 @@ var TypeChecker = function(){
 								var p_loc = p.location().name();
 								assert( t_loc == p_loc,
 									'Incompatible capability '+t_loc+' vs '+p_loc, ast.arg );
-								// intentionally fall through
+								break;
 							} else {
 								var loc = p.location().name();
 								var capI = capIndex( loc )
@@ -1402,7 +1400,22 @@ var TypeChecker = function(){
 	
 								return new StackedType( t, cap );
 							}
-						}	
+						}
+						case types.TypeVariable: {
+							if( t.type() == types.TypeVariable ){
+								var t_loc = t.name();
+								var p_loc = p.name();
+								assert( t_loc === p_loc,
+									'Incompatible variable '+t_loc+' vs '+p_loc, ast.arg );
+								break;
+							} else {
+								var loc = p.name();
+								var capI = capIndex( loc )
+								var cap = assert( env.remove( capI ),
+									'Missing capability '+loc, ast.arg);
+								return new StackedType( t, cap );
+							}
+						}
 					}
 					return t;
 				}
