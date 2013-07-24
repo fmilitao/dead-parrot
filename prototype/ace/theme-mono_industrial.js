@@ -155,6 +155,9 @@ background-color:rgba(153, 0, 0, 0.68);\
   color:#C23B00;\
 }\
 \
+.ace-mono-industrial .ace_string {\
+  color:#E6DB74;\
+}\
 .ace-mono-industrial .ace_variable {\
   color:#A8B3AB;\
 }\

@@ -4,7 +4,7 @@ typedef OneUse = forall p.TODO
 open <t,x> = new Held#{} in
 	share t as (Retry[t]) || (OneUse[t]);
 	//FIXME outside( <t,x> ); // packs 'OneUse[t]'
-	fun Y(_:[]).(
+	fun Y(_:[]):int.( // FIXME argument and result are PLACE HOLDERS
 		focus t;
 		case !x of
 			Held#n ->
