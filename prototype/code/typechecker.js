@@ -238,12 +238,30 @@ var TypeChecker = function(){
 		};
 	}();
 	
-	var NameType = function(){
-		var type = addType('NameType');
+	var RecursiveType = function(){ // FIXME broken
+		var type = addType('RecursiveType');
 		
 		return function(name){
-			inherit( this, type );
-			this.name = function(){ return name; }
+			//inherit( this, type );
+			var add = function(n){
+				this.n = function(){ return typedefs[name].m(args); }
+			}
+			
+			this.recursive = function(){ return name; }
+			this.obj = function(){ return typedefs[name]; }
+			
+			// masks calls to inner object, for convenience
+			add('name');
+			add('inner');
+			add('left');
+			add('right');
+			add('add');
+			add('getValues');
+			add('location');
+			
+			// FIXME these are dangerous?
+			//add('toString');
+			//add('toHTML');
 		};
 	}();
 	
@@ -314,7 +332,6 @@ var TypeChecker = function(){
 			case types.LocationVariable:
 				return t.name() != loc.name();
 			case types.NoneType:
-			case types.NameType:
 			case types.PrimitiveType:
 				return true;
 			default:
@@ -371,7 +388,6 @@ var TypeChecker = function(){
 				return "["+t.getValues().join()+"]";
 			case types.LocationVariable:
 			case types.TypeVariable:
-			case types.NameType:
 			case types.PrimitiveType:
 				return t.name();
 			case types.NoneType:
@@ -446,7 +462,6 @@ var TypeChecker = function(){
 				return "<b>loc</b>";
 			case types.TypeVariable:
 				return '<u><i>'+t.name()+'</i></u>';
-			case types.NameType:
 			case types.PrimitiveType:
 				return '<b>'+t.name()+'</b>';
 			case types.NoneType:
@@ -553,7 +568,6 @@ var TypeChecker = function(){
 				return r;
 			}
 			case types.PrimitiveType:
-			case types.NameType:
 			case types.LocationVariable:
 			case types.TypeVariable:
 				return t;
@@ -661,7 +675,6 @@ var TypeChecker = function(){
 				return true;
 			}
 			case types.PrimitiveType:
-			case types.NameType:
 			case types.LocationVariable:
 			case types.TypeVariable:
 				return a.name() === b.name();
@@ -709,7 +722,6 @@ var TypeChecker = function(){
 		switch ( t1.type() ){
 			case types.NoneType:
 				return true;
-			case types.NameType:
 			case types.PrimitiveType:
 				return t1.name() == t2.name();
 			case types.BangType:
@@ -747,11 +759,11 @@ var TypeChecker = function(){
 			case types.StarType:{
 				var i1s = t1.inner();
 				var i2s = t2.inner();
-
+				
 				if( i1s.length != i2s.length )
 					return false;
 				// for *-type, any order will do
-				var tmp_i2s = i2s.splice(0); // copies array
+				var tmp_i2s = i2s.slice(0); // copies array
 				for(var i=0;i<i1s.length;++i){
 					var curr = i1s[i];
 					var found = false;
@@ -1159,7 +1171,6 @@ var TypeChecker = function(){
 				var packed = check(ast.id, env);
 				switch( packed.type() ){
 					case types.LocationVariable:
-					case types.NameType:
 						var label = ast.label;
 						var name = packed.name();
 						var id = env.get( packed.name() ); // old variable						
@@ -1510,6 +1521,7 @@ var TypeChecker = function(){
 					'Not a Forall '+exp.toString(), ast.exp );
 				
 				var packed = check(ast.id, env);
+				/*
 				switch( packed.type() ){
 					case types.NameType:
 						var id = packed.name();
@@ -1522,8 +1534,9 @@ var TypeChecker = function(){
 		
 						return rename( exp.inner(), exp.id(), variable );
 					default:
+					*/
 						return rename( exp.inner(), exp.id(), packed );
-				}
+				//}
 			}
 			
 			case AST.kinds.TUPLE_TYPE:
@@ -1663,7 +1676,6 @@ var TypeChecker = function(){
 								'Incompatible capability '+c.value()+' vs '+cap.value(), ast.type );
 		
 							return cap;
-						case types.NameType:
 						case types.TypeVariable:
 							var loc = cap.name();
 							var capI = capIndex( loc );
@@ -1674,6 +1686,13 @@ var TypeChecker = function(){
 							return cap;
 						case types.NoneType:
 							return NoneType;
+						case types.StarType:
+							var tmp = new StarType();
+							var inners = cap.inner();
+							for(var i=0;i<inners.length;++i){
+								tmp.add( capStack(inners[i]) );
+							}
+							return tmp;
 						default:
 							assert( false, 'Cannot stack '+cap.type(), ast );
 					}
@@ -1681,28 +1700,7 @@ var TypeChecker = function(){
 					return cap;
 				};
 				
-				switch( cap.type() ){
-					default:
-						assert( false, 'Cannot stack '+cap.type(), ast.type );
-					case types.NameType:
-					case types.TypeVariable:
-					case types.CapabilityType:
-					case types.NoneType:
-						cap = capStack(cap);
-						break;
-//						cap = NoneType;
-//						break;
-					case types.StarType:
-						var tmp = new StarType();
-						var inners = cap.inner();
-						for(var i=0;i<inners.length;++i){
-							tmp.add( capStack(inners[i]) );
-						}
-						cap = tmp;
-						break;
-				}
-				
-				return new StackedType( exp, cap );
+				return new StackedType( exp, capStack(cap) );
 			}
 			
 			case AST.kinds.RECORD_TYPE: {
@@ -1723,15 +1721,17 @@ var TypeChecker = function(){
 					return typedefs[label];
 				
 				var tmp = env.get( label );
-				// returns a TypeVariable, if it was defined
-				if( tmp === undefined ||
-					( tmp.type() !== types.TypeVariable &&
-					  tmp.type() !== types.LocationVariable ) ){
-					// FIXME: try to avoid this hack? all types should be named
-					return new NameType( label );
-				}
-				else
+				// if label matches type in environment, but we only allow
+				// access to type variables and location variables using this
+				// AST.kind --- all other uses are assumed to be recursives.
+				if( tmp !== undefined &&
+					( tmp.type() === types.TypeVariable ||
+					  tmp.type() === types.LocationVariable ) )
 					return tmp;
+				
+				// FIXME
+				assert( false, label+'FIXME: Recursive types are not yet supported.', ast);
+				return new NameType( label );
 			}
 			case AST.kinds.PRIMITIVE_TYPE:
 				// any primitive type is acceptable but only ints, booleans
