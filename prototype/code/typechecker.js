@@ -385,7 +385,8 @@ var TypeChecker = function(){
 	var toHTML = function (t){
 		switch ( t.type() ){
 			case types.FunctionType:
-				return toHTML(t.argument())+" &#x22b8; "+toHTML(t.body());
+				return toHTML(t.argument())+" -o "+toHTML(t.body());
+				//return toHTML(t.argument())+" &#x22b8; "+toHTML(t.body());
 			case types.BangType:{
 				var inner = t.inner();
 				if( inner.type() == types.ReferenceType ||
@@ -894,20 +895,31 @@ var TypeChecker = function(){
 	
 	// The only types that can be merged... for now?
 	var merge = function(t1,t2){
+		// if bang mismatch, we need to not consider the sum as banged because
+		// our types cannot do a case on whether the type is liner or pure
+		var b1 = t1.type() === types.BangType;
+		var b2 = t2.type() === types.BangType;
+		
+		if( b1 ^ b2 ){
+			if( b1 ) t1 = t1.inner();
+			if( b2 ) t2 = t2.inner();
+		}
+		
 		if( t1.type() !== t2.type () )
 			return undefined;
 		
-		if( t1.type() == types.BangType ){
+		// both the same type
+		if( t1.type() === types.BangType ){
 			var tmp = merge(t1.inner(),t2.inner());
 			if( tmp !== undefined )
 				return new BangType( tmp );
 		}
 		
-		if( t1.type() == types.PrimitiveType && 
+		if( t1.type() === types.PrimitiveType && 
 			t1.name() === t2.name() )
 			return t1;
 		
-		if( t1.type() == types.SumType ){
+		if( t1.type() === types.SumType ){
 			// merge both types
 			var tmp = new SumType();
 			var tags = t1.tags();
@@ -1146,6 +1158,7 @@ var TypeChecker = function(){
 				
 				var packed = check(ast.id, env);
 				switch( packed.type() ){
+					case types.LocationVariable:
 					case types.NameType:
 						var label = ast.label;
 						var name = packed.name();
@@ -1513,6 +1526,7 @@ var TypeChecker = function(){
 				}
 			}
 			
+			case AST.kinds.TUPLE_TYPE:
 			case AST.kinds.TUPLE: {
 				// Note that TUPLE cannot move to the auto-bang block
 				// because it may contain pure values that are not in the
@@ -1636,37 +1650,48 @@ var TypeChecker = function(){
 				var cap = check( ast.type, env );
 				
 				var capStack = function(cap){
-					 // FIXME this is limited to caps only, should allow types
-					assert( cap.type() == types.CapabilityType, 
-						'Cannot stack ' +cap.type(), ast);
-					var loc = cap.location().name();
-					var capI = capIndex( loc )
-					var c = assert( env.remove( capI ),
-						'Missing capability '+loc, ast.type);
-					var u = unBang(cap.value());
+					
+					switch( cap.type() ){
+						case types.CapabilityType:
+							var loc = cap.location().name();
+							var capI = capIndex( loc );
+							var c = assert( env.remove( capI ),
+								'Missing capability '+loc, ast.type);
+							var u = unBang(cap.value());
+				
+							assert( subtypeOf( c.value() , cap.value() ),
+								'Incompatible capability '+c.value()+' vs '+cap.value(), ast.type );
 		
-					// MINOR HACK, if the type of the capability has name '_' just 
-					// stack all of that type instead of 'cap'. This is only sound
-					// as long as there is not type variable with name '_' since
-					// there are no valid primitive types of that name. 
-					if( u.type() == types.NameType && u.name() == '_')
-						cap = c;
-					else{
-						assert( subtypeOf( c.value() , cap.value() ),
-							'Incompatible capability '+c.value()+' vs '+cap.value(), ast.type );
+							return cap;
+						case types.NameType:
+						case types.TypeVariable:
+							var loc = cap.name();
+							var capI = capIndex( loc );
+							var c = assert( env.remove( capI ),
+								'Missing capability '+loc, ast.type);
+							assert( subtypeOf( c , cap ),
+								'Incompatible capability '+c+' vs '+cap, ast.type );
+							return cap;
+						case types.NoneType:
+							return NoneType;
+						default:
+							assert( false, 'Cannot stack '+cap.type(), ast );
 					}
+
 					return cap;
 				};
 				
 				switch( cap.type() ){
 					default:
 						assert( false, 'Cannot stack '+cap.type(), ast.type );
+					case types.NameType:
+					case types.TypeVariable:
 					case types.CapabilityType:
+					case types.NoneType:
 						cap = capStack(cap);
 						break;
-					case types.NoneType:
-						cap = NoneType;
-						break;
+//						cap = NoneType;
+//						break;
 					case types.StarType:
 						var tmp = new StarType();
 						var inners = cap.inner();
@@ -1699,8 +1724,12 @@ var TypeChecker = function(){
 				
 				var tmp = env.get( label );
 				// returns a TypeVariable, if it was defined
-				if( tmp === undefined || tmp.type() !== types.TypeVariable )
+				if( tmp === undefined ||
+					( tmp.type() !== types.TypeVariable &&
+					  tmp.type() !== types.LocationVariable ) ){
+					// FIXME: try to avoid this hack? all types should be named
 					return new NameType( label );
+				}
 				else
 					return tmp;
 			}

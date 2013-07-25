@@ -20,8 +20,6 @@ end;
 // go out of scope.
 open <p,x> = new 0 in
 	0::rw p int; // manually stacking
-    0::rw p _; // manually stacking with SPECIAL NAME
-			// to mean any type that is in that capability.
 	true // auto-stack and auto-pack.
 	// on last element, try to pack:
 	// < nloc , e :: all outstanding capabilities >

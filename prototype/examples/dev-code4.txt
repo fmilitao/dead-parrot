@@ -1,2 +1,35 @@
 
-fun( x : int :: ( none * none ) ).(x::none) 1
+// linked list
+// mostly just to test recursive types
+
+// FIXME abstract types?
+
+typedef Node = N#(exists p.(ref p :: rw p [int,Node])) // List Node
+			+ E#(exists p.(ref p :: rw p [])) // Empty Node
+
+let LIST = {
+	makeList = fun( _ : [] ).E#new {},
+	insert = fun( e : int , list : Node ).N#new {e,list},
+	remove = fun( list : Node ).
+		case list of
+			N#node ->
+				open <p,x> = node in
+					let result = !x in
+						delete x;
+						Result#result
+					end
+				end
+		|	E#node ->
+				open <p,x> = node in
+					let result = !x in
+						delete x;
+						Empty#{} // no result
+					end
+				end
+		end
+
+} in
+	// client code:
+	// FIXME: subtyping needs to auto-unfold
+	0
+end

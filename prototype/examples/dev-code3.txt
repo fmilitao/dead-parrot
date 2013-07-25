@@ -1,4 +1,8 @@
 
 // ?
 
-<p><X>fun( x : int :: (X * rw p int) ).x
+<p><X>fun( x : int :: (X * rw p int) ).x ;
+
+
+<A>fun( x : int :: A ).(x::(A*none))
+

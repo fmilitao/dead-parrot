@@ -5,6 +5,7 @@ typestate.txt
 behavioral.txt
 behavioral-ind.txt
 behavioral-typestate.txt
+#list.txt
 stack.txt
 sharing.txt
 busy-wait.txt
@@ -13,7 +14,3 @@ pipe.txt
 #
 #dev-code.txt
 #dev-code2.txt
-#eternal-loop.txt
-#fields-PROBLEM1.txt
-#fields-PROBLEM2.txt
-#fields-PROBLEM3.txt
