@@ -6,12 +6,15 @@
  *  X ensure star is commutative
  *  X recursion
  *  X forall / exists with types and convenient labelling
- * 	-- Find better way to merge environments/types?
- 
- *  - ALTERNATIVES ... this will be messy, probably
+ *  X none type
+
+ * 	-- Find better way to merge environments/types? 
  *  - recursive types and typedefs, needs indirection on types?
+		--- should also forbid unknown name types, only rec labels?
+
+ *  - ALTERNATIVES ... this will be messy, probably
  
- * *  - convenient way for stdlib?
+ *  - convenient way for stdlib?
  *  - all sharing bits: focus, defocus, sharing and their framing
  *  - rely/guarantee
  * 	- subtyping fixes: tagged sums, pairs, etc. all those rules are missing
@@ -148,6 +151,12 @@ var TypeChecker = function(){
 	}();
 
 	var UnitType = new BangType(new RecordType());
+	
+	var NoneType = new function(){
+		var type = addType('NoneType');
+		
+		inherit( this, type );
+	}(); // note that it calls function immediately, so there is a single type.
 	
 	var TupleType = function(){
 		var type = addType('TupleType');
@@ -304,6 +313,7 @@ var TypeChecker = function(){
 			case types.TypeVariable:
 			case types.LocationVariable:
 				return t.name() != loc.name();
+			case types.NoneType:
 			case types.NameType:
 			case types.PrimitiveType:
 				return true;
@@ -364,6 +374,8 @@ var TypeChecker = function(){
 			case types.NameType:
 			case types.PrimitiveType:
 				return t.name();
+			case types.NoneType:
+				return 'none';
 			default:
 				assert( false, "Assertion error on " +t.type() );
 				break;
@@ -436,6 +448,8 @@ var TypeChecker = function(){
 			case types.NameType:
 			case types.PrimitiveType:
 				return '<b>'+t.name()+'</b>';
+			case types.NoneType:
+				return '<b>none</b>';
 			default:
 				assert( false, "Assertion error on " +t.type() );
 				break;
@@ -692,6 +706,8 @@ var TypeChecker = function(){
 		
 		//else: safe to assume same type from here on
 		switch ( t1.type() ){
+			case types.NoneType:
+				return true;
 			case types.NameType:
 			case types.PrimitiveType:
 				return t1.name() == t2.name();
@@ -953,6 +969,8 @@ var TypeChecker = function(){
 						unstackType(tps[i]);
 					break;
 				}
+				case types.NoneType:
+					break; // nothing to do
 				default: 
 					assert( false, 'Cannot unstack: '+t+' of '+t.type(), ast);
 				}
@@ -1405,6 +1423,9 @@ var TypeChecker = function(){
 												'Missing capability '+loc, ast.arg);
 											tt = cap;
 											break;
+										case types.NoneType:
+											tt = NoneType;
+											break;
 										default:
 											assert( false, 'Auto-stack on '+tt, ast.arg);	
 									}
@@ -1452,6 +1473,9 @@ var TypeChecker = function(){
 									'Missing capability '+loc, ast.arg);
 								return new StackedType( t, cap );
 							}
+						}
+						case types.NoneType: {
+							return new StackedType( t, NoneType );
 						}
 					}
 					return t;
@@ -1571,7 +1595,10 @@ var TypeChecker = function(){
 
 				return new ForallType( variable, check( ast.exp, e ) );
 			}
-			
+						
+			case AST.kinds.NONE_TYPE:
+				return NoneType;
+				
 			case AST.kinds.BANG_TYPE:
 				return new BangType( check( ast.type , env ) );
 			
@@ -1637,7 +1664,9 @@ var TypeChecker = function(){
 					case types.CapabilityType:
 						cap = capStack(cap);
 						break;
-
+					case types.NoneType:
+						cap = NoneType;
+						break;
 					case types.StarType:
 						var tmp = new StarType();
 						var inners = cap.inner();

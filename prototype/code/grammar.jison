@@ -25,8 +25,7 @@
 "share"               return 'SHARE'
 "as"                  return 'AS'
 "typedef"             return 'TYPEDEF'
-"import"              return 'IMPORT'			
-"rec"                 return 'REC'
+"import"              return 'IMPORT'
 "none"                return 'NONE'
 "(+)"                 return '(+)'
 "||"                  return '||'
@@ -79,7 +78,6 @@ type_root :
 		{ $$ = AST.makeExistsType($2,$4,@$); }
 	| type_fun '(+)' type_root
 		{ $$ = AST.makeAlternativeType($1,$3,@$); }
-	| REC IDENTIFIER '.' type_root // FIXME
 	;
 
 type_fun :
@@ -128,8 +126,8 @@ type :
 	 	{ $$ = AST.makePrimitiveType(yytext,@$); }
 	| STRING_TYPE
 	 	{ $$ = AST.makePrimitiveType(yytext,@$); }
-	//| NONE
-		// FIXME!!
+	| NONE
+		{ $$ = AST.makeNoneType(@$); }
 	;
 
 tagged :

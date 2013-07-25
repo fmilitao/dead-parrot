@@ -40,6 +40,7 @@ var AST = new function(){
 		'GUARANTEE_TYPE',
 		'STAR_TYPE',
 		'PRIMITIVE_TYPE',
+		'NONE_TYPE',
 		// constructs
 		'FORALL',
 		'PACK',
@@ -225,6 +226,9 @@ var AST = new function(){
 	}
 	this.makeTaggedType = function(tag,exp, info){
 		return aux( this.kinds.TAGGED_TYPE, {tag:tag,exp: exp}, info);
+	}
+	this.makeNoneType = function(info){
+		return aux( this.kinds.NONE_TYPE, {}, info);
 	}
 
 }();
