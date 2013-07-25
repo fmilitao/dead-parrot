@@ -94,7 +94,11 @@ module('Interpreter Tests');
 		for( var i in examples ){
 			var test = fetchCode(examples_dir+examples[i]);
 			var ast = parser(test.data);
-		  	ok( ast != null , "'"+examples[i]+"' parser check.");
+			if( ast === null ){
+				// forced failure due to paserser failur
+		  		ok( false , "'"+examples[i]+"' parser failure.");
+		  		continue;
+		  	}
 		  	try{
 		  		equal( interpreter( ast ).toString(),
 					test.i_ok, "'"+examples[i]+"' result check." );
@@ -112,7 +116,11 @@ module('Typechecker Tests');
 		for( var i in examples ){
 			var test = fetchCode(examples_dir+examples[i]);
 			var ast = parser(test.data);
-		  	ok( ast != null , "'"+examples[i]+"' parser check.");
+		  	if( ast === null ){
+				// forced failure due to paserser failur
+		  		ok( false , "'"+examples[i]+"' parser failure.");
+		  		continue;
+		  	}
 		  	try{
 		  		equal( typechecker( ast , null , null ).toString(),
 					test.t_ok, "'"+examples[i]+"' type check." );

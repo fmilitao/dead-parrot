@@ -43,13 +43,10 @@ let newPair = fun( _ : [] ).
 							}; result end
 				};
 			
-			// the following works due to idioms
+			// the following works due to idioms:
 			// this
-
-			// but explicitly also works
-			<self : ptr, this :: (rw self ((initLType[R*L])[self])) >
-			// expanded type is:
-			// <self : ptr, this :: (rw self [initLeft: int :: rw self ![] -o ![] :: rw self [initRight: int :: rw self ![] -o ![] :: rw self [addBoth: [] :: rw self ![] -o !int :: (R * L)]]]) >
+			// but explicitly also works:
+			< self : ptr, this :: (rw self (initLType[R*L][self])) >
 			end
 			in
 			let f = <T>fun( o : Behavioral[T] ).( 
