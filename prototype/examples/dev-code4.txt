@@ -5,8 +5,8 @@
 
 // FIXME abstract types?
 
-typedef Node = N#(exists p.(ref p :: rw p [int,Node])) // List Node
-			+ E#(exists p.(ref p :: rw p [])) // Empty Node
+typedef Node = rec Y.( N#(exists p.(ref p :: rw p [int,Y])) // List Node
+			+ E#(exists p.(ref p :: rw p [])) ) // Empty Node
 
 let LIST = {
 	makeList = fun( _ : [] ).E#new {},

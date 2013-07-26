@@ -649,7 +649,7 @@ var TypeChecker = function(){
 				return equalsTo( t1.location(), m1, t2.location(), m2 );
 			case types.StackedType:
 				return equalsTo( t1.left(), m1, t2.left(), m2 ) &&
-					equalsTo( t1.rigth(), m1, t2.rigth(), m2 );
+					equalsTo( t1.right(), m1, t2.right(), m2 );
 			case types.CapabilityType:
 				return equalsTo( t1.location(), m1, t2.location(), m2 ) &&
 					equalsTo( t1.value(), m1, t2.value(), m2 );
@@ -935,7 +935,9 @@ var TypeChecker = function(){
 			for( var id in mine ){
 				if( !theirs.hasOwnProperty(id) )
 					return false;
-				// FIXME: missing comparing capabilities and subtyping
+
+				if( !equals( this.get(mine[id]), other.get(theirs[id]) ) )
+					return false;
 			}
 			return true;
 		}
@@ -970,14 +972,10 @@ var TypeChecker = function(){
 		
 		// both the same type
 		if( t1.type() === types.BangType ){
-			var tmp = merge(t1.inner(),t2.inner());
+			var tmp = merge( t1.inner(),t2.inner() );
 			if( tmp !== undefined )
 				return new BangType( tmp );
 		}
-		
-		if( t1.type() === types.PrimitiveType && 
-			t1.name() === t2.name() )
-			return t1;
 		
 		if( t1.type() === types.SumType ){
 			// merge both types
@@ -993,8 +991,12 @@ var TypeChecker = function(){
 			}
 			return tmp;
 		}
+		
+		// all other cases must have exactly the same type
+		if( equals(t1,t2) )
+			return t1;
+			
 		return undefined;
-	// TODO: needs match (type) and equals (type)
 	}
 
 	// removes all BangTypes
@@ -1161,26 +1163,6 @@ var TypeChecker = function(){
 
 		e.set( id, value );
 	}
-	
-	var resolveName = function( label, ast, env ){
-		var tmp = env.get( label );
-		// if label matches type in environment, but we only allow
-		// access to type variables and location variables using this
-		// AST.kind --- all other uses are assumed to be recursives.
-		if( tmp !== undefined &&
-			( tmp.type() === types.TypeVariable ||
-			  tmp.type() === types.LocationVariable ) )
-				return tmp;
-		
-		// look for type definitions
-		var lookup = typedefs[label];
-
-		// found something
-		if( lookup !== undefined && lookup !== null )
-			return lookup;
-
-		assert( false, 'Unknown type '+label, ast);
-	}
 
 	// this wrapper function allows us to inspect the type and envs
 	// of some node, while leaving the checker mostly clean.
@@ -1195,25 +1177,6 @@ var TypeChecker = function(){
 	var check_inner = function( ast, env ) {
 		
 		switch(ast.kind) {
-			
-			case AST.kinds.PROGRAM: { //TODO: Move this elsewhere??
-				// reset typechecke's state.
-				unique_counter = 0;
-				typedefs = {};
-				
-				assert( ast.imports === null , 'FIXME: imports not done.' , ast);
-				
-				if( ast.typedefs !== null ){
-					for(var i=0;i<ast.typedefs.length;++i){
-						var type = ast.typedefs[i];
-						assert( !typedefs.hasOwnProperty(type.id),
-							'Duplicated typedef: '+type.id, type )
-						typedefs[type.id] = check( type.type, env );
-					}
-				}
-				
-				return check( ast.exp, env );
-			}
 			
 			// EXPRESSIONS
 			case AST.kinds.LET: {
@@ -1811,7 +1774,24 @@ var TypeChecker = function(){
 			}
 			
 			case AST.kinds.NAME_TYPE: {
-				return resolveName( ast.text, ast, env );
+				var label = ast.text;
+				var tmp = env.get( label );
+				// if label matches type in environment, but we only allow
+				// access to type variables and location variables using this
+				// AST.kind --- all other uses are assumed to be recursives.
+				if( tmp !== undefined &&
+					( tmp.type() === types.TypeVariable ||
+					  tmp.type() === types.LocationVariable ) )
+						return tmp;
+				
+				// look for type definitions
+				var lookup = typedefs[label];
+		
+				// found something
+				if( lookup !== undefined && lookup !== null )
+					return lookup;
+		
+				assert( false, 'Unknown type '+label, ast);
 			}
 			
 			case AST.kinds.PRIMITIVE_TYPE:
@@ -1987,11 +1967,29 @@ var TypeChecker = function(){
 	var typedefs;
 
 	return function(ast,typeinfo){
-		type_info = []; // FIXME this is ugly to be here and above
-		
 		var start = new Date().getTime();
+		
 		try{
-			return check( ast, new Environment(null) );
+			assert( ast.kind === AST.kinds.PROGRAM, 'Failed program assertion', ast );
+				
+			// reset typechecke's state.
+			var env = new Environment(null);
+			type_info = [];
+			unique_counter = 0;
+			typedefs = {};
+				
+			assert( ast.imports === null , 'FIXME: imports not done.' , ast);
+				
+			if( ast.typedefs !== null ){
+				for(var i=0;i<ast.typedefs.length;++i){
+					var type = ast.typedefs[i];
+					assert( !typedefs.hasOwnProperty(type.id),
+						'Duplicated typedef: '+type.id, type )
+					typedefs[type.id] = check( type.type, env );
+				}
+			}
+			
+			return check( ast.exp, env );
 		} finally {
 			var end = new Date().getTime();
 			
