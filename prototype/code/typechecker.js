@@ -768,19 +768,15 @@ var TypeChecker = function(){
 				return subtype( t2.argument(), m2, t1.argument(), m1 )
 					&& subtype( t1.body(), m1, t2.body(), m2 );
 			case types.RecordType:{
+				if( !t1.isEmpty() && t2.isEmpty() )
+					return false;
+
+				// all fields of t2 must be in t1
 				var t1fields = t1.getFields();
-				var t2fields = t2.getFields();
-				// all fields of t1 must be in t2 (but not the inverse)
+				var t2fields = t2.getFields();				
 				for( var i in t2fields ){
 					if( !t1fields.hasOwnProperty(i) ||
 						!subtype( t1fields[i], m1, t2fields[i], m2 ) ){
-						return false;
-					}
-				}
-				// all fields of t1 that are not on t2 mut be pure
-				for( var i in t1fields ){
-					if( !t2fields.hasOwnProperty(i) &&
-						t1fields[i].type() !== types.BangType ){
 						return false;
 					}
 				}
@@ -837,12 +833,11 @@ var TypeChecker = function(){
 					a2.type() === types.RecursiveType )
 					return true; // assume fails elsewhere
 					
+				// check they are related, as seen before
 				return a1.type() === a2.type() &&
-					// check they are related, as seen before
 					a1.name() === t2.name() &&
 					a2.name() === t1.name();
-				
-				// intentionally fall through
+
 			case types.CapabilityType:
 				return subtype( t1.location(), m1, t2.location(), m2 ) &&
 					subtype( t1.value(), m1, t2.value(), m2 );
@@ -858,13 +853,6 @@ var TypeChecker = function(){
 				n1.set( t1.id().name(), t2.id() );
 				n2.set( t2.id().name(), t1.id() );
 				return subtype( t1.inner(), n1, t2.inner(), n2 );
-				
-				/*
-				var loc = t1.id();
-				// renamed to ensure location variables names match
-				var rn = rename( t2.inner(), t2.id(), loc);
-				return subtype( t1.inner(), m1, rn, m2 );
-				*/
 			}
 			default:
 				assert( false, 'Assertion Error Subtype '+t1.type() );
