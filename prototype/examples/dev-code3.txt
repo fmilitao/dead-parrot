@@ -1,14 +1,21 @@
 
 
+//< exists I.!I :A, <int:I,0> >
+
 fun( x : rec A.(test#A + fail#int) ).(
-	let f = fun( y : (test#(rec C.(test#C + fail#int)) + fail#int) ).y in
-		f x
+	// this should fail to replace anything, or it would not yield a sum type
+	// <test#(rec A.(test#A + fail#int)):R,x>
+	
+	// replaces everything
+	//<(rec B.(test#B + fail#int)):R,x>
+	
+	case x of
+	  test#n -> Meh#<(rec B.(test#B + fail#int)):R,n>
+	| fail#n -> Number#n
 	end
 )
 
-
-//;<p><X>fun( x : int :: (X * rw p int) ).x
-
-
-//;<A>fun( x : int :: A ).(x::(A*none))
+	// let f = fun( y : (test#(rec C.(test#C + fail#int)) + fail#int) ).y in
+	//	f x
+	// end
 

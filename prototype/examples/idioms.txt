@@ -1,6 +1,9 @@
 // this file introduces some idioms that we are using
 // and that are not in the formalization
 
+// FIXME: also mention packs can have labels, up to renaming
+// so it does not make mush difference when compared to paper.
+
 // multi-argument functions, through Currying
 let f = fun(x : int, y : boolean ).x in
     // note the type of 'f' is "int -o boolean -o int"

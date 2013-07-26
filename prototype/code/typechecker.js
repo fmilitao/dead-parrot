@@ -142,7 +142,7 @@ var TypeChecker = function(){
 				}
 			}
 			this.isEmpty = function(){
-				return Object.keys(fields).length==0;
+				return Object.keys(fields).length===0;
 			}
 			this.getFields = function(){
 				return fields;
@@ -211,7 +211,7 @@ var TypeChecker = function(){
 		return function(name){
 			inherit( this, type );
 			
-			var n = name==null ? 't<sub>'+(unique_counter++)+'</sub>' : name;
+			var n = name===null ? 't<sub>'+(unique_counter++)+'</sub>' : name;
 			
 			this.name = function(){ return n; }
 		};
@@ -223,7 +223,7 @@ var TypeChecker = function(){
 		return function(name){
 			inherit( this, type );
 			
-			var n = name==null ? 'T<sub>'+(unique_counter++)+'</sub>' : name;
+			var n = name===null ? 'T<sub>'+(unique_counter++)+'</sub>' : name;
 			
 			this.name = function(){ return n; }
 		};
@@ -278,6 +278,7 @@ var TypeChecker = function(){
 				}	
 				return true;
 			}
+			case types.RecursiveType:
 			case types.ExistsType:
 			case types.ForallType:
 				if( t.id().name() === loc.name() )
@@ -316,7 +317,7 @@ var TypeChecker = function(){
 			}
 			case types.TypeVariable:
 			case types.LocationVariable:
-				return t.name() != loc.name();
+				return t.name() !== loc.name();
 			case types.NoneType:
 			case types.PrimitiveType:
 				return true;
@@ -332,9 +333,9 @@ var TypeChecker = function(){
 				return toString(t.argument())+" -o "+toString(t.body());
 			case types.BangType: {
 				var inner = t.inner();
-				if( inner.type() == types.ReferenceType ||
-					inner.type() == types.FunctionType ||
-					inner.type() == types.StackedType )
+				if( inner.type() === types.ReferenceType ||
+					inner.type() === types.FunctionType ||
+					inner.type() === types.StackedType )
 					return "!("+toString(t.inner())+")";
 				return "!"+toString(t.inner());
 			}
@@ -393,10 +394,10 @@ var TypeChecker = function(){
 				//return toHTML(t.argument())+" &#x22b8; "+toHTML(t.body());
 			case types.BangType:{
 				var inner = t.inner();
-				if( inner.type() == types.ReferenceType ||
-					inner.type() == types.FunctionType ||
-					inner.type() == types.StackedType || 
-					inner.type() == types.SumType )
+				if( inner.type() === types.ReferenceType ||
+					inner.type() === types.FunctionType ||
+					inner.type() === types.StackedType || 
+					inner.type() === types.SumType )
 					return "!("+toHTML(t.inner())+')';	
 				return "!"+toHTML(t.inner());
 			}
@@ -497,9 +498,6 @@ var TypeChecker = function(){
 	 *  'original' name so that bounded names are never wrongly substituted.
 	 */
 	var rename = function(type,original,target){
-		
-		var visited = {};
-		
 		function rec(t){
 			if( equals(t,original) )
 				return target;
@@ -512,15 +510,14 @@ var TypeChecker = function(){
 			case types.SumType:{
 				var sum = new SumType();
 				var tags = t.tags();
-				for( var i in tags ){
-					sum.add( tags[i], rec(t.inner(tags[i])) ); 
-				}	
+				for( var i in tags )
+					sum.add( tags[i], rec(t.inner(tags[i])) );
 				return sum;
 			}
 			case types.StarType:{
 				var star = new StarType();
 				var inners = t.inner();
-				for( var i=0;i<inners.length;++i){
+				for( var i=0;i<inners.length;++i ){
 					star.add( rec(inners[i]) ); 
 				}	
 				return star;
@@ -600,98 +597,100 @@ var TypeChecker = function(){
 	 * @return {Boolean} if the types are equal up to renaming.
 	 */
 	var equals = function(a,b){
-		if( a.type() !== b.type() )
+		// only creates environments when necessary
+		return equalsTo( a, null, b, null );
+	}
+	
+	var equalsTo = function( t1, m1, t2, m2 ){
+		var rec1 = t1.type() === types.RecursiveType;
+		var rec2 = t2.type() === types.RecursiveType;
+		if( rec1 ^ rec2 ){
+			if( rec1 )
+				return equalsTo( t1.inner(), m1, t2, m2 );
+			
+			if( rec2 )
+				return equalsTo( t1, m1, t2.inner(), m2 );
+		}
+		
+		if( t1.type() !== t2.type() )
 			return false;
 		
 		// assuming both same type
-		switch ( a.type() ){
+		switch ( t1.type() ){
 			case types.FunctionType:
-				return equals(a.argument(),b.argument()) &&
-					equals(a.body(),b.body());
+				return equalsTo( t1.argument(), m1, t2.argument(), m2 ) &&
+					equalsTo( t1.body(), m1, t2.body(), m2 );
 			case types.BangType:
-				return equals(a.inner(),b.inner());
+				return equalsTo( t1.inner(), m1, t2.inner(), m2 );
 			case types.SumType:{
-				var as = a.tags();
-				var bs = b.tags();
-				if( Object.keys(as).length != Object.keys(bs).length )
+				var t1s = t1.tags();
+				var t2s = t2.tags();
+				if( Object.keys(t1s).length !== Object.keys(t1s).length )
 					return false;
-				for( var i in as )
-					if( !bs.hasOwnProperty(i) || !equals(as[i],bs[i]) )
+				for( var i in t1s )
+					if( !t2s.hasOwnProperty(i) ||
+						!equalsTo( t1.inner(t1s[i]), m1, t2.inner(t1s[i]), m2 ) )
 						return false;
 				return true;
 			}
-
-			/* FIXME
 			case types.RecursiveType:
-			case types.StarType:{
-				var star = new StarType();
-				var inners = t.inner();
-				for( var i=0;i<inners.length;++i){
-					star.add( rec(inners[i]) ); 
-				}	
-				return star;
-			} */
-			
-			/* FIXME
-			case types.ExistsType:
-				// renaming is needed when the bounded location variable
-				// of the exists type is the same as the target name to replace
-				// or when it is the same as the original name to replace
-				// 1. when variable to be renamed is the same as bounded var:
-				// (exists t.(ref t)){t/X} -> must rename location of exists
-				// 2. when target name is the same as bounded var:
-				// (exists t.(ref t)){g/t} -> must rename location of exists
-				if( t.id().name() == original.name() ||
-					t.id().name() == target ){
-					var nloc = new LocationVariable(null); // fresh name
-					var ninner = rename( t.inner(), t.id(), nloc );
-					return new ExistsType( nloc, rec(ninner) );	
-				}
-				return new ExistsType( t.id(), rec(t.inner()) );
-			case types.ForallType:
-				if( t.id().name() == original.name() ||
-					t.id().name() == target ){
-					var nloc = new LocationVariable(null); // fresh name
-					var ninner = rename( t.inner(), t.id(), nloc );
-					return new ForallType( nloc, rec(ninner) );	
-				}
-				return new ForallType( t.id(), rec(t.inner()) );
-				*/
-			
+			case types.ForallType:		
+			case types.ExistsType:{
+				// uses environment to know the relation between the two names
+				// instead of having to renamed the type to ensure matching
+				// labels on their inner types.
+				var n1 = m1 === null ? new Environment(null) : m1.newScope();
+				var n2 = m2 === null ? new Environment(null) : m2.newScope();
+				n1.set( t1.id().name(), t2.id() );
+				n2.set( t2.id().name(), t1.id() );
+				return equalsTo( t1.inner(), n1, t2.inner(), n2 );
+			}
 			case types.ReferenceType:
-				return equals( a.location(), b.location() );
+				return equalsTo( t1.location(), m1, t2.location(), m2 );
 			case types.StackedType:
-				return equals( a.left(), b.left() ) &&
-					equals( a.rigth(), b.rigth() );
+				return equalsTo( t1.left(), m1, t2.left(), m2 ) &&
+					equalsTo( t1.rigth(), m1, t2.rigth(), m2 );
 			case types.CapabilityType:
-				return equals( a.location(), b.location() ) &&
-					equals( a.value(), b.value() );
+				return equalsTo( t1.location(), m1, t2.location(), m2 ) &&
+					equalsTo( t1.value(), m1, t2.value(), m2 );
 			case types.RecordType: {
-				var as = a.getFields();
-				var bs = b.getFields();
-				if( Object.keys(as).length != Object.keys(bs).length )
+				var t1s = t1.getFields();
+				var t2s = t1.getFields();
+				if( Object.keys(t1s).length !== Object.keys(t2s).length )
 					return false;
-				for( var i in as )
-					if( !bs.hasOwnProperty(i) || !equals(as[i],bs[i]) )
+				for( var i in t1s )
+					if( !t2s.hasOwnProperty(i) || 
+						!equalsTo( t1s[i], m1, t2s[i], m2 ) )
 						return false;
 				return true;
 			} 
 			case types.TupleType: {
-				var as = a.getValues();
-				var bs = b.getValues();
-				if( as.length != bs.length )
+				var t1s = t1.getValues();
+				var t2s = t2.getValues();
+				if( t1s.length !== t2s.length )
 					return false;
-				for( var i=0;i<as.length;++i )
-					if( !equals(as[i],bs[i]) )
+				for( var i=0;i<t1s.length;++i )
+					if( !equalsTo( t1s[i], m1, t2s[i], m2 ) )
 						return false;
 				return true;
 			}
-			case types.PrimitiveType:
-			case types.LocationVariable:
 			case types.TypeVariable:
-				return a.name() === b.name();
+			case types.LocationVariable:
+				var a1 = m1 !== null ? m1.get(t1.name()) : undefined;
+				var a2 = m2 !== null ? m2.get(t2.name()) : undefined;
+				// note it also returns 'undefined' when name not bound
+				if( a1 === undefined && a2 === undefined )
+					return t1.name() === t2.name();
+					
+				// check they are related, as seen before
+				return a1.type() === a2.type() &&
+					a1.name() === t2.name() &&
+					a2.name() === t1.name();
+
+			case types.PrimitiveType:
+				return t1.name() === t2.name();
 			default:
-				assert( false, "Assertion error on " +a.type() );
+				assert( false, "Assertion error on " +t2.type() );
 				break;
 			}
 	};
@@ -707,8 +706,8 @@ var TypeChecker = function(){
 	}
 	
 	var subtype = function( t1, m1, t2, m2 ){
-		// TODO all subtyping rules need to be synced with paper
 			
+		// confirm subtyping rules are synced with paper
 							//console.log('SUBTYPE:');
 							//console.log(t1);
 							//console.log(t2);
@@ -725,10 +724,10 @@ var TypeChecker = function(){
 		}
 
 		// types that can be "banged"
-		if ( ( t1.type() === types.ReferenceType
+		if ( t2.type() === types.BangType &&
+			( t1.type() === types.ReferenceType
 			|| t1.type() === types.PrimitiveType
-			|| ( t1.type() === types.RecordType && t1.isEmpty() ) )
-			&& t2.type() === types.BangType )
+			|| ( t1.type() === types.RecordType && t1.isEmpty() ) ) )
 			return subtype( t1, m1, t2.inner(), m2 );
 		
 		// "ref" t1: (ref p) <: !(ref p)

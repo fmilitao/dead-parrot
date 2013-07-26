@@ -1,16 +1,18 @@
+//OK 0
+//OK exists A.(exists a.(!A :: rw a !A))
 
 // FIXME: move this to test case.
+
+// just typecheck and ignore
+<A>fun( x : int :: A ).(x::(A*none));
+
+<p><X>fun( x : int :: (X * rw p int) ).x;
+
 open <T,x> = <int,new 0> in
-   open <t,y> = x in
-      <t:a,!y::rw t !T>
-   end
+	open <t,y> = x in
+		// FIXME should be able to purify
+		// <int:P,0> ;
+		// <int:TESTING, <X>fun( x : X ).0 > ;
+		<T:A,<t:a,!y::rw t !T>>
+	end
 end
-
-
-
-//<int:P,0>
-
-//<int:TESTING,
-//	<X>fun( x : X ).0
-//>
-
