@@ -239,11 +239,13 @@ var TypeChecker = function(){
 	}();
 	
 	var RecursiveType = function(){
+		//var unique_id = 0;
 		var type = addType('RecursiveType');
 		
 		return function(id,inner){
 			inherit( this, type );
 			
+			//this.unique = (++unique_id);
 			this.id = function(){ return id; }
 			this.inner = function(){ return inner; }
 		};
@@ -499,13 +501,6 @@ var TypeChecker = function(){
 		var visited = {};
 		
 		function rec(t){
-			/* FIXME oh shit... with rename it does not work...
-			if( t instanceof RecursiveType ){
-				if( visited[t.__recursive_name__] )
-					
-					visited[t.__recursive_name__] = true;
-			} */
-			
 			if( equals(t,original) )
 				return target;
 			
@@ -627,6 +622,7 @@ var TypeChecker = function(){
 			}
 
 			/* FIXME
+			case types.RecursiveType:
 			case types.StarType:{
 				var star = new StarType();
 				var inners = t.inner();
@@ -707,76 +703,97 @@ var TypeChecker = function(){
 	 * @return {Boolean} true if t1 <: t2 (if t1 can be used as t2).
 	 */
 	var subtypeOf = function( t1 , t2 ){
+		return subtype( t1, new Environment(null), t2, new Environment(null) );
+	}
+	
+	var subtype = function( t1, m1, t2, m2 ){
+		// TODO all subtyping rules need to be synced with paper
 			
 							//console.log('SUBTYPE:');
 							//console.log(t1);
 							//console.log(t2);
 							//console.log(t1.type()+'-----'+t2.type());
 
-		// types that can be "banged"
-		if ( ( t1.type() == types.ReferenceType
-			|| t1.type() == types.PrimitiveType
-			|| ( t1.type() == types.RecordType && t1.isEmpty() ) )
-			&& t2.type() == types.BangType )
-			return subtypeOf( t1, t2.inner() );
+		if( t1.type() === types.RecursiveType ){
+			m1.set( t1.id().name(), t1 ); // ok to fail silently
+			return subtype( t1.inner(), m1, t2, m2 );
+		}
 		
-		// TODO all subtyping rules need to be synced with paper
+		if( t2.type() === types.RecursiveType ){
+			m2.set( t2.id().name(), t2 ); // ok to fail silently
+			return subtype( t1, m1, t2.inner(), m2 );
+		}
+
+		// types that can be "banged"
+		if ( ( t1.type() === types.ReferenceType
+			|| t1.type() === types.PrimitiveType
+			|| ( t1.type() === types.RecordType && t1.isEmpty() ) )
+			&& t2.type() === types.BangType )
+			return subtype( t1, m1, t2.inner(), m2 );
 		
 		// "ref" t1: (ref p) <: !(ref p)
-		if ( t1.type() == types.ReferenceType && t2.type() == types.BangType )
-			return subtypeOf( t1, t2.inner() );
+		if ( t1.type() === types.ReferenceType && t2.type() === types.BangType )
+			return subtype( t1, m1, t2.inner(), m2 );
 
 		// "pure to linear" - ( t1: !A ) <: ( t2: A )
-		if ( t1.type() == types.BangType && t2.type() != types.BangType )
-			return subtypeOf( t1.inner(), t2 );
+		if ( t1.type() === types.BangType && t2.type() !== types.BangType )
+			return subtype( t1.inner(), m1, t2, m2 );
 
 		// all remaining rule require equal kind of type
-		if( t1.type() != t2.type() )
+		if( t1.type() !== t2.type() ){
+			// try to match with the type that was tabled
+			if( t1.type() === types.TypeVariable && m1.get(t1.name()) !== undefined )
+				return subtype(m1.get(t1.name()),m1,t2,m2);
+				
+			if( t2.type() === types.TypeVariable &&  m2.get(t2.name()) !== undefined )
+				return subtype(t1,m1,m2.get(t2.name()),m2);
+
 			return false;
+		}
 		
 		//else: safe to assume same type from here on
 		switch ( t1.type() ){
 			case types.NoneType:
 				return true;
 			case types.PrimitiveType:
-				return t1.name() == t2.name();
+				return t1.name() === t2.name();
 			case types.BangType:
 				// if t2 is unit: "top" rule
-				if( t2.inner().type() == types.RecordType && t2.inner().isEmpty() )
+				if( t2.inner().type() === types.RecordType && t2.inner().isEmpty() )
 					return true;
-				return subtypeOf( t1.inner(), t2.inner())
+				return subtype( t1.inner(), m1, t2.inner(), m2 );
 			case types.ReferenceType:
-				return subtypeOf( t1.location(), t2.location() );
+				return subtype( t1.location(), m1, t2.location(), m2 );
 			case types.FunctionType:
-				return subtypeOf( t2.argument(), t1.argument())
-					&& subtypeOf( t1.body(), t2.body());
+				return subtype( t2.argument(), m2, t1.argument(), m1 )
+					&& subtype( t1.body(), m1, t2.body(), m2 );
 			case types.RecordType:{
 				var t1fields = t1.getFields();
 				var t2fields = t2.getFields();
 				// all fields of t1 must be in t2 (but not the inverse)
 				for( var i in t2fields ){
 					if( !t1fields.hasOwnProperty(i) ||
-						!subtypeOf( t1fields[i], t2fields[i] ) ){
+						!subtype( t1fields[i], m1, t2fields[i], m2 ) ){
 						return false;
 					}
 				}
 				// all fields of t1 that are not on t2 mut be pure
 				for( var i in t1fields ){
 					if( !t2fields.hasOwnProperty(i) &&
-						t1fields[i].type() != types.BangType ){
+						t1fields[i].type() !== types.BangType ){
 						return false;
 					}
 				}
 				return true;
 			}
 			case types.StackedType:
-				return subtypeOf( t1.left(), t2.left() ) &&
-					subtypeOf( t1.right(), t2.right() );
+				return subtype( t1.left(), m1, t2.left(), m2 ) &&
+					subtype( t1.right(), m1, t2.right(), m2 );
 			case types.StarType:{
 				var i1s = t1.inner();
 				var i2s = t2.inner();
 				
-				if( i1s.length != i2s.length )
+				if( i1s.length !== i2s.length )
 					return false;
 				// for *-type, any order will do
 				var tmp_i2s = i2s.slice(0); // copies array
@@ -785,7 +802,7 @@ var TypeChecker = function(){
 					var found = false;
 					for(var j=0;j<tmp_i2s.length;++j){
 						var tmp = tmp_i2s[j];
-						if( subtypeOf(curr,tmp) ){
+						if( subtype(curr,m1,tmp,m2) ){
 							tmp_i2s.splice(j,1); // removes element
 							found = true;
 							break; // continue to next
@@ -802,24 +819,52 @@ var TypeChecker = function(){
 				for( var i in i1s ){
 					var j = t2.inner(i1s[i]);
 					if( j === undefined || // missing tag
-						!subtypeOf( t1.inner(i1s[i]), j ) )
+						!subtype( t1.inner(i1s[i]), m1, j, m2 ) )
 						return false;
 				}
 				return true;
 			}
 			case types.TypeVariable:
 			case types.LocationVariable:
-				return t1.name() == t2.name();
+
+				var a1 = m1.get(t1.name());
+				var a2 = m2.get(t2.name())
+				
+				if( a1 === undefined && a2 === undefined )
+					return t1.name() === t2.name();
+
+				if( a1.type() === types.RecursiveType && 
+					a2.type() === types.RecursiveType )
+					return true; // assume fails elsewhere
+					
+				return a1.type() === a2.type() &&
+					// check they are related, as seen before
+					a1.id().name() === t2.name() &&
+					a2.id().name() === t1.name();
+				
+				// intentionally fall through
 			case types.CapabilityType:
-				return subtypeOf( t1.location(), t2.location() ) &&
-					subtypeOf( t1.value(), t2.value() );
+				return subtype( t1.location(), m1, t2.location(), m2 ) &&
+					subtype( t1.value(), m1, t2.value(), m2 );
 			
 			case types.ForallType:		
 			case types.ExistsType:{
+				// uses environment to know the relation between the two names
+				// instead of having to renamed the type to ensure matching
+				// labels on their inner types.
+				
+				var n1 = m1.newScope();
+				var n2 = m2.newScope();
+				n1.set( t1.id(), t2 );
+				n2.set( t2.id(), t1 );
+				return subtype( t1.inner(), n1, t2.inner(), n2 );
+				
+				/*
 				var loc = t1.id();
 				// renamed to ensure location variables names match
 				var rn = rename( t2.inner(), t2.id(), loc);
-				return subtypeOf( t1.inner(), rn );
+				return subtype( t1.inner(), m1, rn, m2 );
+				*/
 			}
 			default:
 				assert( false, 'Assertion Error Subtype '+t1.type() );
@@ -967,37 +1012,39 @@ var TypeChecker = function(){
 
 	// removes all BangTypes
 	var unBang = function(t){
-		if( t.type() == types.BangType )
-			return unBang( t.inner() );
+		while( t.type() === types.BangType )
+			t = t.inner();
 		return t;
 	}
 	
 	var unAll = function(tt){
-		// table to avoid revisiting
-		var visited = 100;
 		// FIXME: how to properly table this? indexOf / equals does not appear to work
 		// how to check for fix point?
 		
-		var rec = function(t){
-			if( t.type() === types.BangType )
-				return rec( t.inner() );
+		var visited = 100;
+		var t = tt;
+		while( true ) {
+			if( t.type() === types.BangType ){
+				t = t.inner();
+				continue;
+			}
 			if( t.type() === types.RecursiveType ){
-				//assert( visited.indexOf(t) === -1 , 'Unending unfolding of type: '+t );
+				//assert( visited.indexOf(t.unique()) === -1 , 'Unending unfolding of type: '+t );
 				//visited.push(t);
 				assert( (--visited) > 0 , 'Failed to unfold: '+tt +', max unfolds reached');
 				
 				// unfold
-				return rec( rename(t.inner(),t.id(),t) );
+				t = rename(t.inner(),t.id(),t);
+				continue;
 			}
-			return t;
+			break;
 		}
-		
-		return rec(tt);
+		return t;
 	}
 		
 	// attempts to convert type to bang
 	var purify = function(t){
-		if( t.type() != types.BangType ){
+		if( t.type() !== types.BangType ){
 			var tmp = new BangType(t);
 			if( subtypeOf(t,tmp) )
 				return tmp;

@@ -1,10 +1,9 @@
 
-// test#A + fail#int
-fun( x : rec A.rec B.(test#A + fail#int) ).(
-		case x of
-		  test#n -> X#n
-		| fail#n -> Y#n
-		end
+
+fun( x : rec A.(test#A + fail#int) ).(
+	let f = fun( y : (test#(rec C.(test#C + fail#int)) + fail#int) ).y in
+		f x
+	end
 )
 
 
