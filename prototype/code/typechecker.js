@@ -70,7 +70,7 @@ var TypeChecker = function(){
 	var SumType = function(){
 		var type = addType('SumType');
 		
-		return function( ) {
+		return function() {
 			inherit( this, type );
 			
 			var tags = {};
@@ -88,7 +88,7 @@ var TypeChecker = function(){
 	var StarType = function(){
 		var type = addType('StarType');
 		
-		return function( ) {
+		return function() {
 			inherit( this, type );
 			
 			var types = [];
@@ -105,7 +105,7 @@ var TypeChecker = function(){
 		
 		return function(id, inner) {
 			inherit( this, type );
-			this.id = function(){ return id; } // : LocationVariable
+			this.id = function(){ return id; }
 			this.inner = function(){ return inner; }
 		};
 	}();
@@ -115,7 +115,7 @@ var TypeChecker = function(){
 		
 		return function(id,inner){
 			inherit( this, type );
-			this.id = function(){ return id; } // : LocationVariable
+			this.id = function(){ return id; }
 			this.inner = function(){ return inner; }
 		};
 	}();
@@ -156,7 +156,7 @@ var TypeChecker = function(){
 		var type = addType('NoneType');
 		
 		inherit( this, type );
-	}(); // note that it calls function immediately, so there is a single type.
+	}(); // calls function immediately, so there is a singleton value.
 	
 	var TupleType = function(){
 		var type = addType('TupleType');
@@ -901,7 +901,7 @@ var TypeChecker = function(){
 		}
 		
 		this.size = function(){
-			return Object.keys(map).length+( parent == null ? 0 : parent.size() );
+			return Object.keys(map).length+( parent===null ? 0 : parent.size() );
 		}
 		this.allElements = function(){
 			var keys = Object.keys(map);
@@ -949,7 +949,7 @@ var TypeChecker = function(){
 		
 	var findBranch = function(tag,ast){
 		for( var i=0; i<ast.branches.length; ++i ){
-			if( ast.branches[i].tag == tag )
+			if( ast.branches[i].tag===tag )
 				return ast.branches[i];
 		}
 		return undefined;
@@ -1008,7 +1008,7 @@ var TypeChecker = function(){
 	
 	var unAll = function(tt){
 		// FIXME: how to properly table this? indexOf / equals does not appear to work
-		// how to check for fix point?
+		// FIXME how to check for fix point? SAME FOR SUBTYPING and EQUALS
 		
 		var visited = 100;
 		var t = tt;
@@ -1119,7 +1119,7 @@ var TypeChecker = function(){
 		// if there's something to stack
 		var ll = tmp.inner().length;
 		if( ll > 0 ){
-			if( ll == 1 ) // no need for star when there is just one
+			if( ll === 1 ) // no need for star when there is just one
 				res = new StackedType( res, tmp.inner()[0] );
 			else
 				res = new StackedType( res, tmp );
@@ -1129,12 +1129,12 @@ var TypeChecker = function(){
 		env.elements(function(e,el){
 			if( e[0] === '.' ) // ignore hidden elements
 				return;
-			if( el.type() == types.LocationVariable && !isFresh(res,el) ){
+			if( el.type() === types.LocationVariable && !isFresh(res,el) ){
 				var loc = new LocationVariable(null);
 				res = new ExistsType( loc, rename( res, el, loc ) );
 				return;
 			}
-			if( el.type() == types.TypeVariable && !isFresh(res,el) ){
+			if( el.type() === types.TypeVariable && !isFresh(res,el) ){
 				var loc = new TypeVariable(null);
 				res = new ExistsType( loc, rename( res, el, loc ) );
 				return;
@@ -1186,7 +1186,7 @@ var TypeChecker = function(){
 				var e = env.newScope();
 				
 				value = purify(value);
-				assert( ast.id != null || value.type() == types.BangType,
+				assert( ast.id != null || value.type() === types.BangType,
 					'Cannot drop linear type', ast );
 				
 				if( ast.id != null )
@@ -1200,7 +1200,7 @@ var TypeChecker = function(){
 				var value = check( ast.val, env );
 				
 				value = unAll( value );
-				assert( value.type() == types.ExistsType,
+				assert( value.type()===types.ExistsType,
 					"Type '" + value + "' not existential", ast.exp);
 
 				var e = env.newScope();
@@ -1365,7 +1365,7 @@ var TypeChecker = function(){
 				var exp = check(ast.exp, env);
 				
 				exp = unAll(exp);
-				assert( exp.type() == types.ReferenceType,
+				assert( exp.type()===types.ReferenceType,
 					"Invalid dereference '"+exp+"'", ast );
 
 				var loc = exp.location().name();
@@ -1378,7 +1378,7 @@ var TypeChecker = function(){
 				
 				var residual;
 				// see if read must be destructive (i.e. leave unit)
-				if( old.type() == types.BangType )
+				if( old.type()===types.BangType )
 					residual = old;
 				else
 					residual = UnitType;
@@ -1392,7 +1392,7 @@ var TypeChecker = function(){
 				var exp = check(ast.exp, env);
 				exp = unAll(exp);
 				
-				if( exp.type() == types.ReferenceType ){
+				if( exp.type()===types.ReferenceType ){
 					var loc = exp.location().name();
 					var capI = capIndex( loc )
 					var cap = env.remove( capI );
@@ -1402,16 +1402,16 @@ var TypeChecker = function(){
 					// just return the old contents of 'cap'
 					return cap.value();
 					
-				} else if( exp.type() == types.ExistsType ){
+				} else if( exp.type()===types.ExistsType ){
 					// Luis' delete rule...
 					var inner = exp.inner();
-					if( inner.type() == types.StackedType ){
+					if( inner.type()===types.StackedType ){
 						var ref = unBang( inner.left() );
 						var cap = inner.right();
-						assert( ref.type() == types.ReferenceType, "Expecting reference '"+exp+"'",ast);
+						assert( ref.type()===types.ReferenceType, "Expecting reference '"+exp+"'",ast);
 						var loc = ref.location();
-						assert( cap.type() == types.CapabilityType, "Expecting capability '"+exp+"'",ast);
-						assert( loc.name() == exp.id().name(), "Expecting matching location '"+exp+"'",ast);
+						assert( cap.type()===types.CapabilityType, "Expecting capability '"+exp+"'",ast);
+						assert( loc.name()===exp.id().name(), "Expecting matching location '"+exp+"'",ast);
 						return new ExistsType(exp.id(),cap.value());
 					}
 					
@@ -1426,7 +1426,7 @@ var TypeChecker = function(){
 				var value = check(ast.exp, env);
 				
 				lvalue = unAll(lvalue);
-				assert( lvalue.type() == types.ReferenceType,
+				assert( lvalue.type()===types.ReferenceType,
 					"Invalid assign '"+lvalue+"' := '"+value+"'", ast.lvalue);
 				
 				var loc = lvalue.location().name();
@@ -1446,7 +1446,7 @@ var TypeChecker = function(){
 				var id = ast.right;
 				rec = unAll(rec);
 				
-				assert( rec.type() == types.RecordType,
+				assert( rec.type()===types.RecordType,
 					"Invalid field selection '"+id+"' for '"+rec+"'", ast );
 
 				// 1st check if field exists
@@ -1458,7 +1458,7 @@ var TypeChecker = function(){
 				for(var i in fs ){
 					if( i != id ){
 						var f = purify(fs[i]);
-						assert( f.type() == types.BangType ,
+						assert( f.type()===types.BangType ,
 							"Discarding pure field '"+i+"' of record",ast);
 					}
 				}
@@ -1470,7 +1470,7 @@ var TypeChecker = function(){
 				var fun = check(ast.fun, env);
 				fun = unAll(fun);
 				
-				assert( fun.type() == types.FunctionType,
+				assert( fun.type() === types.FunctionType,
 					'Type '+fun.toString()+' not a function', ast.fun);
 
 				var arg = check(ast.arg, env);
@@ -1481,7 +1481,7 @@ var TypeChecker = function(){
 					switch( p.type() ) {
 						case types.StarType: {
 							var inners = p.inner();
-							if( t.type() == types.StarType ){
+							if( t.type() === types.StarType ){
 								// if the type is already a star type, we 
 								// assume that it has all types there and do not
 								// auto-stack anything since otherwise we would
@@ -1521,7 +1521,7 @@ var TypeChecker = function(){
 							}
 						}
 						case types.StackedType: {
-							if( t.type() == types.StackedType )
+							if( t.type() === types.StackedType )
 								return new StackedType(
 									rec( t.left(), p.left() ),
 									rec( t.right(), p.right() ) );
@@ -1529,10 +1529,10 @@ var TypeChecker = function(){
 								return rec( rec( t, p.left() ), p.right() );
 						}
 						case types.CapabilityType: {
-							if( t.type() == types.CapabilityType ){
+							if( t.type() === types.CapabilityType ){
 								var t_loc = t.location().name();
 								var p_loc = p.location().name();
-								assert( t_loc == p_loc,
+								assert( t_loc === p_loc,
 									'Incompatible capability '+t_loc+' vs '+p_loc, ast.arg );
 								break;
 							} else {
@@ -1545,7 +1545,7 @@ var TypeChecker = function(){
 							}
 						}
 						case types.TypeVariable: {
-							if( t.type() == types.TypeVariable ){
+							if( t.type() === types.TypeVariable ){
 								var t_loc = t.name();
 								var p_loc = p.name();
 								assert( t_loc === p_loc,
@@ -1578,7 +1578,7 @@ var TypeChecker = function(){
 			case AST.kinds.TYPE_APP: {
 				var exp = check( ast.exp, env );
 				exp = unAll(exp);
-				assert( exp.type() == types.ForallType , 
+				assert( exp.type()===types.ForallType , 
 					'Not a Forall '+exp.toString(), ast.exp );
 				
 				var packed = check(ast.id, env);
@@ -1598,7 +1598,7 @@ var TypeChecker = function(){
 				for(var i=0;i<ast.exp.length;++i){
 					var value = check( ast.exp[i], env );
 					rec.add(value);
-					if( value.type() != types.BangType )
+					if( value.type() !== types.BangType )
 						bang = false;
 				}
 				
@@ -1611,11 +1611,11 @@ var TypeChecker = function(){
 			case AST.kinds.LET_TUPLE: {
 				var exp = check( ast.val, env );
 				exp = unAll(exp);
-				assert( exp.type() == types.TupleType,
+				assert( exp.type() === types.TupleType,
 					"Type '" + exp + "' not tuple", ast.exp);
 				
 				var values = exp.getValues();
-				assert( values.length == ast.ids.length,
+				assert( values.length === ast.ids.length,
 					"Incompatible sizes "+ast.ids.length+" != "+values.length, ast.exp);
 
 				var e = env.newScope();
@@ -1698,11 +1698,11 @@ var TypeChecker = function(){
 				var id = ast.id;
 				var loc = env.get( id );
 				
-				assert( loc != undefined && loc.type() == types.LocationVariable,
+				assert( loc !== undefined && loc.type() === types.LocationVariable,
 					'Unknow Location Variable '+id, ast);
 
 				var type = null
-				if( ast.type !=null ){
+				if( ast.type !== null ){
 					type = check( ast.type, env );
 					type = purify(type);
 				}
@@ -1806,7 +1806,7 @@ var TypeChecker = function(){
 				var tryBang = function(f){ // tryBang : is a closure
 					var initial_size = env.size();
 					var result = f();
-					if( initial_size == env.size() )
+					if( initial_size === env.size() )
 						return new BangType(result);
 					return result;
 				};
@@ -1933,7 +1933,7 @@ var TypeChecker = function(){
 			if( keys.indexOf(keys[i]) < i ){
 				continue;
 			}
-			if( val.type() == types.BangType || val.type() == types.LocationVariable ){
+			if( val.type() === types.BangType || val.type() === types.LocationVariable ){
 				gamma.push('<span class="type_name">'+keys[i]+'</span>'+": "+val.toHTML());
 				continue;
 			}			
@@ -1942,7 +1942,7 @@ var TypeChecker = function(){
 				continue;
 			}
 			// HACK to find type variable declaration (has same name as abstracted type)
-			if( val.type() == types.TypeVariable && keys[i] === val.name() ){
+			if( val.type() === types.TypeVariable && keys[i] === val.name() ){
 				gamma.push('<span class="type_name">'+keys[i]+'</span>'+": <b>type</b>");
 				continue;
 			}
@@ -2002,13 +2002,13 @@ var TypeChecker = function(){
 					for( var i in type_info ){
 						ast = type_info[i].ast;
 						if( ( ast.line < pos.row || 
-					 		( ast.line == pos.row &&
+					 		( ast.line === pos.row &&
 								ast.col <= pos.column ) ) ){
 					 			ptr = i;
 					 	}
 					}
 					
-					if( ptr == null )
+					if( ptr === null )
 						return '';
 			
 					var diff = end-start;

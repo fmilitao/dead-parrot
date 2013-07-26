@@ -2,6 +2,7 @@ REMEMBER:
  	- to disable chrome's cache
  	- launch 'static' on trunk/
  	
+ 	FIXME: recursive types on subtyping, equals and unAll may be infinite...
  	- IDIOT YOU ARE USING RECURSION WHEN WHILE IS ENOUGH...
  	
 TODO:
