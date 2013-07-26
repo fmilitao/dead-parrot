@@ -178,6 +178,15 @@ a:visited {
 	color: blue;
 }
 
+.type_variable{
+	color: green;
+}
+
+.type_tag{
+	color: #FF6633;
+	font-weight: bold;
+}
+
 .type_name{
 	color: #8B0000;
 }

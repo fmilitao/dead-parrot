@@ -1,8 +1,15 @@
 
-// ?
+// test#A + fail#int
+fun( x : rec A.rec B.(test#A + fail#int) ).(
+		case x of
+		  test#n -> X#n
+		| fail#n -> Y#n
+		end
+)
 
-<p><X>fun( x : int :: (X * rw p int) ).x ;
+
+//;<p><X>fun( x : int :: (X * rw p int) ).x
 
 
-<A>fun( x : int :: A ).(x::(A*none))
+//;<A>fun( x : int :: A ).(x::(A*none))
 

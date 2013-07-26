@@ -41,6 +41,7 @@ var AST = new function(){
 		'STAR_TYPE',
 		'PRIMITIVE_TYPE',
 		'NONE_TYPE',
+		'RECURSIVE_TYPE',
 		// constructs
 		'FORALL',
 		'PACK',
@@ -178,6 +179,9 @@ var AST = new function(){
 	}
 	this.makeForallType = function(id,type, info){
 		return aux( this.kinds.FORALL_TYPE, {id: id, exp: type}, info);
+	}
+	this.makeRecursiveType = function(id,type, info){
+		return aux( this.kinds.RECURSIVE_TYPE, {id: id, exp: type}, info);
 	}
 	this.makeStackedType = function(left,right, info){
 		return aux( this.kinds.STACKED_TYPE, {left: left, right: right}, info);

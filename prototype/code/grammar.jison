@@ -53,6 +53,7 @@
 "-o"                  return '-o'
 "->"                  return '->'
 "rw"                  return 'RW'
+"rec"                 return 'REC'
 "ref"                 return 'REF'
 "exists"              return 'EXISTS'
 "forall"              return 'FORALL'
@@ -76,6 +77,8 @@ type_root :
 		{ $$ = AST.makeForallType($2,$4,@$); }
 	| EXISTS IDENTIFIER '.' type_root
 		{ $$ = AST.makeExistsType($2,$4,@$); }
+	| REC IDENTIFIER '.' type_root
+		{ $$ = AST.makeRecursiveType($2,$4,@$); }
 	| type_fun '(+)' type_root
 		{ $$ = AST.makeAlternativeType($1,$3,@$); }
 	;
@@ -172,6 +175,7 @@ field_types :
 
 program :
 	  sequence
+	  	{ $$ = AST.makeProgram(null,null,$1,@$); }
 	| imports typedefs sequence
 		{ $$ = AST.makeProgram($1,$2,$3,@$); }
 	| imports sequence

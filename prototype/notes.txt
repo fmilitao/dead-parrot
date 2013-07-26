@@ -2,6 +2,8 @@ REMEMBER:
  	- to disable chrome's cache
  	- launch 'static' on trunk/
  	
+ 	- IDIOT YOU ARE USING RECURSION WHEN WHILE IS ENOUGH...
+ 	
 TODO:
 	-- multi-open and multi-pack syntax sugar? use arrays of stuff
 	open <a,b,c,d,x> = <p,q,X, ... >

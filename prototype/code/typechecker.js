@@ -238,30 +238,14 @@ var TypeChecker = function(){
 		};
 	}();
 	
-	var RecursiveType = function(){ // FIXME broken
+	var RecursiveType = function(){
 		var type = addType('RecursiveType');
 		
-		return function(name){
-			//inherit( this, type );
-			var add = function(n){
-				this.n = function(){ return typedefs[name].m(args); }
-			}
+		return function(id,inner){
+			inherit( this, type );
 			
-			this.recursive = function(){ return name; }
-			this.obj = function(){ return typedefs[name]; }
-			
-			// masks calls to inner object, for convenience
-			add('name');
-			add('inner');
-			add('left');
-			add('right');
-			add('add');
-			add('getValues');
-			add('location');
-			
-			// FIXME these are dangerous?
-			//add('toString');
-			//add('toHTML');
+			this.id = function(){ return id; }
+			this.inner = function(){ return inner; }
 		};
 	}();
 	
@@ -296,6 +280,7 @@ var TypeChecker = function(){
 			case types.ForallType:
 				if( t.id().name() === loc.name() )
 					// the name is already bounded, so loc must be fresh
+					// because it does not occur free inside t.inner()
 					return true;
 				return isFresh(t.id(),loc) && isFresh(t.inner(),loc);
 			case types.ReferenceType:
@@ -314,7 +299,6 @@ var TypeChecker = function(){
 			}
 			case types.StarType:{
 				var inners = t.inner();
-				var res = [];
 				for( var i=0; i<inners.length; ++i )
 					if( !isFresh(inners[i],loc) )
 						return false;
@@ -367,6 +351,8 @@ var TypeChecker = function(){
 					res.push( toString( inners[i] ) ); 
 				return res.join(' * ');
 			}
+			case types.RecursiveType:
+				return 'rec '+t.id().name()+'.('+toString(t.inner())+')';
 			case types.ExistsType:
 				return 'exists '+t.id().name()+'.('+toString(t.inner())+')';
 			case types.ForallType:
@@ -416,7 +402,7 @@ var TypeChecker = function(){
 				var tags = t.tags();
 				var res = [];
 				for( var i in tags ){
-					res.push( tags[i]+'#'+toHTML(t.inner(tags[i])) ); 
+					res.push( '<span class="type_tag">'+tags[i]+'</span>#'+toHTML(t.inner(tags[i])) ); 
 				}	
 				return res.join('+');
 			}
@@ -427,13 +413,26 @@ var TypeChecker = function(){
 					res.push( toHTML( inners[i] ) ); 
 				return res.join(' * ');
 			}
+			case types.RecursiveType:
+				return '<b>rec</b> '+
+				( t.id() === types.LocationVariable ?
+					'<span class="type_location">' :
+					'<span class="type_variable">')
+				+t.id().name()+'</span>'
+				+'.('+toHTML(t.inner())+')';
 			case types.ExistsType:
 				return '&#8707;'+
-				'<span class="type_location">'+t.id().name()+'</span>'
+				( t.id() === types.LocationVariable ?
+					'<span class="type_location">' :
+					'<span class="type_variable">')
+				+t.id().name()+'</span>'
 				+'.('+toHTML(t.inner())+')';
 			case types.ForallType:
 				return '&#8704;'+
-				'<span class="type_location">'+t.id().name()+'</span>'
+				( t.id() === types.LocationVariable ?
+					'<span class="type_location">' :
+					'<span class="type_variable">')
+				+t.id().name()+'</span>'
 				+'.('+toHTML(t.inner())+')';
 			case types.ReferenceType:
 				return "<b>ref</b> "+
@@ -461,7 +460,7 @@ var TypeChecker = function(){
 			case types.LocationVariable:
 				return "<b>loc</b>";
 			case types.TypeVariable:
-				return '<u><i>'+t.name()+'</i></u>';
+				return '<span class="type_variable">'+t.name()+'</span>';
 			case types.PrimitiveType:
 				return '<b>'+t.name()+'</b>';
 			case types.NoneType:
@@ -497,7 +496,16 @@ var TypeChecker = function(){
 	 */
 	var rename = function(type,original,target){
 		
+		var visited = {};
+		
 		function rec(t){
+			/* FIXME oh shit... with rename it does not work...
+			if( t instanceof RecursiveType ){
+				if( visited[t.__recursive_name__] )
+					
+					visited[t.__recursive_name__] = true;
+			} */
+			
 			if( equals(t,original) )
 				return target;
 			
@@ -547,6 +555,14 @@ var TypeChecker = function(){
 					return new ForallType( nvar, rec(ninner) );	
 				}
 				return new ForallType( t.id(), rec(t.inner()) );
+			case types.RecursiveType:
+				if( target.type() === types.TypeVariable
+					&& t.id().name() === target.name() ){
+					var nvar = cloneVar( t.id() );
+					var ninner = rename( t.inner(), t.id(), nvar );
+					return new RecursiveType( nvar, rec(ninner) );	
+				}
+				return new RecursiveType( t.id(), rec(t.inner()) );
 			case types.ReferenceType:
 				return new ReferenceType( rec(t.location()) );
 			case types.StackedType:
@@ -955,6 +971,29 @@ var TypeChecker = function(){
 			return unBang( t.inner() );
 		return t;
 	}
+	
+	var unAll = function(tt){
+		// table to avoid revisiting
+		var visited = 100;
+		// FIXME: how to properly table this? indexOf / equals does not appear to work
+		// how to check for fix point?
+		
+		var rec = function(t){
+			if( t.type() === types.BangType )
+				return rec( t.inner() );
+			if( t.type() === types.RecursiveType ){
+				//assert( visited.indexOf(t) === -1 , 'Unending unfolding of type: '+t );
+				//visited.push(t);
+				assert( (--visited) > 0 , 'Failed to unfold: '+tt +', max unfolds reached');
+				
+				// unfold
+				return rec( rename(t.inner(),t.id(),t) );
+			}
+			return t;
+		}
+		
+		return rec(tt);
+	}
 		
 	// attempts to convert type to bang
 	var purify = function(t){
@@ -1071,26 +1110,42 @@ var TypeChecker = function(){
 	var addName = function(id,value,e,ast){
 		// check for collisions
 		var ee;
-		// FIXME TypeVariables are like location variables
-		// FIXME PrimitiveTypes and NameTypes are indexed by their name and .#
-		// problem with duplicates when sharing is introduced?
-		if( value.type() == types.LocationVariable ){
-			// cannot occur anywhere
+		
+		// cannot occur anywhere, cannot be hidden
+		if( value.type() === types.LocationVariable ){
 			ee = e.get(id);
 			
-			// ok to collide with capabilities since they cannot be indexed
-			if( ee != undefined && ee.type() == types.CapabilityType )
+			// ok to collide with capabilities since they cannot be accessed
+			if( ee != undefined && ee.type() === types.CapabilityType )
 				ee = undefined;
 		}else{
 			// cannot occur at the same level
 			ee = e.hasKey(id);
 		}
-		assert( ee==undefined,
+		assert( ee === undefined,
 			"Identifier '" + id + "' already in scope", ast );
 
-//		var isPure = value.type() == types.BangType || 
-//				value.type() == types.LocationVariable;
 		e.set( id, value );
+	}
+	
+	var resolveName = function( label, ast, env ){
+		var tmp = env.get( label );
+		// if label matches type in environment, but we only allow
+		// access to type variables and location variables using this
+		// AST.kind --- all other uses are assumed to be recursives.
+		if( tmp !== undefined &&
+			( tmp.type() === types.TypeVariable ||
+			  tmp.type() === types.LocationVariable ) )
+				return tmp;
+		
+		// look for type definitions
+		var lookup = typedefs[label];
+
+		// found something
+		if( lookup !== undefined && lookup !== null )
+			return lookup;
+
+		assert( false, 'Unknown type '+label, ast);
 	}
 
 	// this wrapper function allows us to inspect the type and envs
@@ -1107,16 +1162,24 @@ var TypeChecker = function(){
 		
 		switch(ast.kind) {
 			
-			case AST.kinds.PROGRAM:
+			case AST.kinds.PROGRAM: { //TODO: Move this elsewhere??
+				// reset typechecke's state.
+				unique_counter = 0;
+				typedefs = {};
+				
 				assert( ast.imports === null , 'FIXME: imports not done.' , ast);
-				// FIXME allow recursion?
-				for(var i=0;i<ast.typedefs.length;++i){
-					var type = ast.typedefs[i];
-					assert( !typedefs.hasOwnProperty(type.id),
-						'Duplicated typedef: '+type.id, type )
-					typedefs[type.id] = check( type.type, env );
+				
+				if( ast.typedefs !== null ){
+					for(var i=0;i<ast.typedefs.length;++i){
+						var type = ast.typedefs[i];
+						assert( !typedefs.hasOwnProperty(type.id),
+							'Duplicated typedef: '+type.id, type )
+						typedefs[type.id] = check( type.type, env );
+					}
 				}
+				
 				return check( ast.exp, env );
+			}
 			
 			// EXPRESSIONS
 			case AST.kinds.LET: {
@@ -1139,6 +1202,7 @@ var TypeChecker = function(){
 			case AST.kinds.OPEN: {
 				var value = check( ast.val, env );
 				
+				value = unAll( value );
 				assert( value.type() == types.ExistsType,
 					"Type '" + value + "' not existential", ast.exp);
 
@@ -1225,8 +1289,8 @@ var TypeChecker = function(){
 			
 			case AST.kinds.CASE: {
 				var val = check(ast.exp, env);
-				val = unBang(val);
-				assert( val.type() == types.SumType,
+				val = unAll(val);
+				assert( val.type() === types.SumType,
 					"'" + val.type() + "' not a SumType", ast);
 				// checks only the branches that are listed in the sum type
 				var tags = val.tags();
@@ -1303,7 +1367,7 @@ var TypeChecker = function(){
 			case AST.kinds.DEREF: {
 				var exp = check(ast.exp, env);
 				
-				exp = unBang(exp);
+				exp = unAll(exp);
 				assert( exp.type() == types.ReferenceType,
 					"Invalid dereference '"+exp+"'", ast );
 
@@ -1329,7 +1393,7 @@ var TypeChecker = function(){
 			
 			case AST.kinds.DELETE: {
 				var exp = check(ast.exp, env);
-				exp = unBang(exp);
+				exp = unAll(exp);
 				
 				if( exp.type() == types.ReferenceType ){
 					var loc = exp.location().name();
@@ -1364,7 +1428,7 @@ var TypeChecker = function(){
 				var lvalue = check(ast.lvalue, env);
 				var value = check(ast.exp, env);
 				
-				lvalue = unBang(lvalue);
+				lvalue = unAll(lvalue);
 				assert( lvalue.type() == types.ReferenceType,
 					"Invalid assign '"+lvalue+"' := '"+value+"'", ast.lvalue);
 				
@@ -1383,7 +1447,7 @@ var TypeChecker = function(){
 			case AST.kinds.SELECT: {
 				var rec = check( ast.left, env );
 				var id = ast.right;
-				rec = unBang(rec);
+				rec = unAll(rec);
 				
 				assert( rec.type() == types.RecordType,
 					"Invalid field selection '"+id+"' for '"+rec+"'", ast );
@@ -1407,7 +1471,7 @@ var TypeChecker = function(){
 			
 			case AST.kinds.CALL: {
 				var fun = check(ast.fun, env);
-				fun = unBang(fun);
+				fun = unAll(fun);
 				
 				assert( fun.type() == types.FunctionType,
 					'Type '+fun.toString()+' not a function', ast.fun);
@@ -1516,27 +1580,12 @@ var TypeChecker = function(){
 			
 			case AST.kinds.TYPE_APP: {
 				var exp = check( ast.exp, env );
-				exp = unBang(exp);
+				exp = unAll(exp);
 				assert( exp.type() == types.ForallType , 
 					'Not a Forall '+exp.toString(), ast.exp );
 				
 				var packed = check(ast.id, env);
-				/*
-				switch( packed.type() ){
-					case types.NameType:
-						var id = packed.name();
-						var variable = env.get( id );
-						
-						assert( variable !== undefined &&
-							( variable.type() === types.LocationVariable ||
-							  variable.type() === types.TypeVariable ),
-							'Unknow Variable '+id, ast );
-		
-						return rename( exp.inner(), exp.id(), variable );
-					default:
-					*/
-						return rename( exp.inner(), exp.id(), packed );
-				//}
+				return rename( exp.inner(), exp.id(), packed );
 			}
 			
 			case AST.kinds.TUPLE_TYPE:
@@ -1564,7 +1613,7 @@ var TypeChecker = function(){
 			
 			case AST.kinds.LET_TUPLE: {
 				var exp = check( ast.val, env );
-				exp = unBang(exp);
+				exp = unAll(exp);
 				assert( exp.type() == types.TupleType,
 					"Type '" + exp + "' not tuple", ast.exp);
 				
@@ -1585,7 +1634,7 @@ var TypeChecker = function(){
 				var id = ast.text;
 				var loc = env.get( id );
 				
-				assert( loc != undefined && loc.type() == types.LocationVariable,
+				assert( loc !== undefined && loc.type() === types.LocationVariable,
 					'Unknow Location Variable '+id, ast );
 				
 				return new ReferenceType( loc );
@@ -1621,6 +1670,18 @@ var TypeChecker = function(){
 				e.set( id, variable );
 
 				return new ForallType( variable, check( ast.exp, e ) );
+			}
+			
+			case AST.kinds.RECURSIVE_TYPE: {
+				var id = ast.id;
+				var e = env.newScope();
+				
+				assert( id[0] === id[0].toUpperCase(),
+					'Type Variables must be upper-cased', ast );
+					
+				var variable = new TypeVariable(id);
+				e.set( id, variable );
+				return new RecursiveType( variable, check( ast.exp, e ) );
 			}
 						
 			case AST.kinds.NONE_TYPE:
@@ -1716,23 +1777,9 @@ var TypeChecker = function(){
 			}
 			
 			case AST.kinds.NAME_TYPE: {
-				var label = ast.text;
-				if( typedefs.hasOwnProperty(label) )
-					return typedefs[label];
-				
-				var tmp = env.get( label );
-				// if label matches type in environment, but we only allow
-				// access to type variables and location variables using this
-				// AST.kind --- all other uses are assumed to be recursives.
-				if( tmp !== undefined &&
-					( tmp.type() === types.TypeVariable ||
-					  tmp.type() === types.LocationVariable ) )
-					return tmp;
-				
-				// FIXME
-				assert( false, label+'FIXME: Recursive types are not yet supported.', ast);
-				return new NameType( label );
+				return resolveName( ast.text, ast, env );
 			}
+			
 			case AST.kinds.PRIMITIVE_TYPE:
 				// any primitive type is acceptable but only ints, booleans
 				// and strings have actual values that match a primitive type.
@@ -1906,10 +1953,7 @@ var TypeChecker = function(){
 	var typedefs;
 
 	return function(ast,typeinfo){
-		// reset typechecke's state.
-		unique_counter = 0;
-		type_info = [];
-		typedefs = {};
+		type_info = []; // FIXME this is ugly to be here and above
 		
 		var start = new Date().getTime();
 		try{
