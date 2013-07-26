@@ -839,8 +839,8 @@ var TypeChecker = function(){
 					
 				return a1.type() === a2.type() &&
 					// check they are related, as seen before
-					a1.id().name() === t2.name() &&
-					a2.id().name() === t1.name();
+					a1.name() === t2.name() &&
+					a2.name() === t1.name();
 				
 				// intentionally fall through
 			case types.CapabilityType:
@@ -855,8 +855,8 @@ var TypeChecker = function(){
 				
 				var n1 = m1.newScope();
 				var n2 = m2.newScope();
-				n1.set( t1.id(), t2 );
-				n2.set( t2.id(), t1 );
+				n1.set( t1.id().name(), t2.id() );
+				n2.set( t2.id().name(), t1.id() );
 				return subtype( t1.inner(), n1, t2.inner(), n2 );
 				
 				/*
