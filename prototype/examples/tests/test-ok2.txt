@@ -1,12 +1,11 @@
 //OK Reference Cell
-//OK exists t<sub>3</sub>.(exists t<sub>2</sub>.(!(ref t<sub>2</sub>) :: rw t<sub>2</sub> !int))
+//OK exists a.(exists b.(!(ref b) :: rw b !int))
+
 open <tx,x> = new 0 in
     open <ty,y> = new 0 in
         let s = 2 in s end;
         !x;
-        //delete x;
-        //x := false;
-        y := <tx, <tx, (x::rw tx int) >>;
+        y := <tx:a, <tx:b, (x::rw tx int) >>;
         y;
         0;
         delete y

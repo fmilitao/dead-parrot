@@ -3,9 +3,6 @@
 
 open <tx,x> = new 0 in
     let f = fun( z : ![a: int, b:int] ).x in
-    	// invalid subtyping causes failure to call
-    	// note that extra field has linear type
-    	// cannot be subtyped out of the record's type
     	f  {a = 1, b = 3 , c = x}
     end;
     delete x

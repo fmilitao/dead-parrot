@@ -1,5 +1,5 @@
 //OK 0
-//OK exists t<sub>4</sub>.(!int :: rw t<sub>4</sub> !int)
+//OK exists w.(!int :: rw w !int)
 
 let f = 
     fun( z :[] ).(
@@ -13,7 +13,7 @@ let f =
     open <z1,x1> = (f {}) in
         open <z2,x2> = x1 in
             delete (x2.a);
-            <z1,!(x2.b)::rw z1 int>
+            <z1:w,!(x2.b)::rw z1 int>
         end
     end
 end
