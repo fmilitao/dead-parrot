@@ -1,3 +1,7 @@
+/**
+ * REQUIRED Global variables:
+ * 	- AST.kinds, for all AST case analysis needs
+ */
 
 /* INCOMPLETE STUFF:
  *  X fields as intersection type.
@@ -390,8 +394,8 @@ var TypeChecker = function(){
 	var toHTML = function (t){
 		switch ( t.type() ){
 			case types.FunctionType:
-				return toHTML(t.argument())+" -o "+toHTML(t.body());
-				//return toHTML(t.argument())+" &#x22b8; "+toHTML(t.body());
+				//return toHTML(t.argument())+" -o "+toHTML(t.body());
+				return toHTML(t.argument())+" &#x22b8; "+toHTML(t.body());
 			case types.BangType:{
 				var inner = t.inner();
 				if( inner.type() === types.ReferenceType ||

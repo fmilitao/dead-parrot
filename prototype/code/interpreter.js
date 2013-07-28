@@ -1,9 +1,10 @@
-/*
- * Global vars:
- * 	- AST.kinds, for all case analysis needs
+/**
+ * Notes:
+ * 	- ignores all location and type abstractions (i.e. as if erased)
+ * REQUIRED Global variables:
+ * 	- AST.kinds, for all AST case analysis needs
  *  - Loader, for dynamically loading a file
  */
-
 
 var Interpreter = function(){
 	
@@ -187,7 +188,7 @@ var Interpreter = function(){
 				},"Invalid case",ast.exp);
 				var branch = undefined;
 				for(var i=0;i<ast.branches.length;++i){
-					if( ast.branches[i].tag == tag ){
+					if( ast.branches[i].tag === tag ){
 						branch = ast.branches[i];
 						break;
 					}
@@ -246,7 +247,7 @@ var Interpreter = function(){
 					return vals.values();
 				},"Invalid tuple",ast.val);
 				var ids = ast.ids;
-				wrapError( ids.length == vals.length,"Tuple size mismatch",ast.val);
+				wrapError( ids.length === vals.length,"Tuple size mismatch",ast.val);
 				var newEnv = env;
 				newEnv = env.newScope();
 				for (var i = 0; i < vals.length; ++i) {

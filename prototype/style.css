@@ -102,6 +102,7 @@ select {
 }
 
 #typing{
+	display:none; /* initially invisible */
 	box-sizing: border-box;
 	border: 2px solid #f1c661;
 	/* margin: 2px 2px; */
