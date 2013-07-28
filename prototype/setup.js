@@ -49,17 +49,12 @@ $(document).ready(function() {
 		var h = window.innerHeight;
 
 		// all values in pixels
+		var controls_height = 20;
 		var console_height = 80;
 		var split = 270;
-		var horizontal_padding = 10;
-		var vertical_padding = 5;
-		var border_width = 1;
-		var controls_height = 20;
 		
 		var info = document.getElementById(INFO);
-		info.style.width = (split-(2*horizontal_padding)-border_width)+"px";
-		info.style.padding = vertical_padding+"px "+horizontal_padding+"px";
-		info.style.borderRightWidth = border_width+"px";
+		info.style.width = split+"px";
 	
 		var editor = document.getElementById(EDITOR);
 		editor.style.left = split+"px";
@@ -80,13 +75,10 @@ $(document).ready(function() {
 		output.style.top = (h-console_height-controls_height)+"px";
 		
 		var typing = document.getElementById(TYPING);
-		typing.style.padding = "5px 10px";
-		typing.style.margin = "2px 2px";
-		typing.style.border = "2px solid #f1c661";
-		var maxWidth = (split-(2*10)-(2*2)-(2*2));
-		var limitWidth = (w-(2*10)-(2*2)-(2*2));
-		typing.style.maxWidth = maxWidth+"px";
-		TYPE_INFO_WIDTHS = { max : maxWidth , limit : limitWidth };
+		typing.style.top = 0+"px";
+		typing.style.left = 0+"px";
+		typing.style.maxWidth = w+"px";
+		TYPE_INFO_WIDTHS = { max : split , limit : w };
 	
 	}
 	

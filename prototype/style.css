@@ -1,3 +1,6 @@
+
+/* FIXME: this code needs clean up and remove useless bits. */
+
 body {
 	background: #CECECE;
 	color: black;
@@ -11,29 +14,11 @@ h2 {
 	margin: 5px 0 10px 0;
 }
 
-#info {
-	overflow: scroll;
-	position: absolute;
-	top: 0px;
-	height: 100%;
-	border-right-color: gray;
-	border-right-style: solid;
-}
-
-#cursor-position{
-	float: right;
-	font-family: monospace;
-	font-weight: bold;
-	vertical-align:bottom;
-	/* remember to match exbuttong: */
-	padding: 2px 2px;
-	margin: 1px 0 1px 0;
-}
 
 select {
 	width: 100%;
-	margin: 5px 0 0px 0;
-	padding: 5px 5px 5px 5px;	
+	/* margin: 5px 0 0px 0;
+	padding: 5px 5px 5px 5px; */	
 }
 
 .exbuttong{
@@ -47,7 +32,6 @@ select {
 	border-radius: 3px;
 }
 
-
 .exbuttong:hover {
 	background-color: #cccccc;
 	font-weight: bold;
@@ -55,7 +39,34 @@ select {
 	padding: 1px 1px;
 }
 
+.action{
+	margin: 0 25px 0 10px;
+}
+
+#info {
+	box-sizing: border-box;
+	overflow: scroll;
+	position: absolute;
+	top: 0px;
+	height: 100%;
+	border-right-color: gray;
+	border-right-style: solid;
+	border-right-width: 1px;
+	padding: 5px 10px;
+}
+
+#cursor-position{
+	float: right;
+	font-family: monospace;
+	font-weight: bold;
+	vertical-align:bottom;
+	/* remember to match exbuttong: */
+	padding: 2px 2px;
+	margin: 1px 0 1px 0;
+}
+
 #editor {
+	box-sizing: border-box; /* this is a god-send... */
 	position: absolute;
 	top: 0px;
 	/*
@@ -65,6 +76,7 @@ select {
 }
 
 #output {
+	box-sizing: border-box;
 	font-family: monospace;
 	font-size: 10pt;
 	background: #EEEEEE;
@@ -72,14 +84,14 @@ select {
 	overflow: scroll;
 	white-space: pre-wrap;
 	padding: 5px 5px;
-	box-sizing: border-box;
-	display:block;
+	/* display:block;
 	/*border-top-color: gray;
 	border-top-style: solid;
 	border-top-width: 1px;*/
 }
 
 #controls{
+	box-sizing: border-box;
 	position: absolute;
 	background-color: #dcdcdc;
 	/* border-style: solid;
@@ -89,18 +101,19 @@ select {
 	/* z-index: 10000; /* is this enough? */
 }
 
-.action{
-	margin: 0 25px 0 10px;
-}
-
 #typing{
+	box-sizing: border-box;
+	border: 2px solid #f1c661;
+	/* margin: 2px 2px; */
+	padding: 5px 10px;
     position: absolute;
     z-index: 10000; /* is this enough? */
 	/* -webkit-filter: blur(3px); */
     /* background: #ffe580; */
     /* box-shadow: 2px 2px 2px #888888; */
 	border-radius: 5px;
-	background: -webkit-linear-gradient(left, #fde570, #ffe580);
+	background: #fde570;
+	/* background: -webkit-linear-gradient(left, #fde570, #ffe580); */
 	font-family: monospace;
     font-size: 10pt;    
     color: black;
@@ -170,7 +183,7 @@ a:visited {
 }
 
 
-/* test styles */
+/* Style for Output Console */
 .type_location{
 	color: blue;
 }
@@ -191,7 +204,3 @@ a:visited {
 .type_field{
 	color: purple;
 }
-
-
-
-
