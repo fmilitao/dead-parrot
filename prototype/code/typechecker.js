@@ -1475,13 +1475,21 @@ var TypeChecker = function(){
 
 				var arg = check(ast.arg, env);
 				var fun_arg = fun.argument();
-
-				// try to match TYPE to function's PARAMETER
-				var rec = function(t,p){
+				
+				/** Attempts to expand a type 't' so as to match type 'p'
+				 * complete type. This may fail in certain cases to simplify
+				 * but otherwise it will be almost like "auto-stacking" without
+				 * having to explicitly state what needs to be pushed.
+ 				 * @param {Type,Null} t - type that is to be expanded, null if
+ 				 * 	nothing is there.
+				 * @param {Type} p - type that is the target to match to
+ 				 * @return {Type} that tries to add the missing bits to 'm' as
+ 				 * 	much as possible.
+				 */
+				var match = function(t,p){
 					switch( p.type() ) {
 						case types.StarType: {
-							var inners = p.inner();
-							if( t.type() === types.StarType ){
+							if( t !== null && t.type() === types.StarType ){
 								// if the type is already a star type, we 
 								// assume that it has all types there and do not
 								// auto-stack anything since otherwise we would
@@ -1489,84 +1497,86 @@ var TypeChecker = function(){
 								return t;
 							}
 							else {
+								// any other type should be ignored, but this
+								// assert ensures nothing is silently dropped.
+								assert( t===null, 'MATCHING ERROR', ast.arg);
+								
+								var inners = p.inner();
 								var tmp = new StarType();
 								for(var i=0;i<inners.length;++i){
-									var tt = inners[i];
-									
-									switch( tt.type() ){ // TODO: code clean up
-										case types.CapabilityType:
-											var loc = tt.location().name();
-											var capI = capIndex( loc )
-											var cap = assert( env.remove( capI ),
-												'Missing capability '+loc, ast.arg);
-											tt = cap;
-											break;
-										case types.TypeVariable:
-											var loc = tt.name();
-											var capI = capIndex( loc )
-											var cap = assert( env.remove( capI ),
-												'Missing capability '+loc, ast.arg);
-											tt = cap;
-											break;
-										case types.NoneType:
-											tt = NoneType;
-											break;
-										default:
-											assert( false, 'Auto-stack on '+tt, ast.arg);	
-									}
-
-									tmp.add( tt );
+									tmp.add( match(null, inners[i]) );
 								}
-								return new StackedType( t, tmp );
+								return tmp;
 							}
 						}
 						case types.StackedType: {
-							if( t.type() === types.StackedType )
+							if( t !== null && t.type() === types.StackedType ){
 								return new StackedType(
-									rec( t.left(), p.left() ),
-									rec( t.right(), p.right() ) );
-							else
-								return rec( rec( t, p.left() ), p.right() );
+									match( t.left(), p.left() ),
+									match( t.right(), p.right() ) 
+								);
+							}
+							else{
+								// any non-stacked type is assume to be the left
+								// part of the soon to be stacked type
+								return new StackedType(
+									match( t, p.left() ),
+									match( null, p.right() ) 
+								);
+							}
 						}
 						case types.CapabilityType: {
-							if( t.type() === types.CapabilityType ){
+							// note that the capability can either be already
+							// (manually) stacked or needs to be automatically
+							// stacked.
+							var cap_loc = p.location().name();
+							if( t !== null && t.type() === types.CapabilityType ){
+								// if it was manually stacked, then just make
+								// sure they are the same thing.
 								var t_loc = t.location().name();
-								var p_loc = p.location().name();
-								assert( t_loc === p_loc,
-									'Incompatible capability '+t_loc+' vs '+p_loc, ast.arg );
-								break;
+								assert( t_loc === cap_loc,
+									'Incompatible capability '+
+									t_loc+' vs '+cap_loc, ast.arg );
+								return t;
 							} else {
-								var loc = p.location().name();
-								var capI = capIndex( loc )
+								assert( t===null, 'MATCHING ERROR', ast.arg);
+								var capI = capIndex( cap_loc );
 								var cap = assert( env.remove( capI ),
-									'Missing capability '+loc, ast.arg);
-	
-								return new StackedType( t, cap );
+									'Missing capability '+cap_loc, ast.arg);
+								return cap;
 							}
 						}
 						case types.TypeVariable: {
-							if( t.type() === types.TypeVariable ){
+							// analogous case to capabilities, either manually
+							// stacked or we need to do it here.
+							var p_loc = p.name();
+							if( t !== null && t.type() === types.TypeVariable ){
 								var t_loc = t.name();
-								var p_loc = p.name();
 								assert( t_loc === p_loc,
 									'Incompatible variable '+t_loc+' vs '+p_loc, ast.arg );
-								break;
+								return t;
 							} else {
-								var loc = p.name();
-								var capI = capIndex( loc )
+								assert( t===null, 'MATCHING ERROR', ast.arg);
+								var capI = capIndex( p_loc );
 								var cap = assert( env.remove( capI ),
-									'Missing capability '+loc, ast.arg);
-								return new StackedType( t, cap );
+									'Missing capability '+p_loc, ast.arg);
+								return cap;
 							}
 						}
-						case types.NoneType: {
-							return new StackedType( t, NoneType );
-						}
+						case types.NoneType:
+							assert( t === null || t.type() === types.NoneType,
+								'MATCHING ERROR', ast.arg);
+							return NoneType;
+						default: // other types just fall through, 
+								 // leave the given type in.
 					}
 					return t;
 				}
 				
-				arg = rec( arg, fun_arg );
+				// attempts to match given argument with expected one
+				// this is necessary since parts of the argument may have been
+				// manually stacked and other should be implicitly put there.
+				arg = match( arg, fun_arg );
 				
 				assert( subtypeOf( arg, fun_arg ),
 					"Invalid call: expecting '"+fun_arg+"' got '"+arg+"'", ast.arg);
