@@ -15,6 +15,7 @@ test-ok14.txt
 test-ok15.txt
 test-ok16.txt
 test-ok17.txt
+test-ok18.txt
 test-fail1.txt
 test-fail2.txt
 test-fail3.txt
@@ -24,3 +25,4 @@ test-fail6.txt
 test-fail7.txt
 test-fail8.txt
 test-fail9.txt
+test-fail10.txt

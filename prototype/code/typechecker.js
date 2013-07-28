@@ -422,21 +422,21 @@ var TypeChecker = function(){
 			}
 			case types.RecursiveType:
 				return '<b>rec</b> '+
-				( t.id() === types.LocationVariable ?
+				( t.id().type() === types.LocationVariable ?
 					'<span class="type_location">' :
 					'<span class="type_variable">')
 				+t.id().name()+'</span>'
 				+'.('+toHTML(t.inner())+')';
 			case types.ExistsType:
 				return '&#8707;'+
-				( t.id() === types.LocationVariable ?
+				( t.id().type() === types.LocationVariable ?
 					'<span class="type_location">' :
 					'<span class="type_variable">')
 				+t.id().name()+'</span>'
 				+'.('+toHTML(t.inner())+')';
 			case types.ForallType:
 				return '&#8704;'+
-				( t.id() === types.LocationVariable ?
+				( t.id().type() === types.LocationVariable ?
 					'<span class="type_location">' :
 					'<span class="type_variable">')
 				+t.id().name()+'</span>'
@@ -1106,15 +1106,18 @@ var TypeChecker = function(){
 				case types.LocationVariable:
 					break;
 				case types.TypeVariable:
-					// HACK, only ignores the type variables with name name as
-					// abstracted type, since all other are regular (linear?)
-					// variables that should be auto-stack or consumed.
-					if( id !== cap.name() )
+					// safe to ignore type variable of itself
+					if( id === cap.name() )
+						break;
+					if( id[0] === '.' ){
 						tmp.add( cap );
-					break;
+						break;
+					}
+					// intentionally fall through
 				default:
 					// fails if attempting to stack something else
-					assert( false, 'Auto-stack failure: '+cap.type(), ast );
+					assert( false, 'Auto-stack failure, '+
+						id+' : '+cap.type(), ast );
 			}
 
 		});
@@ -1190,10 +1193,10 @@ var TypeChecker = function(){
 				var e = env.newScope();
 				
 				value = purify(value);
-				assert( ast.id != null || value.type() === types.BangType,
+				assert( ast.id !== null || value.type() === types.BangType,
 					'Cannot drop linear type', ast );
 				
-				if( ast.id != null )
+				if( ast.id !== null )
 					addName( ast.id, value, e, ast );
 
 				var res = check( ast.exp, e );
@@ -1204,7 +1207,7 @@ var TypeChecker = function(){
 				var value = check( ast.val, env );
 				
 				value = unAll( value );
-				assert( value.type()===types.ExistsType,
+				assert( value.type() === types.ExistsType,
 					"Type '" + value + "' not existential", ast.exp);
 
 				var e = env.newScope();
@@ -1257,7 +1260,7 @@ var TypeChecker = function(){
 						return new ExistsType(loc,exp);
 					default:
 						var label = ast.label;
-						assert( label===null || label[0] === label[0].toUpperCase(),
+						assert( label === null || label[0] === label[0].toUpperCase(),
 							'TypeVariables must be upper-cased',ast);
 							
 						var variable = new TypeVariable(label);
@@ -1343,12 +1346,15 @@ var TypeChecker = function(){
 
 				// the following types should not be accessible even
 				// if they are in the typing environment
-				assert( val.type() != types.CapabilityType,
+				assert( val.type() !== types.CapabilityType,
 					"'" + id + "' is a capability", ast );	
-				assert( val.type() != types.LocationVariable,
+				assert( val.type() !== types.LocationVariable,
 					"'" + id + "' is a location variable", ast );
+				assert( val.type() !== types.TypeVariable ||
+					id !== val.name(), // FIXME clean up this test
+					"'" + id + "' is a type variable", ast );
 
-				if( val.type() != types.BangType )
+				if( val.type() !== types.BangType )
 					env.remove( id );
 									
 				return val;
@@ -1369,7 +1375,7 @@ var TypeChecker = function(){
 				var exp = check(ast.exp, env);
 				
 				exp = unAll(exp);
-				assert( exp.type()===types.ReferenceType,
+				assert( exp.type() === types.ReferenceType,
 					"Invalid dereference '"+exp+"'", ast );
 
 				var loc = exp.location().name();
@@ -1382,7 +1388,7 @@ var TypeChecker = function(){
 				
 				var residual;
 				// see if read must be destructive (i.e. leave unit)
-				if( old.type()===types.BangType )
+				if( old.type() === types.BangType )
 					residual = old;
 				else
 					residual = UnitType;
@@ -1396,7 +1402,7 @@ var TypeChecker = function(){
 				var exp = check(ast.exp, env);
 				exp = unAll(exp);
 				
-				if( exp.type()===types.ReferenceType ){
+				if( exp.type() === types.ReferenceType ){
 					var loc = exp.location().name();
 					var capI = capIndex( loc )
 					var cap = env.remove( capI );
@@ -1406,16 +1412,16 @@ var TypeChecker = function(){
 					// just return the old contents of 'cap'
 					return cap.value();
 					
-				} else if( exp.type()===types.ExistsType ){
+				} else if( exp.type() === types.ExistsType ){
 					// Luis' delete rule...
 					var inner = exp.inner();
-					if( inner.type()===types.StackedType ){
+					if( inner.type() === types.StackedType ){
 						var ref = unBang( inner.left() );
 						var cap = inner.right();
-						assert( ref.type()===types.ReferenceType, "Expecting reference '"+exp+"'",ast);
+						assert( ref.type() === types.ReferenceType, "Expecting reference '"+exp+"'",ast);
 						var loc = ref.location();
-						assert( cap.type()===types.CapabilityType, "Expecting capability '"+exp+"'",ast);
-						assert( loc.name()===exp.id().name(), "Expecting matching location '"+exp+"'",ast);
+						assert( cap.type() === types.CapabilityType, "Expecting capability '"+exp+"'",ast);
+						assert( loc.name() === exp.id().name(), "Expecting matching location '"+exp+"'",ast);
 						return new ExistsType(exp.id(),cap.value());
 					}
 					
@@ -1430,7 +1436,7 @@ var TypeChecker = function(){
 				var value = check(ast.exp, env);
 				
 				lvalue = unAll(lvalue);
-				assert( lvalue.type()===types.ReferenceType,
+				assert( lvalue.type() === types.ReferenceType,
 					"Invalid assign '"+lvalue+"' := '"+value+"'", ast.lvalue);
 				
 				var loc = lvalue.location().name();
@@ -1450,7 +1456,7 @@ var TypeChecker = function(){
 				var id = ast.right;
 				rec = unAll(rec);
 				
-				assert( rec.type()===types.RecordType,
+				assert( rec.type() === types.RecordType,
 					"Invalid field selection '"+id+"' for '"+rec+"'", ast );
 
 				// 1st check if field exists
@@ -1460,9 +1466,9 @@ var TypeChecker = function(){
 				// 2nd check if other fields can be discarded
 				var fs = rec.getFields();
 				for(var i in fs ){
-					if( i != id ){
+					if( i !== id ){
 						var f = purify(fs[i]);
-						assert( f.type()===types.BangType ,
+						assert( f.type() === types.BangType ,
 							"Discarding pure field '"+i+"' of record",ast);
 					}
 				}
@@ -1503,7 +1509,7 @@ var TypeChecker = function(){
 							else {
 								// any other type should be ignored, but this
 								// assert ensures nothing is silently dropped.
-								assert( t===null, 'MATCHING ERROR', ast.arg);
+								assert( t === null, 'MATCHING ERROR', ast.arg);
 								
 								var inners = p.inner();
 								var tmp = new StarType();
@@ -1543,7 +1549,7 @@ var TypeChecker = function(){
 									t_loc+' vs '+cap_loc, ast.arg );
 								return t;
 							} else {
-								assert( t===null, 'MATCHING ERROR', ast.arg);
+								assert( t === null, 'MATCHING ERROR', ast.arg);
 								var capI = capIndex( cap_loc );
 								var cap = assert( env.remove( capI ),
 									'Missing capability '+cap_loc, ast.arg);
@@ -1592,7 +1598,7 @@ var TypeChecker = function(){
 			case AST.kinds.TYPE_APP: {
 				var exp = check( ast.exp, env );
 				exp = unAll(exp);
-				assert( exp.type()===types.ForallType , 
+				assert( exp.type() === types.ForallType , 
 					'Not a Forall '+exp.toString(), ast.exp );
 				
 				var packed = check(ast.id, env);
@@ -1734,6 +1740,11 @@ var TypeChecker = function(){
 				var exp = check( ast.exp, env );
 				var cap = check( ast.type, env );
 				
+				/** Attempts to stack the give 'cap' type, by removing the
+				 * relevant parts from the typing environment.
+				 * @param {Type} cap
+				 * @return the capability that was removed from environment
+				 */
 				var capStack = function(cap){
 					
 					switch( cap.type() ){
@@ -1743,7 +1754,6 @@ var TypeChecker = function(){
 							var c = assert( env.remove( capI ),
 								'Missing capability '+loc, ast.type);
 							var u = unBang(cap.value());
-				
 							assert( subtypeOf( c.value() , cap.value() ),
 								'Incompatible capability '+c.value()+' vs '+cap.value(), ast.type );
 		
