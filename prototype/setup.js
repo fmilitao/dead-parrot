@@ -15,6 +15,7 @@
 var INFO ="info";
 var EDITOR = "editor";
 var OUTPUT = "output";
+var CONTROLS = "controls";
 var EXAMPLES = "examples";
 var AUTORUN = "autorun";
 var TYPING = 'typing';
@@ -48,11 +49,12 @@ $(document).ready(function() {
 		var h = window.innerHeight;
 
 		// all values in pixels
-		var console_height = 100;
+		var console_height = 80;
 		var split = 270;
 		var horizontal_padding = 10;
 		var vertical_padding = 5;
 		var border_width = 1;
+		var controls_height = 20;
 		
 		var info = document.getElementById(INFO);
 		info.style.width = (split-(2*horizontal_padding)-border_width)+"px";
@@ -61,20 +63,21 @@ $(document).ready(function() {
 	
 		var editor = document.getElementById(EDITOR);
 		editor.style.left = split+"px";
-		editor.style.borderLeftWidth = border_width+"px";
     	editor.style.width = (w-split)+"px";
-		
-		editor.style.height = (h-console_height)+"px";
-			
+		editor.style.height = (h-console_height-controls_height)+"px";
+		editor.style.top = 0+"px";
+
+		var controls = document.getElementById(CONTROLS);
+		controls.style.left = split+"px";
+		controls.style.width = (w-split)+"px";
+		controls.style.height = (controls_height)+"px";
+		controls.style.top = (h-controls_height)+"px";
+					
 		var output = document.getElementById(OUTPUT);
 		output.style.left = split+"px";
-		//output.style.padding = vertical_padding+"px "+horizontal_padding+"px";
-		output.style.borderWidth = border_width+"px";
-		//output.style.width = (w-split-(2*horizontal_padding)-(2*border_width))+"px";
 		output.style.width = (w-split)+"px";
-		output.style.top = (h-console_height)+"px";
-		//output.style.height = (console_height-(2*vertical_padding)-(2*border_width))+"px";
 		output.style.height = (console_height)+"px";
+		output.style.top = (h-console_height-controls_height)+"px";
 		
 		var typing = document.getElementById(TYPING);
 		typing.style.padding = "5px 10px";
@@ -333,8 +336,8 @@ $(document).ready(function() {
     //
 
     var out = new function(){
-    	var o = $('#out');
-    	var t = $('#typing');
+    	var o = $(_OUTPUT_);
+    	var t = $(_TYPING_);
     	
     	this.clearAll = function(){
     		o.removeClass('bad');

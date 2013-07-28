@@ -30,13 +30,6 @@ h2 {
 	margin: 1px 0 1px 0;
 }
 
-#controls{
-	background-color: #dcdcdc;
-	font-size: 9pt;
-	font-family: sans-serif;
-	padding: 0 5px;
-}
-
 select {
 	width: 100%;
 	margin: 5px 0 0px 0;
@@ -65,8 +58,9 @@ select {
 #editor {
 	position: absolute;
 	top: 0px;
+	/*
 	border-left-color: gray;
-	border-left-style: solid;
+	border-left-style: solid; */
 	display: block;
 }
 
@@ -76,24 +70,27 @@ select {
 	background: #EEEEEE;
 	position: absolute;
 	overflow: scroll;
-	border-style: solid;
-	border-color: gray;
+	white-space: pre-wrap;
+	padding: 5px 5px;
+	box-sizing: border-box;
+	display:block;
+	/*border-top-color: gray;
+	border-top-style: solid;
+	border-top-width: 1px;*/
+}
+
+#controls{
+	position: absolute;
+	background-color: #dcdcdc;
+	/* border-style: solid;
+	border-color: gray; */
+	font-size: 9pt;
+	font-family: sans-serif;
+	/* z-index: 10000; /* is this enough? */
 }
 
 .action{
 	margin: 0 25px 0 10px;
-}
-
-#out{
-	/* border-style: solid; */
-	white-space: pre-wrap;
-	padding: 5px 5px;
-	/*border-top-color: gray;
-	border-top-style: solid;
-	border-top-width: 1px;*/
-	display:block;
-	overflow: scroll;
-	/* margin: 0px 0px; */
 }
 
 #typing{
