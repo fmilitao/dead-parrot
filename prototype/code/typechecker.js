@@ -1010,11 +1010,13 @@ var TypeChecker = function(){
 		return t;
 	}
 	
-	var unAll = function(tt){
+	var unAll = function(tt,ast){
+		// FIXME careful on that 'ast' that is not parameter
 		// FIXME: how to properly table this? indexOf / equals does not appear to work
 		// FIXME how to check for fix point? SAME FOR SUBTYPING and EQUALS
 		
-		var visited = 100;
+		var see = [];
+		var visited = 100; // safeguard for termination?
 		var t = tt;
 		while( true ) {
 			if( t.type() === types.BangType ){
@@ -1022,10 +1024,10 @@ var TypeChecker = function(){
 				continue;
 			}
 			if( t.type() === types.RecursiveType ){
-				//assert( visited.indexOf(t.unique()) === -1 , 'Unending unfolding of type: '+t );
-				//visited.push(t);
 				assert( (--visited) > 0 , 'Failed to unfold: '+tt +', max unfolds reached');
-				
+				assert( see.indexOf( t ) === -1, 'Fix-point reached after '+(100-visited)+' unfolds' , ast);
+				see.push( t );
+
 				// unfold
 				t = rename(t.inner(),t.id(),t);
 				continue;
@@ -1206,7 +1208,7 @@ var TypeChecker = function(){
 			case AST.kinds.OPEN: {
 				var value = check( ast.val, env );
 				
-				value = unAll( value );
+				value = unAll( value, ast.val );
 				assert( value.type() === types.ExistsType,
 					"Type '" + value + "' not existential", ast.exp);
 
@@ -1293,7 +1295,7 @@ var TypeChecker = function(){
 			
 			case AST.kinds.CASE: {
 				var val = check(ast.exp, env);
-				val = unAll(val);
+				val = unAll(val,ast.exp);
 				assert( val.type() === types.SumType,
 					"'" + val.type() + "' not a SumType", ast);
 				// checks only the branches that are listed in the sum type
@@ -1374,7 +1376,7 @@ var TypeChecker = function(){
 			case AST.kinds.DEREF: {
 				var exp = check(ast.exp, env);
 				
-				exp = unAll(exp);
+				exp = unAll(exp,ast.exp);
 				assert( exp.type() === types.ReferenceType,
 					"Invalid dereference '"+exp+"'", ast );
 
@@ -1400,7 +1402,7 @@ var TypeChecker = function(){
 			
 			case AST.kinds.DELETE: {
 				var exp = check(ast.exp, env);
-				exp = unAll(exp);
+				exp = unAll(exp,ast.exp);
 				
 				if( exp.type() === types.ReferenceType ){
 					var loc = exp.location().name();
@@ -1435,7 +1437,7 @@ var TypeChecker = function(){
 				var lvalue = check(ast.lvalue, env);
 				var value = check(ast.exp, env);
 				
-				lvalue = unAll(lvalue);
+				lvalue = unAll(lvalue,ast.lvalue);
 				assert( lvalue.type() === types.ReferenceType,
 					"Invalid assign '"+lvalue+"' := '"+value+"'", ast.lvalue);
 				
@@ -1454,7 +1456,7 @@ var TypeChecker = function(){
 			case AST.kinds.SELECT: {
 				var rec = check( ast.left, env );
 				var id = ast.right;
-				rec = unAll(rec);
+				rec = unAll(rec,ast.left);
 				
 				assert( rec.type() === types.RecordType,
 					"Invalid field selection '"+id+"' for '"+rec+"'", ast );
@@ -1478,7 +1480,7 @@ var TypeChecker = function(){
 			
 			case AST.kinds.CALL: {
 				var fun = check(ast.fun, env);
-				fun = unAll(fun);
+				fun = unAll(fun,ast.fun);
 				
 				assert( fun.type() === types.FunctionType,
 					'Type '+fun.toString()+' not a function', ast.fun);
@@ -1597,7 +1599,7 @@ var TypeChecker = function(){
 			
 			case AST.kinds.TYPE_APP: {
 				var exp = check( ast.exp, env );
-				exp = unAll(exp);
+				exp = unAll(exp,ast.exp);
 				assert( exp.type() === types.ForallType , 
 					'Not a Forall '+exp.toString(), ast.exp );
 				
@@ -1630,7 +1632,7 @@ var TypeChecker = function(){
 			
 			case AST.kinds.LET_TUPLE: {
 				var exp = check( ast.val, env );
-				exp = unAll(exp);
+				exp = unAll(exp, ast.val);
 				assert( exp.type() === types.TupleType,
 					"Type '" + exp + "' not tuple", ast.exp);
 				
@@ -1864,14 +1866,18 @@ var TypeChecker = function(){
 			
 						case AST.kinds.FUN: {
 							var id = ast.parms.id;
-							var result = undefined;
+							var result = null;
 							var initial_size = env.size();
 							var e = env.newScope();
 							var arg_type = check( ast.parms.type, e );
 							
+							// CAREFUL: only if it is a recursive function
+							// can it have a result type attached, otherwise
+							// currying of multiple arguments becomes messy
+							
 							if( ast.rec !== null ){ // recursive function
 								result = check( ast.result, e );
-								
+								assert( result !== null ,'No result type given on recursive function', ast );								
 								// note that all recursive functions must be pure
 								var rec_fun = new BangType(
 									new FunctionType(arg_type, result)
@@ -1892,6 +1898,8 @@ var TypeChecker = function(){
 									"Invalid result type '"+res+"' expecting '"+result+"'", ast);
 								assert( initial_size === env.size(),
 									'Linear recursive function.', ast );
+								// use the written return type
+								res = result;
 							}
 							
 							return new FunctionType(arg_type, res);

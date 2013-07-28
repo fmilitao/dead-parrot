@@ -1,2 +1,20 @@
+//OK Function Value
+//FAIL Fix-point reached after 2 unfolds
 
-'free'
+// MOVE TO TEST CASE
+
+// also folds when result is given, note that result can only
+// appear if the function has a label (for recursive)
+fun Test( x : rec A.( L#(rec B.L#B + Q#int) + Q#int )):rec A.(L#A + Q#int) .x
+
+;
+
+fun A( x : int , y : boolean ) : !!int .x
+
+;
+
+// FIXME: this should also stop in a more pleasant way.
+fun( y : !(rec A.rec B.A) ).
+	case y of
+		asd#n -> 0
+	end

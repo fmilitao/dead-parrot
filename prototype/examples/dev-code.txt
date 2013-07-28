@@ -1,3 +1,7 @@
-// free
+// TODO recursive types
 
-'free'
+// this should fail gracefully
+fun( x : rec A.A ).!x
+
+// rec A.A <: !rec A.A ?
+
