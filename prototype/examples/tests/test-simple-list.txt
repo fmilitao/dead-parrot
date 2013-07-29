@@ -1,8 +1,6 @@
+//OK {}
+//OK ![]
 
-// simple linked list
-// mostly just to test recursive types
-
-// a node is 'generic' in T.
 typedef Node = forall T.rec Node.(  
 	// List Node
 	N#(exists p.( ref p :: rw p [T,Node] ) )

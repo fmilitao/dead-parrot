@@ -27,3 +27,9 @@ test-fail7.txt
 test-fail8.txt
 test-fail9.txt
 test-fail10.txt
+test-pair.txt
+test-typestate.txt
+test-behavioral.txt
+test-behavioral-ind.txt
+test-behavioral-typestate.txt
+test-simple-list.txt

@@ -1390,6 +1390,7 @@ var TypeChecker = function(){
 				
 				var packed = check(ast.id, env);
 				switch( packed.type() ){
+					case types.TypeVariable:
 					case types.LocationVariable:
 						var label = ast.label;
 						var name = packed.name();
@@ -1405,6 +1406,8 @@ var TypeChecker = function(){
 						assert( id.type() === loc.type(),
 							"'" + name + "' not a "+loc.type(), ast);
 		
+						// This is necessary to avoid capture of the old
+						// location/type variables that may occur in exp
 						assert( isFresh(exp,loc),
 							'Label "'+loc.name()+'" is not fresh in '+exp, ast);
 		
@@ -1412,11 +1415,14 @@ var TypeChecker = function(){
 						return new ExistsType(loc,exp);
 					default:
 						var label = ast.label;
+						
 						assert( label === null || label[0] === label[0].toUpperCase(),
 							'TypeVariables must be upper-cased',ast);
 							
 						var variable = new TypeVariable(label);
 
+						// This is necessary to avoid capture of the old
+						// location/type variables that may occur in exp
 						assert( isFresh(exp,variable),
 							'Label "'+variable.name()+'" is not fresh in '+exp, ast);
 		
