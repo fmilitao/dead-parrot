@@ -17,6 +17,7 @@ test-ok16.txt
 test-ok17.txt
 test-ok18.txt
 test-ok19.txt
+test-ok20.txt
 test-fail1.txt
 test-fail2.txt
 test-fail3.txt
@@ -27,6 +28,8 @@ test-fail7.txt
 test-fail8.txt
 test-fail9.txt
 test-fail10.txt
+test-fail11.txt
+test-fail12.txt
 test-pair.txt
 test-typestate.txt
 test-behavioral.txt
