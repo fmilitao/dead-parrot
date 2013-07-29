@@ -5,7 +5,7 @@ typestate.txt
 behavioral.txt
 behavioral-ind.txt
 behavioral-typestate.txt
-#list.txt
+simple-list.txt
 stack.txt
 sharing.txt
 busy-wait.txt

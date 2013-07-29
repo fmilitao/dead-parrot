@@ -20,7 +20,7 @@ fun Test( x : rec A.A ):(rec A.rec B.A).x
 
 ;
 
-// this should fail
+// this should fail gracefully
 fun( y : !(rec A.rec B.A) ).
 	case y of
 		asd#n -> 0
