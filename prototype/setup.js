@@ -77,7 +77,7 @@ $(document).ready(function() {
 		var typing = document.getElementById(TYPING);
 		typing.style.top = 0+"px";
 		typing.style.left = 0+"px";
-		typing.style.maxWidth = w+"px";
+		typing.style.maxWidth = split+"px";
 		TYPE_INFO_WIDTHS = { max : split , limit : w };
 	
 	}

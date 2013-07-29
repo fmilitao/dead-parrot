@@ -526,38 +526,43 @@ var TypeChecker = function(){
 				}	
 				return star;
 			}
+			// FIXME is this silly? the variable may be free inside it so we are done...?
+			// renaming is needed when the bounded location variable
+			// of the exists type is the same as the target name to replace
+			// or when it is the same as the original name to replace
+			// 1. when variable to be renamed is the same as bounded var:
+			// (exists t.(ref t)){t/X} -> must rename location of exists
+			// 2. when target name is the same as bounded var:
+			// (exists t.(ref t)){g/t} -> must rename location of exists
+			// FIXME: CONFIRM
 			case types.ExistsType:
-				// renaming is needed when the bounded location variable
-				// of the exists type is the same as the target name to replace
-				// or when it is the same as the original name to replace
-				// 1. when variable to be renamed is the same as bounded var:
-				// (exists t.(ref t)){t/X} -> must rename location of exists
-				// 2. when target name is the same as bounded var:
-				// (exists t.(ref t)){g/t} -> must rename location of exists
-				if( ( target.type() === types.LocationVariable ||
-					  target.type() === types.TypeVariable )
-					&& t.id().name() === target.name() ){
-					var nvar = cloneVar( t.id() );
-					var ninner = rename( t.inner(), t.id(), nvar );
-					return new ExistsType( nvar, rec(ninner) );	
+				if( ( original.type() === types.LocationVariable ||
+					  original.type() === types.TypeVariable )
+					&& t.id().name() === original.name() ){ 
+					return t;
+//					var nvar = cloneVar( t.id() );
+//					var ninner = rename( t.inner(), t.id(), nvar );
+//					return new ExistsType( nvar, rec(ninner) );	
 				}
 				return new ExistsType( t.id(), rec(t.inner()) );
 			case types.ForallType:
-				if( ( target.type() === types.LocationVariable ||
-					  target.type() === types.TypeVariable )
-					&& t.id().name() === target.name() ){
-					var nvar = cloneVar( t.id() );
-					var ninner = rename( t.inner(), t.id(), nvar );
-					return new ForallType( nvar, rec(ninner) );	
+				if( ( original.type() === types.LocationVariable ||
+					  original.type() === types.TypeVariable )
+					&& t.id().name() === original.name() ){
+					return t;
+//					var nvar = cloneVar( t.id() );
+//					var ninner = rename( t.inner(), t.id(), nvar );
+//					return new ForallType( nvar, rec(ninner) );	
 				}
 				return new ForallType( t.id(), rec(t.inner()) );
 			case types.RecursiveType:
-			// FIXME is this silly? the variable may be free inside it so we are done...?
-				if( target.type() === types.TypeVariable
-					&& t.id().name() === target.name() ){
-					var nvar = cloneVar( t.id() );
-					var ninner = rename( t.inner(), t.id(), nvar );
-					return new RecursiveType( nvar, rec(ninner) );	
+				if( ( original.type() === types.LocationVariable ||
+					  original.type() === types.TypeVariable )
+					&& t.id().name() === original.name() ){
+					return t;
+//					var nvar = cloneVar( t.id() );
+//					var ninner = rename( t.inner(), t.id(), nvar );
+//					return new RecursiveType( nvar, rec(ninner) );	
 				}
 				return new RecursiveType( t.id(), rec(t.inner()) );
 			case types.ReferenceType:
@@ -616,7 +621,7 @@ var TypeChecker = function(){
 			visited.push( [a,b] );
 		}
 		
-		// auxiliary function that is bound to the previous 'table'
+		// auxiliary function that is bound to the previous 'visited' table
 		// and also uses temporary environments to remember type variables, etc.
 		var equalsTo = function( t1, m1, t2, m2 ){
 			//console.log( t1+' ?? '+t2 );
@@ -636,6 +641,9 @@ var TypeChecker = function(){
 			if( rec1 ^ rec2 ){
 				
 				push( t1, t2 ); // assume they are the same
+				// if this is wrong, then it must be cause their internals
+				// are different. Therefore, it will fail elsewhere and it is
+				// OK to assume they are equal in here.
 
 				if( rec1 ){
 					m1 = m1.newScope();
@@ -655,7 +663,8 @@ var TypeChecker = function(){
 			var var2 = t2.type() === types.TypeVariable;
 			if( var1 ^ var2 ){
 				
-				push( t1, t2 ); // assume they are the same
+				// in here?? the next line makes no sense...
+				//push( t1, t2 ); // assume they are the same
 
 				if( var1 ){
 					t1 = m1.get( t1.name() );
@@ -672,7 +681,6 @@ var TypeChecker = function(){
 				
 				return equalsTo( t1, m1, t2, m2 );
 			}
-			
 			// ----
 			
 			if( t1.type() !== t2.type() )
@@ -757,12 +765,6 @@ var TypeChecker = function(){
 						return t1.name() === t2.name();
 					
 					return equalsTo( a1, m1, a2, m2 );
-					/*
-					// check they are related, as seen before
-					return a1.type() === a2.type() &&
-						a1.name() === t2.name() &&
-						a2.name() === t1.name();
-					*/
 				default:
 					assert( false, "Assertion error on " +t2.type() );
 					break;
@@ -779,184 +781,221 @@ var TypeChecker = function(){
 	 * @return {Boolean} true if t1 <: t2 (if t1 can be used as t2).
 	 */
 	var subtypeOf = function( t1 , t2 ){
-		return subtype( t1, new Environment(null),
-						t2, new Environment(null),
-						[] );
-	}
-	
-	var subtype = function( t1, m1, t2, m2 ){
-
-// FIXME this algorithm is broken...
-			
-		// confirm subtyping rules are synced with paper
-							//console.log('SUBTYPE:');
-							//console.log(t1);
-							//console.log(t2);
-							//console.log(t1.type()+' <: '+t2.type());
-
-		if( t1 === t2 ) // if exactly the same thing
-			return true;
-			
-			/*
-		var rec1 = t1.type() === types.RecursiveType;
-		var rec2 = t2.type() === types.RecursiveType;
-		if( rec1 ^ rec2 ){
-			if( rec1 )
-				return equalsTo( t1.inner(), m1, t2, m2 );
-			
-			if( rec2 )
-				return equalsTo( t1, m1, t2.inner(), m2 );
-		} */
-
-		if( t1.type() === types.RecursiveType ){
-			m1.set( t1.id().name(), t1 ); // ok to fail silently
-			return subtype( t1.inner(), m1, t2, m2 );
-		}
+		//console.log( ' ==== ' );
 		
-		if( t2.type() === types.RecursiveType ){
-			m2.set( t2.id().name(), t2 ); // ok to fail silently
-			return subtype( t1, m1, t2.inner(), m2 );
-		}
-
-		// types that can be "banged"
-		if ( t2.type() === types.BangType &&
-			( t1.type() === types.ReferenceType
-			|| t1.type() === types.PrimitiveType
-			|| ( t1.type() === types.RecordType && t1.isEmpty() ) ) )
-			return subtype( t1, m1, t2.inner(), m2 );
-		
-		// "ref" t1: (ref p) <: !(ref p)
-		if ( t1.type() === types.ReferenceType && t2.type() === types.BangType )
-			return subtype( t1, m1, t2.inner(), m2 );
-
-		// "pure to linear" - ( t1: !A ) <: ( t2: A )
-		if ( t1.type() === types.BangType && t2.type() !== types.BangType )
-			return subtype( t1.inner(), m1, t2, m2 );
-
-		// all remaining rule require equal kind of type
-		if( t1.type() !== t2.type() ){
-			// FIXME this is dangerous
-			//var tmp = [t1,t2];
-			//assert does not contain.
-			//visited.push( tmp );
-			
-			// try to match with the type that was tabled
-			if( t1.type() === types.TypeVariable && m1.get(t1.name()) !== undefined )
-				return subtype(m1.get(t1.name()),m1,t2,m2);
-				
-			if( t2.type() === types.TypeVariable &&  m2.get(t2.name()) !== undefined )
-				return subtype(t1,m1,m2.get(t2.name()),m2);
-
+		// same as equals
+		var visited = [];
+		var seen = function(a,b){
+			for(var i=0;i<visited.length;++i){
+				if( visited[i][0] === a && visited[i][1] === b )
+					return true;
+			}
 			return false;
 		}
-		
-		//else: safe to assume same type from here on
-		switch ( t1.type() ){
-			case types.NoneType:
+		var push = function(a,b){
+			visited.push( [a,b] );
+		}
+	
+		var subtype = function( t1, m1, t2, m2 ){
+	
+					//console.log(t1 +' <: '+t2 );
+	
+			if( t1 === t2 ) // if exactly the same thing
 				return true;
-			case types.PrimitiveType:
-				return t1.name() === t2.name();
-			case types.BangType:
-				// if t2 is unit: "top" rule
-				if( t2.inner().type() === types.RecordType && t2.inner().isEmpty() )
-					return true;
-				return subtype( t1.inner(), m1, t2.inner(), m2 );
-			case types.ReferenceType:
-				return subtype( t1.location(), m1, t2.location(), m2 );
-			case types.FunctionType:
-				return subtype( t2.argument(), m2, t1.argument(), m1 )
-					&& subtype( t1.body(), m1, t2.body(), m2 );
-			case types.RecordType:{
-				if( !t1.isEmpty() && t2.isEmpty() )
-					return false;
-
-				// all fields of t2 must be in t1
-				var t1fields = t1.getFields();
-				var t2fields = t2.getFields();				
-				for( var i in t2fields ){
-					if( !t1fields.hasOwnProperty(i) ||
-						!subtype( t1fields[i], m1, t2fields[i], m2 ) ){
-						return false;
-					}
-				}
-				return true;
-			}
-			case types.StackedType:
-				return subtype( t1.left(), m1, t2.left(), m2 ) &&
-					subtype( t1.right(), m1, t2.right(), m2 );
-			case types.StarType:{
-				var i1s = t1.inner();
-				var i2s = t2.inner();
 				
-				if( i1s.length !== i2s.length )
-					return false;
-				// for *-type, any order will do
-				var tmp_i2s = i2s.slice(0); // copies array
-				for(var i=0;i<i1s.length;++i){
-					var curr = i1s[i];
-					var found = false;
-					for(var j=0;j<tmp_i2s.length;++j){
-						var tmp = tmp_i2s[j];
-						if( subtype(curr,m1,tmp,m2) ){
-							tmp_i2s.splice(j,1); // removes element
-							found = true;
-							break; // continue to next
+			if( seen( t1, t2 ) )
+				return true;
+			
+			// recursive types must be handled before hand
+			// handle asymmetric comparision of recursive types
+			var rec1 = t1.type() === types.RecursiveType;
+			var rec2 = t2.type() === types.RecursiveType;
+			if( rec1 ^ rec2 ){
+				
+				push( t1, t2 ); // assume they are the same
+				// if this is wrong, then it must be cause their internals
+				// are different. Therefore, it will fail elsewhere and it is
+				// OK to assume they are equal in here.
+
+				if( rec1 ){
+					m1 = m1.newScope();
+					m1.set( t1.id().name(), t1 );
+					t1 = t1.inner();
+				}
+				if( rec2 ){
+					m2 = m2.newScope();
+					m2.set( t2.id().name(), t2 );
+					t2 = t2.inner();
+				}
+				
+				return subtype( t1, m1, t2, m2 );
+			}
+			
+			var var1 = t1.type() === types.TypeVariable;
+			var var2 = t2.type() === types.TypeVariable;
+			if( var1 ^ var2 ){
+				
+				// in here?? the next line makes no sense...
+				//push( t1, t2 ); // assume they are the same
+
+				if( var1 ){
+					t1 = m1.get( t1.name() );
+					// some problem on getting the variable's definition
+					// assume it is not equal.
+					if( t1 === undefined )
+						return false;
+				}
+				if( var2 ){
+					t2 = m2.get( t2.name() );
+					if( t2 === undefined )
+						return false;
+				}
+				
+				return subtype( t1, m1, t2, m2 );
+			}
+			// ----
+	
+			// types that can be "banged"
+			if ( t2.type() === types.BangType &&
+				( t1.type() === types.ReferenceType
+				|| t1.type() === types.PrimitiveType
+				|| ( t1.type() === types.RecordType && t1.isEmpty() ) ) )
+				return subtype( t1, m1, t2.inner(), m2 );
+			
+			// "ref" t1: (ref p) <: !(ref p)
+			if ( t1.type() === types.ReferenceType && t2.type() === types.BangType )
+				return subtype( t1, m1, t2.inner(), m2 );
+	
+			// "pure to linear" - ( t1: !A ) <: ( t2: A )
+			if ( t1.type() === types.BangType && t2.type() !== types.BangType )
+				return subtype( t1.inner(), m1, t2, m2 );
+	
+			// all remaining rule require equal kind of type
+			if( t1.type() !== t2.type() )
+				return false;
+			
+			//else: safe to assume same type from here on
+			switch ( t1.type() ){
+				case types.NoneType:
+					return true;
+				case types.PrimitiveType:
+					return t1.name() === t2.name();
+				case types.BangType:
+					// if t2 is unit: "top" rule
+					if( t2.inner().type() === types.RecordType && t2.inner().isEmpty() )
+						return true;
+					return subtype( t1.inner(), m1, t2.inner(), m2 );
+				case types.ReferenceType:
+					return subtype( t1.location(), m1, t2.location(), m2 );
+				case types.FunctionType:
+					return subtype( t2.argument(), m2, t1.argument(), m1 )
+						&& subtype( t1.body(), m1, t2.body(), m2 );
+				case types.RecordType:{
+					if( !t1.isEmpty() && t2.isEmpty() )
+						return false;
+	
+					// all fields of t2 must be in t1
+					var t1fields = t1.getFields();
+					var t2fields = t2.getFields();				
+					for( var i in t2fields ){
+						if( !t1fields.hasOwnProperty(i) ||
+							!subtype( t1fields[i], m1, t2fields[i], m2 ) ){
+							return false;
 						}
 					}
-					if( !found )
-						return false;
+					return true;
 				}
-				return true;
-			}
-			case types.SumType:{
-				var i1s = t1.tags();
-				var i2s = t2.tags();
-				for( var i in i1s ){
-					var j = t2.inner(i1s[i]);
-					if( j === undefined || // missing tag
-						!subtype( t1.inner(i1s[i]), m1, j, m2 ) )
+				case types.TupleType: {
+					var t1s = t1.getValues();
+					var t2s = t2.getValues();
+					if( t1s.length !== t2s.length )
 						return false;
+					for( var i=0;i<t1s.length;++i )
+						if( !subtype( t1s[i], m1, t2s[i], m2 ) )
+							return false;
+					return true;
 				}
-				return true;
-			}
-			case types.TypeVariable:
-			case types.LocationVariable:
-
-				var a1 = m1.get(t1.name());
-				var a2 = m2.get(t2.name())
-				
-				if( a1 === undefined && a2 === undefined )
-					return t1.name() === t2.name();
-
-				if( a1.type() === types.RecursiveType && 
-					a2.type() === types.RecursiveType )
-					return true; // assume fails elsewhere
+				case types.StackedType:
+					return subtype( t1.left(), m1, t2.left(), m2 ) &&
+						subtype( t1.right(), m1, t2.right(), m2 );
+				case types.StarType:{
+					var i1s = t1.inner();
+					var i2s = t2.inner();
 					
-				// check they are related, as seen before
-				return a1.type() === a2.type() &&
-					a1.name() === t2.name() &&
-					a2.name() === t1.name();
-
-			case types.CapabilityType:
-				return subtype( t1.location(), m1, t2.location(), m2 ) &&
-					subtype( t1.value(), m1, t2.value(), m2 );
-			
-			case types.ForallType:		
-			case types.ExistsType:{
-				// uses environment to know the relation between the two names
-				// instead of having to renamed the type to ensure matching
-				// labels on their inner types.
+					if( i1s.length !== i2s.length )
+						return false;
+					// for *-type, any order will do
+					var tmp_i2s = i2s.slice(0); // copies array
+					for(var i=0;i<i1s.length;++i){
+						var curr = i1s[i];
+						var found = false;
+						for(var j=0;j<tmp_i2s.length;++j){
+							var tmp = tmp_i2s[j];
+							if( subtype(curr,m1,tmp,m2) ){
+								tmp_i2s.splice(j,1); // removes element
+								found = true;
+								break; // continue to next
+							}
+						}
+						if( !found )
+							return false;
+					}
+					return true;
+				}
+				case types.SumType:{
+					var i1s = t1.tags();
+					var i2s = t2.tags();
+					for( var i in i1s ){
+						var j = t2.inner(i1s[i]);
+						if( j === undefined || // missing tag
+							!subtype( t1.inner(i1s[i]), m1, j, m2 ) )
+							return false;
+					}
+					return true;
+				}
+				case types.CapabilityType:
+					return subtype( t1.location(), m1, t2.location(), m2 ) &&
+						subtype( t1.value(), m1, t2.value(), m2 );
 				
-				var n1 = m1.newScope();
-				var n2 = m2.newScope();
-				n1.set( t1.id().name(), t2.id() );
-				n2.set( t2.id().name(), t1.id() );
-				return subtype( t1.inner(), n1, t2.inner(), n2 );
+				case types.RecursiveType:
+				case types.ForallType:		
+				case types.ExistsType:{
+					// uses environment to know the relation between the two names
+					// instead of having to renamed the type to ensure matching
+					// labels on their inner types.
+					var n1 = m1.newScope();
+					var n2 = m2.newScope();
+					n1.set( t1.id().name(), t1 );
+					n2.set( t2.id().name(), t2 );
+					
+					push( t1.id(), t2.id() ); // assume they are subtypes
+
+					return subtype( t1.inner(), n1, t2.inner(), n2 );
+				}
+
+				case types.TypeVariable:
+				case types.LocationVariable: {
+					var a1 = m1.get( t1.name() );
+					var a2 = m2.get( t2.name() );
+					
+					// note it also returns 'undefined' when name not bound
+					// thus, if the variable is unknown (i.e. declared in the
+					// context and not in the type) we can only compare its name
+					if( a1 === undefined && a2 === undefined )
+						return t1.name() === t2.name();
+					
+					assert( a1 !== undefined && a2 !== undefined,
+						'Program error '+t1+' '+t2+' '+a1+' '+a2 );
+					
+					return subtype( a1, m1, a2, m2 );	
+				}
+				default:
+					assert( false, 'Assertion Error Subtype '+t1.type() );
 			}
-			default:
-				assert( false, 'Assertion Error Subtype '+t1.type() );
-		}
-		
+			
+		};
+		return subtype( t1, new Environment(null),
+						t2, new Environment(null)  );
 	}
 	
 	//
@@ -1080,14 +1119,26 @@ var TypeChecker = function(){
 		if( t1.type() === types.SumType ){
 			// merge both types
 			var tmp = new SumType();
+			// add all the labels to the temporary sum
 			var tags = t1.tags();
 			for( var i in tags ){
 				tmp.add( tags[i], t1.inner(tags[i] ) )
 			}
+			// now check the other to make sure any overlapping is ok or add
+			// anything extra that it may have
 			tags = t2.tags();
 			for( var i in tags ){
-				if( tmp.add( tags[i], t2.inner(tags[i] ) ) === undefined )
-					return undefined;
+				var overlap = tmp.inner(tags[i]);
+				if( overlap !== undefined ){
+					// make sure they match
+					if( !equals( overlap, t2.inner(tags[i]) ))
+						return undefined;
+				}
+				else{
+					// make sure it was added.
+					if( tmp.add( tags[i], t2.inner(tags[i] ) ) === undefined )
+						return undefined;
+				}
 			}
 			return tmp;
 		}
@@ -1203,6 +1254,7 @@ var TypeChecker = function(){
 					break;
 				// these can be ignored
 				case types.BangType:
+				case types.PrimitiveType:
 				case types.LocationVariable:
 					break;
 				case types.TypeVariable:
@@ -1423,7 +1475,7 @@ var TypeChecker = function(){
 						endEnv = e.endScope();
 					}else{
 						assert( endEnv.isEqual( e.endScope() ),
-							"Incompatible effects on field '" + id + "'", field);
+							"Incompatible effects on branch '" + tag + "'", branch);
 					}
 					res = safelyEndScope( res, e, ast.exp );
 					if( result === undefined )
@@ -1703,6 +1755,18 @@ var TypeChecker = function(){
 				
 				var packed = check(ast.id, env);
 				return rename( exp.inner(), exp.id(), packed );
+			}
+			
+			
+			case AST.kinds.TAGGED: {
+				var sum = new SumType();
+				var tag = ast.tag;
+				var exp = check(ast.exp, env);
+				sum.add( tag, exp);
+				if( exp.type() === types.BangType ){
+					sum = new BangType(sum);
+				}
+				return sum;
 			}
 			
 			case AST.kinds.TUPLE_TYPE:
@@ -2003,14 +2067,6 @@ var TypeChecker = function(){
 							return new FunctionType(arg_type, res);
 						}
 						
-						case AST.kinds.TAGGED: {
-							var sum = new SumType();
-							var tag = ast.tag;
-							var exp = check(ast.exp, env);
-							sum.add( tag, exp);
-							return sum;
-						}
-						
 						case AST.kinds.RECORD: {
 							var rec = new RecordType();
 							
@@ -2125,17 +2181,44 @@ var TypeChecker = function(){
 			
 			if( typeinfo ){
 				typeinfo.info = function(pos){
-					var ast = null;
 					var ptr = null;
 					
 					// search for closest one FIXME: may exist more than 1
+					// keeps the last... which may not always be nice
 					for( var i in type_info ){
-						ast = type_info[i].ast;
+						var ast = type_info[i].ast;
+						if( ptr === null ){
+							ptr = i;
+						} else {
+							var old = type_info[ptr].ast;
+							
+							var dy = Math.abs(ast.line-pos.row);							
+							var _dy = Math.abs(old.line-pos.row);
+							
+							if( dy < _dy ){
+								// if closer, pick new one
+								ptr = i;
+								continue;
+							}
+							
+							// on same line
+							if( dy === _dy ){
+								var dx = Math.abs(ast.col-pos.column);
+								var _dx = Math.abs(old.col-pos.column);
+									
+								// if closer, pick new one
+								if( dx < _dx ){
+									ptr = i;
+									continue;
+								}
+							}
+						}
+						/*
 						if( ( ast.line < pos.row || 
 					 		( ast.line === pos.row &&
 								ast.col <= pos.column ) ) ){
 					 			ptr = i;
-					 	}
+					 	}*/
 					}
 					
 					if( ptr === null )

@@ -3,24 +3,26 @@
 
 // MOVE TO TEST CASE
 
+// this should work
 // also folds when result is given, note that result can only
 // appear if the function has a label (for recursive)
 fun Test( x : rec A.( L#(rec B.L#B + Q#int) + Q#int )):rec A.(L#A + Q#int) .x
 
 ;
 
+// this should work
 fun A( x : int , y : boolean ) : !!int .x
 
 ;
 
-//FIXME: should also allow
-// RESULT -o exists TT.TT
-fun( y : rec A.l#A+q#int ). <l#(rec A.l#A+q#int)+q#int:TT,y>
-//;
+// this should work
+fun Test( x : rec A.A ):(rec A.rec B.A).x
 
-// FIXME: this should also stop in a more pleasant way.
-//fun( y : !(rec A.rec B.A) ).
-//	case y of
-		//asd#n -> 0
-	//end
+;
+
+// this should fail
+fun( y : !(rec A.rec B.A) ).
+	case y of
+		asd#n -> 0
+	end
 

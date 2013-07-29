@@ -1,7 +1,11 @@
-// TODO recursive types
+//OK Function Value
+//FAIL Fix-point reached after 2 unfolds
 
-// this should fail gracefully
+
+// this should fail, gracefully
 fun( x : rec A.A ).!x
 
-// rec A.A <: !rec A.A ?
+// Should rec A.A <: !rec A.A ?
+// I guess this should be true?
+// mostly yes but for algorithmic convenience.
 
