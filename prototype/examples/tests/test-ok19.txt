@@ -1,5 +1,5 @@
-//OK {0,Function Value,Function Value,Function Value}
-//OK [exists A.(A),!(rec A.(test#A+fail#int) -o exists R.(rec A.(test#A+fail#int))),!(rec A.(a#A+b#int) -o exists YY.(YY)),!(rec A.(case1#A+case2#int) -o Meh#exists R.(R)+Number#!int)]
+//OK {0,Function Value,Function Value,Function Value,Function Value,Function Value}
+//OK [exists A.(A),!(rec A.(test#A+fail#int) -o exists R.(rec A.(test#A+fail#int))),!(rec A.(a#A+b#int) -o exists YY.(YY)),!(rec A.(case1#A+case2#int) -o Meh#exists R.(R)+Number#!int),!(rec A.(l#A+q#int) -o exists TT.(TT)),!(rec A.(case1#rec A.(case1#A+case2#int)+case2#int) -o Meh#exists R.(R))]
 
 {
 
@@ -26,6 +26,14 @@ fun( x : rec A.(case1#A + case2#int) ).(
 	  case1#n -> Meh#<(rec B.(case1#B + case2#int)):R,n>
 	| case2#n -> Number#n
 	end
+),
+
+// RESULT: !(rec A.(l#A+q#int) -o exists TT.(TT))
+fun( y : rec A.l#A+q#int ). <l#(rec B.l#B+q#int)+q#int:TT,y>,
+
+// RESULT: !(rec A.(case1#rec A.(case1#A+case2#int)+case2#int) -o Meh#exists R.(R))
+fun( x : rec A.(case1#(rec A.(case1#A + case2#int)) + case2#int) ).(
+   Meh#<(rec B.(case1#B + case2#int)):R,x>
 )
 
 }

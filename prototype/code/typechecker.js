@@ -552,6 +552,7 @@ var TypeChecker = function(){
 				}
 				return new ForallType( t.id(), rec(t.inner()) );
 			case types.RecursiveType:
+			// FIXME is this silly? the variable may be free inside it so we are done...?
 				if( target.type() === types.TypeVariable
 					&& t.id().name() === target.name() ){
 					var nvar = cloneVar( t.id() );
@@ -601,102 +602,174 @@ var TypeChecker = function(){
 	 * @return {Boolean} if the types are equal up to renaming.
 	 */
 	var equals = function(a,b){
-		// only creates environments when necessary
-		return equalsTo( a, null, b, null );
-	}
-	
-	var equalsTo = function( t1, m1, t2, m2 ){
-		var rec1 = t1.type() === types.RecursiveType;
-		var rec2 = t2.type() === types.RecursiveType;
-		if( rec1 ^ rec2 ){
-			if( rec1 )
-				return equalsTo( t1.inner(), m1, t2, m2 );
-			
-			if( rec2 )
-				return equalsTo( t1, m1, t2.inner(), m2 );
+		// recursion table so as to remember those pairs of types that were
+		// already seen in order to avoid unending executions.
+		var visited = [];
+		var seen = function(a,b){
+			for(var i=0;i<visited.length;++i){
+				if( visited[i][0] === a && visited[i][1] === b )
+					return true;
+			}
+			return false;
+		}
+		var push = function(a,b){
+			visited.push( [a,b] );
 		}
 		
-		if( t1.type() !== t2.type() )
-			return false;
-		
-		// assuming both same type
-		switch ( t1.type() ){
-			case types.FunctionType:
-				return equalsTo( t1.argument(), m1, t2.argument(), m2 ) &&
-					equalsTo( t1.body(), m1, t2.body(), m2 );
-			case types.BangType:
-				return equalsTo( t1.inner(), m1, t2.inner(), m2 );
-			case types.SumType:{
-				var t1s = t1.tags();
-				var t2s = t2.tags();
-				if( Object.keys(t1s).length !== Object.keys(t1s).length )
-					return false;
-				for( var i in t1s )
-					if( !t2s.hasOwnProperty(i) ||
-						!equalsTo( t1.inner(t1s[i]), m1, t2.inner(t1s[i]), m2 ) )
-						return false;
+		// auxiliary function that is bound to the previous 'table'
+		// and also uses temporary environments to remember type variables, etc.
+		var equalsTo = function( t1, m1, t2, m2 ){
+			//console.log( t1+' ?? '+t2 );
+			
+			if( t1 === t2 ) {// exactly the same
+				//console.log( t1+' same '+t2 );
 				return true;
 			}
-			case types.RecursiveType:
-			case types.ForallType:		
-			case types.ExistsType:{
-				// uses environment to know the relation between the two names
-				// instead of having to renamed the type to ensure matching
-				// labels on their inner types.
-				var n1 = m1 === null ? new Environment(null) : m1.newScope();
-				var n2 = m2 === null ? new Environment(null) : m2.newScope();
-				n1.set( t1.id().name(), t2.id() );
-				n2.set( t2.id().name(), t1.id() );
-				return equalsTo( t1.inner(), n1, t2.inner(), n2 );
-			}
-			case types.ReferenceType:
-				return equalsTo( t1.location(), m1, t2.location(), m2 );
-			case types.StackedType:
-				return equalsTo( t1.left(), m1, t2.left(), m2 ) &&
-					equalsTo( t1.right(), m1, t2.right(), m2 );
-			case types.CapabilityType:
-				return equalsTo( t1.location(), m1, t2.location(), m2 ) &&
-					equalsTo( t1.value(), m1, t2.value(), m2 );
-			case types.RecordType: {
-				var t1s = t1.getFields();
-				var t2s = t1.getFields();
-				if( Object.keys(t1s).length !== Object.keys(t2s).length )
-					return false;
-				for( var i in t1s )
-					if( !t2s.hasOwnProperty(i) || 
-						!equalsTo( t1s[i], m1, t2s[i], m2 ) )
-						return false;
+				
+			if( seen( t1, t2 ) )
 				return true;
-			} 
-			case types.TupleType: {
-				var t1s = t1.getValues();
-				var t2s = t2.getValues();
-				if( t1s.length !== t2s.length )
-					return false;
-				for( var i=0;i<t1s.length;++i )
-					if( !equalsTo( t1s[i], m1, t2s[i], m2 ) )
-						return false;
-				return true;
-			}
-			case types.TypeVariable:
-			case types.LocationVariable:
-				var a1 = m1 !== null ? m1.get(t1.name()) : undefined;
-				var a2 = m2 !== null ? m2.get(t2.name()) : undefined;
-				// note it also returns 'undefined' when name not bound
-				if( a1 === undefined && a2 === undefined )
-					return t1.name() === t2.name();
-					
-				// check they are related, as seen before
-				return a1.type() === a2.type() &&
-					a1.name() === t2.name() &&
-					a2.name() === t1.name();
+			
+			// recursive types must be handled before hand
+			// handle asymmetric comparision of recursive types
+			var rec1 = t1.type() === types.RecursiveType;
+			var rec2 = t2.type() === types.RecursiveType;
+			if( rec1 ^ rec2 ){
+				
+				push( t1, t2 ); // assume they are the same
 
-			case types.PrimitiveType:
-				return t1.name() === t2.name();
-			default:
-				assert( false, "Assertion error on " +t2.type() );
-				break;
+				if( rec1 ){
+					m1 = m1.newScope();
+					m1.set( t1.id().name(), t1 );
+					t1 = t1.inner();
+				}
+				if( rec2 ){
+					m2 = m2.newScope();
+					m2.set( t2.id().name(), t2 );
+					t2 = t2.inner();
+				}
+				
+				return equalsTo( t1, m1, t2, m2 );
 			}
+			
+			var var1 = t1.type() === types.TypeVariable;
+			var var2 = t2.type() === types.TypeVariable;
+			if( var1 ^ var2 ){
+				
+				push( t1, t2 ); // assume they are the same
+
+				if( var1 ){
+					t1 = m1.get( t1.name() );
+					// some problem on getting the variable's definition
+					// assume it is not equal.
+					if( t1 === undefined )
+						return false;
+				}
+				if( var2 ){
+					t2 = m2.get( t2.name() );
+					if( t2 === undefined )
+						return false;
+				}
+				
+				return equalsTo( t1, m1, t2, m2 );
+			}
+			
+			// ----
+			
+			if( t1.type() !== t2.type() )
+				return false;
+			
+			// assuming both same type
+			switch ( t1.type() ){
+				case types.FunctionType:
+					return equalsTo( t1.argument(), m1, t2.argument(), m2 ) &&
+						equalsTo( t1.body(), m1, t2.body(), m2 );
+				case types.BangType:
+					return equalsTo( t1.inner(), m1, t2.inner(), m2 );
+				case types.SumType: {
+					var t1s = t1.tags();
+					var t2s = t2.tags();
+					if( Object.keys(t1s).length !== Object.keys(t2s).length )
+						return false;
+					for( var i in t1s ){
+						//console.log( t1s[i] );
+						if( !t2s.hasOwnProperty(i) ||
+							!equalsTo( t1.inner(t1s[i]), m1, t2.inner(t1s[i]), m2 ) )
+							return false;
+					}
+					return true;
+				}
+				case types.ReferenceType:
+					return equalsTo( t1.location(), m1, t2.location(), m2 );
+				case types.StackedType:
+					return equalsTo( t1.left(), m1, t2.left(), m2 ) &&
+						equalsTo( t1.right(), m1, t2.right(), m2 );
+				case types.CapabilityType:
+					return equalsTo( t1.location(), m1, t2.location(), m2 ) &&
+						equalsTo( t1.value(), m1, t2.value(), m2 );
+				case types.RecordType: {
+					var t1s = t1.getFields();
+					var t2s = t1.getFields();
+					if( Object.keys(t1s).length !== Object.keys(t2s).length )
+						return false;
+					for( var i in t1s )
+						if( !t2s.hasOwnProperty(i) || 
+							!equalsTo( t1s[i], m1, t2s[i], m2 ) )
+							return false;
+					return true;
+				} 
+				case types.TupleType: {
+					var t1s = t1.getValues();
+					var t2s = t2.getValues();
+					if( t1s.length !== t2s.length )
+						return false;
+					for( var i=0;i<t1s.length;++i )
+						if( !equalsTo( t1s[i], m1, t2s[i], m2 ) )
+							return false;
+					return true;
+				}
+				case types.PrimitiveType:
+					return t1.name() === t2.name();
+				
+				case types.RecursiveType:
+				case types.ForallType:		
+				case types.ExistsType: {
+					// uses environment to know the relation between the two names
+					// instead of having to renamed the type to ensure matching
+					// labels on their inner types.
+					var n1 = m1.newScope();
+					var n2 = m2.newScope();
+					n1.set( t1.id().name(), t1 );
+					n2.set( t2.id().name(), t2 );
+					
+					push( t1.id(), t2.id() ); // assume they are the same
+					
+					return equalsTo( t1.inner(), n1, t2.inner(), n2 );
+				}
+				case types.TypeVariable:
+				case types.LocationVariable:
+					var a1 = m1.get( t1.name() );
+					var a2 = m2.get( t2.name() );
+					
+					// note it also returns 'undefined' when name not bound
+					// thus, if the variable is unknown (i.e. declared in the
+					// context and not in the type) we can only compare its name
+					if( a1 === undefined && a2 === undefined )
+						return t1.name() === t2.name();
+					
+					return equalsTo( a1, m1, a2, m2 );
+					/*
+					// check they are related, as seen before
+					return a1.type() === a2.type() &&
+						a1.name() === t2.name() &&
+						a2.name() === t1.name();
+					*/
+				default:
+					assert( false, "Assertion error on " +t2.type() );
+					break;
+				}
+		}
+
+		return equalsTo( a, new Environment(null), b, new Environment(null) );
 	};
 	
 	/**
@@ -706,16 +779,34 @@ var TypeChecker = function(){
 	 * @return {Boolean} true if t1 <: t2 (if t1 can be used as t2).
 	 */
 	var subtypeOf = function( t1 , t2 ){
-		return subtype( t1, new Environment(null), t2, new Environment(null) );
+		return subtype( t1, new Environment(null),
+						t2, new Environment(null),
+						[] );
 	}
 	
 	var subtype = function( t1, m1, t2, m2 ){
+
+// FIXME this algorithm is broken...
 			
 		// confirm subtyping rules are synced with paper
 							//console.log('SUBTYPE:');
 							//console.log(t1);
 							//console.log(t2);
-							//console.log(t1.type()+'-----'+t2.type());
+							//console.log(t1.type()+' <: '+t2.type());
+
+		if( t1 === t2 ) // if exactly the same thing
+			return true;
+			
+			/*
+		var rec1 = t1.type() === types.RecursiveType;
+		var rec2 = t2.type() === types.RecursiveType;
+		if( rec1 ^ rec2 ){
+			if( rec1 )
+				return equalsTo( t1.inner(), m1, t2, m2 );
+			
+			if( rec2 )
+				return equalsTo( t1, m1, t2.inner(), m2 );
+		} */
 
 		if( t1.type() === types.RecursiveType ){
 			m1.set( t1.id().name(), t1 ); // ok to fail silently
@@ -744,6 +835,11 @@ var TypeChecker = function(){
 
 		// all remaining rule require equal kind of type
 		if( t1.type() !== t2.type() ){
+			// FIXME this is dangerous
+			//var tmp = [t1,t2];
+			//assert does not contain.
+			//visited.push( tmp );
+			
 			// try to match with the type that was tabled
 			if( t1.type() === types.TypeVariable && m1.get(t1.name()) !== undefined )
 				return subtype(m1.get(t1.name()),m1,t2,m2);
@@ -1011,12 +1107,10 @@ var TypeChecker = function(){
 	}
 	
 	var unAll = function(tt,ast){
-		// FIXME careful on that 'ast' that is not parameter
-		// FIXME: how to properly table this? indexOf / equals does not appear to work
-		// FIXME how to check for fix point? SAME FOR SUBTYPING and EQUALS
-		
+		// the following are safeguards to bound execution
 		var see = [];
-		var visited = 100; // safeguard for termination?
+		var visited = 0;
+		
 		var t = tt;
 		while( true ) {
 			if( t.type() === types.BangType ){
@@ -1024,8 +1118,12 @@ var TypeChecker = function(){
 				continue;
 			}
 			if( t.type() === types.RecursiveType ){
-				assert( (--visited) > 0 , 'Failed to unfold: '+tt +', max unfolds reached');
-				assert( see.indexOf( t ) === -1, 'Fix-point reached after '+(100-visited)+' unfolds' , ast);
+				// these are not exactly perfect but two simple ways to check
+				// if we may be unfolding an unending recursive type
+				// counting is the easiest, the second is the most likely to
+				// catch such pointless loops earlier.
+				assert( (++visited) < 100 , 'Failed to unfold: '+tt +', max unfolds reached');
+				assert( see.indexOf( t ) === -1, 'Fix-point reached after '+visited+' unfolds' , ast);
 				see.push( t );
 
 				// unfold

@@ -13,8 +13,14 @@ fun A( x : int , y : boolean ) : !!int .x
 
 ;
 
+//FIXME: should also allow
+// RESULT -o exists TT.TT
+fun( y : rec A.l#A+q#int ). <l#(rec A.l#A+q#int)+q#int:TT,y>
+//;
+
 // FIXME: this should also stop in a more pleasant way.
-fun( y : !(rec A.rec B.A) ).
-	case y of
-		asd#n -> 0
-	end
+//fun( y : !(rec A.rec B.A) ).
+//	case y of
+		//asd#n -> 0
+	//end
+
