@@ -261,6 +261,7 @@ var TypeChecker = function(){
 	
 	/**
 	 * Searchs types 't' for location variable 'loc'. isFresh if NOT present.
+	 * Should this be named 'isFree'?
 	 * @param {Type} t that is to be traversed
 	 * @param {LocationVariable,TypeVariable} loc that is to be found
 	 * @return {Boolean} true if location variableis NOT in type.
@@ -478,33 +479,35 @@ var TypeChecker = function(){
 			}
 	};
 	
-	var cloneVar = function(variable){
-		switch( variable.type() ){
-			case types.LocationVariable:
-				return new LocationVariable(null);
-			case types.TypeVariable:
-				return new TypeVariable(null);
-			default:
-				assert( false, 'Expecting variable but got: '+variable, null);
-		}
-	}
-	
 	/**
-	 * Substitutes in 'type' any occurances of 'original' to 'target'
-	 * 		type[original/target] ('original' for 'target')
+	 * Substitutes in 'type' any occurances of 'from' to 'to'
+	 * 		type[from/to] ('from' for 'to')
 	 * @param {Type} type that is to be searched
-	 * @param {Type} when 'original' is found, it is replaced with
-	 * @param {LocationVariable,TypeVariable} 'target'
-	 * @return a *copy* of 'type' where all instances of 'original' have been
-	 * 	replaced with 'target' (note that each target is the same and never
+	 * @param {Type} when 'from' is found, it is replaced with
+	 * @param {LocationVariable,TypeVariable} 'to'
+	 * @return a *copy* of 'type' where all instances of 'from' have been
+	 * 	replaced with 'to' (note that each to is the same and never
 	 * 	cloned).
 	 *  Note that it also RENAMES any bounded variable that colides with the
-	 *  'original' name so that bounded names are never wrongly substituted.
+	 *  'from' name so that bounded names are never wrongly substituted.
 	 */
-	var rename = function(type,original,target){
-		function rec(t){
-			if( equals(t,original) )
-				return target;
+	//FIXME substitution
+	var rename = function(type,from,to){
+		// to clone variables
+		var cloneVar = function(variable){
+			switch( variable.type() ){
+				case types.LocationVariable:
+					return new LocationVariable(null);
+				case types.TypeVariable:
+					return new TypeVariable(null);
+				default:
+					assert( false, 'Expecting variable but got: '+variable, null);
+			}
+		};
+		
+		var rec = function(t){
+			if( equals(t,from) )
+				return to;
 			
 			switch ( t.type() ){
 			case types.FunctionType:
@@ -526,45 +529,48 @@ var TypeChecker = function(){
 				}	
 				return star;
 			}
-			// FIXME is this silly? the variable may be free inside it so we are done...?
-			// renaming is needed when the bounded location variable
-			// of the exists type is the same as the target name to replace
-			// or when it is the same as the original name to replace
-			// 1. when variable to be renamed is the same as bounded var:
-			// (exists t.(ref t)){t/X} -> must rename location of exists
-			// 2. when target name is the same as bounded var:
-			// (exists t.(ref t)){g/t} -> must rename location of exists
-			// FIXME: CONFIRM
-			case types.ExistsType:
-				if( ( original.type() === types.LocationVariable ||
-					  original.type() === types.TypeVariable )
-					&& t.id().name() === original.name() ){ 
-					return t;
-//					var nvar = cloneVar( t.id() );
-//					var ninner = rename( t.inner(), t.id(), nvar );
-//					return new ExistsType( nvar, rec(ninner) );	
-				}
-				return new ExistsType( t.id(), rec(t.inner()) );
+			// CAPTURE AVOIDANCE in the following cases...
+			// Renaming is needed to avoid capture of bounded variables.
+			// We have two cases to consider:
+			// 1. The variable to be renamed is the same as bounded var:
+			// (exists t.A){t/X} "t for X" 
+			// in this case, we are done renaming, since t is bounded inside A.
+			// 2. The *to* name is the same the bounded var:
+			// (exists t.A){g/t} "g for t"
+			// in this case we must rename the location 't' to avoid capture
+			// in the case when 'g' occurs in A.
+			case types.ExistsType: 
 			case types.ForallType:
-				if( ( original.type() === types.LocationVariable ||
-					  original.type() === types.TypeVariable )
-					&& t.id().name() === original.name() ){
+			case types.RecursiveType: {
+				if( ( from.type() === types.LocationVariable ||
+					  from.type() === types.TypeVariable )
+						&& t.id().name() === from.name() ){
+					// 'from' is bounded, thus we are done. 
 					return t;
-//					var nvar = cloneVar( t.id() );
-//					var ninner = rename( t.inner(), t.id(), nvar );
-//					return new ForallType( nvar, rec(ninner) );	
 				}
-				return new ForallType( t.id(), rec(t.inner()) );
-			case types.RecursiveType:
-				if( ( original.type() === types.LocationVariable ||
-					  original.type() === types.TypeVariable )
-					&& t.id().name() === original.name() ){
-					return t;
-//					var nvar = cloneVar( t.id() );
-//					var ninner = rename( t.inner(), t.id(), nvar );
-//					return new RecursiveType( nvar, rec(ninner) );	
+				
+				var nvar = t.id();
+				var ninner = t.inner();
+				if( ( to.type() === types.LocationVariable ||
+					  to.type() === types.TypeVariable )
+						&& t.id().name() === to.name() ){
+					// capture avoiding substitution 
+					nvar = cloneVar( t.id() );
+					ninner = rename( t.inner(), t.id(), nvar );
 				}
-				return new RecursiveType( t.id(), rec(t.inner()) );
+				
+				// switch again to figure out what constructor to use.
+				switch( t.type() ){
+					case types.ExistsType:
+						return new ExistsType( nvar, rec(ninner) );
+					case types.ForallType:
+						return new ForallType( nvar, rec(ninner) );
+					case types.RecursiveType:
+						return new RecursiveType( nvar, rec(ninner) );
+					default:
+						assert( false, 'Not expecting '+t.type(), null);
+				}
+			}
 			case types.ReferenceType:
 				return new ReferenceType( rec(t.location()) );
 			case types.StackedType:
@@ -1408,8 +1414,12 @@ var TypeChecker = function(){
 		
 						// This is necessary to avoid capture of the old
 						// location/type variables that may occur in exp
+						// We cannot ensure capture avoidance because the label
+						// may be given, thus committing ourselves to some label
+						// from which we may not be able to move without 
+						// breaking programmer's expectations.
 						assert( isFresh(exp,loc),
-							'Label "'+loc.name()+'" is not fresh in '+exp, ast);
+							'Label "'+loc.name()+'" is not free in '+exp, ast);
 		
 						exp = rename( exp , id, loc );
 						return new ExistsType(loc,exp);
@@ -1421,10 +1431,9 @@ var TypeChecker = function(){
 							
 						var variable = new TypeVariable(label);
 
-						// This is necessary to avoid capture of the old
-						// location/type variables that may occur in exp
+						// same as above.
 						assert( isFresh(exp,variable),
-							'Label "'+variable.name()+'" is not fresh in '+exp, ast);
+							'Label "'+variable.name()+'" is not free in '+exp, ast);
 		
 						exp = rename( exp , packed, variable );
 						return new ExistsType(variable,exp);

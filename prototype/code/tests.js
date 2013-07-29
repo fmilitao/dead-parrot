@@ -2,17 +2,27 @@
 // http://qunitjs.com/cookbook/
 
 $.ajaxSetup({ cache: false }); // FIXME debug
-	
+
+// this cache is different from jQueries since we are just avoiding
+// re-fetching the same file multiple times, but on each test we must
+// make sure that we are using the most up to date version of that test.
+var cache = {};
+
 var fetchCode = function(file) {
 	var res = {};
-	$.ajax({
-		type : 'GET',
-		async : false,
-		url : file,
-		success : function(data) {
-			res.data = data;
-		}
-	});
+	if( !cache.hasOwnProperty(file) ){
+		$.ajax({
+			type : 'GET',
+			async : false,
+			url : file,
+			success : function(data) {
+				res.data = data;
+				cache[file] = data;
+			}
+		});
+	}else{
+		res.data = cache[file];
+	}
 	
 	/*
 	 * test results, assumed format:
