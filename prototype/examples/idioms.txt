@@ -1,8 +1,7 @@
-// this file introduces some idioms that we are using
-// and that are not in the formalization
 
-// FIXME: also mention packs can have labels, up to renaming
-// so it does not make mush difference when compared to paper.
+// IDIOMS
+// This file introduces some idioms that we use in the prototype/examples.
+
 
 // multi-argument functions, through Currying
 let f = fun(x : int, y : boolean ).x in
@@ -28,3 +27,11 @@ open <p,x> = new 0 in
 	// < nloc , e :: all outstanding capabilities >
 
 end
+
+// TODO:
+// - mention that packs can have labels, up to renaming.
+// (so it does not make mush difference when compared to paper)
+// - recursion with return types and name for function
+// - number each
+// - manually stacking stuff
+// - typedefs as macro like type definitions

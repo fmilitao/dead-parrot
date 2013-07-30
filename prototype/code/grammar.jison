@@ -79,8 +79,8 @@ type_root :
 		{ $$ = AST.makeExistsType($2,$4,@$); }
 	| REC IDENTIFIER '.' type_root
 		{ $$ = AST.makeRecursiveType($2,$4,@$); }
-	| type_fun '(+)' type_root
-		{ $$ = AST.makeAlternativeType($1,$3,@$); }
+	| alternative_type // groups all alternatives, easier commutative ops.
+		{ $$ = AST.makeAlternativeType($1,@$); }
 	;
 
 type_fun :
@@ -136,6 +136,13 @@ type :
 tagged :
 	IDENTIFIER '#' type
 	 	{ $$ = AST.makeTaggedType($1,$3,@$); }
+	;
+
+alternative_type :
+	  type_fun '(+)' type_fun
+	  	{ $$ = [$1,$3]; }
+	| alternative_type '(+)' type_fun
+		{ $$ = $1.concat([$3]); }
 	;
 
 star_type :

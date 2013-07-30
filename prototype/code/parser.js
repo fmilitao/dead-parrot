@@ -198,8 +198,8 @@ var AST = new function(){
 	this.makeStarType = function(types, info){
 		return aux( this.kinds.STAR_TYPE, {types:types}, info);
 	}
-	this.makeAlternativeType = function(left,right, info){
-		return aux( this.kinds.ALTERNATIVE_TYPE, {left: left, right: right}, info);
+	this.makeAlternativeType = function(types, info){
+		return aux( this.kinds.ALTERNATIVE_TYPE, {types: types}, info);
 	}
 	this.makeFunType = function(arg,exp, info){
 		return aux( this.kinds.FUN_TYPE, {arg: arg, exp: exp}, info);

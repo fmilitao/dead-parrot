@@ -1,1 +1,26 @@
-"free"
+
+
+// this just returns the same type
+// RESULT: 
+// forall p.( 
+//		ref p :: ( rw p (I#int) (+) rw p (B#boolean) )
+//	 -o ref p :: ( rw p (I#int) (+) rw p (B#boolean) ) )
+<p>fun( x : ref p :: ( rw p (I#int) (+) rw p (B#boolean) ) ).
+	x
+
+// this should return a sum type
+// forall p.( 
+//		ref p :: ( rw p (I#int) (+) rw p (B#boolean) )
+//	 -o I#int + B#boolean :: rw p ![] )
+<p>fun( x : ref p :: ( rw p (I#int) (+) rw p (B#boolean) ) ).
+	!x
+	
+// this should return an alternative
+// forall p.( 
+//		ref p :: rw p A#int+B#boolean )
+//	 -o ![] :: ( rw p int (+) rw p boolean ) )
+<p>fun( x : ref p :: rw p (A#int+B#boolean) ).
+	case !x of
+		A#i -> x := i
+	|   B#b -> x := b
+	end

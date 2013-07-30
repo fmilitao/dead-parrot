@@ -1,4 +1,6 @@
 
+// NOTE READY, just parser test.
+
 typedef N = Z#[] + NZ#int
 typedef P = NZ#int
 

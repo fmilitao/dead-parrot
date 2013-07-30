@@ -1,49 +1,46 @@
-/**
+/*
  * REQUIRED Global variables:
- * 	- AST.kinds, for all AST case analysis needs
+ * 	- AST.kinds, for all AST case analysis needs.
+ *  - assertF, for asserting typing conditions.
  */
 
-/* INCOMPLETE STUFF:
- *  X fields as intersection type.
- *  X case, problem on merging environments and result? subtyping?
- *  X star type, auto-stack should first collect all then just stack once
- *  X ensure star is commutative
- *  X recursion
- *  X forall / exists with types and convenient labelling
- *  X none type
-
- * 	-- Find better way to merge environments/types? 
- *  - recursive types and typedefs, needs indirection on types?
-		--- should also forbid unknown name types, only rec labels?
-
- *  - ALTERNATIVES ... this will be messy, probably
- 
- *  - convenient way for stdlib?
- *  - all sharing bits: focus, defocus, sharing and their framing
- *  - rely/guarantee
- * 	- subtyping fixes: tagged sums, pairs, etc. all those rules are missing
-
- ---> PROBLEM: indexing must be rethought to allow duplicated entries once sharing is introduced.
+/*
+TODO:
+	1. Add delayed type application, that on substitution tries to expand.
+	2. Fix indexing issue, must allow some sort of array of non-indexed types
+	instead of hackish trick to find non-indexed elements (since those stop
+	working once alternatives are added).
+	This is also important for when sharing is introduced since we may need to
+	index multiple elements that are equal type-wise.
+	3. Add alternatives, will require multiple typing environments. Perhaps
+	even multiple return types for each of the different alternatives.
+	4. Find a better way to merge environment and types, so as to allow
+	alternatives.
+	5. Add rely and guarantee types. Including focus, defocus, sharing and
+	framing of the defocus-guarantee.
+	6. Add a conevienet way to type check a stdlib. This means that we need to
+	allow types to be created outside the scope of the function below. Probably
+	the type constructors should be used directly by the library.
  */
 
 var TypeChecker = function(){
 
 	var assert = function(f,msg,ast){
-		return assertF("Type error",f,msg,ast);
+		return assertF('Type error',f,msg,ast);
 	}
 
 	//
 	// TYPES
 	//
 	
-	// All types are immutable references.
-
-	// types enumeration
+	// types enumeration, useful for case analysis
 	var types = {};
 	var addType = function(label){
 		assert( !types.hasOwnProperty(label), 'Duplicated label: '+label );
 		types[label] = label;
-		return label; // later it may be useful to change away from strings
+		// later it may be useful to change away from strings, but for now
+		// they are very useful when debugging problems.
+		return label;
 	}
 	
 	var inherit = function(obj,type){
@@ -91,6 +88,21 @@ var TypeChecker = function(){
 	
 	var StarType = function(){
 		var type = addType('StarType');
+		
+		return function() {
+			inherit( this, type );
+			
+			var types = [];
+			this.add = function( inner ){
+				types.push(inner);
+				return null;
+			}
+			this.inner = function(){ return types; }
+		};
+	}();
+	
+	var AlternativeType = function(){
+		var type = addType('AlternativeType');
 		
 		return function() {
 			inherit( this, type );
@@ -243,17 +255,17 @@ var TypeChecker = function(){
 	}();
 	
 	var RecursiveType = function(){
-		//var unique_id = 0;
 		var type = addType('RecursiveType');
 		
 		return function(id,inner){
 			inherit( this, type );
-			
-			//this.unique = (++unique_id);
+
 			this.id = function(){ return id; }
 			this.inner = function(){ return inner; }
 		};
 	}();
+	
+	// FIXME delayed application
 	
 	//
 	// VISITORS
@@ -305,6 +317,7 @@ var TypeChecker = function(){
 				}
 				return true;
 			}
+			case types.AlternativeType:
 			case types.StarType:{
 				var inners = t.inner();
 				for( var i=0; i<inners.length; ++i )
@@ -358,6 +371,13 @@ var TypeChecker = function(){
 				for( var i=0; i<inners.length; ++i )
 					res.push( toString( inners[i] ) ); 
 				return res.join(' * ');
+			}
+			case types.AlternativeType:{
+				var inners = t.inner();
+				var res = [];
+				for( var i=0; i<inners.length; ++i )
+					res.push( toString( inners[i] ) ); 
+				return res.join(' (+) ');
 			}
 			case types.RecursiveType:
 				return 'rec '+t.id().name()+'.('+toString(t.inner())+')';
@@ -420,6 +440,13 @@ var TypeChecker = function(){
 				for( var i=0; i<inners.length; ++i )
 					res.push( toHTML( inners[i] ) ); 
 				return res.join(' * ');
+			}
+			case types.AlternativeType:{
+				var inners = t.inner();
+				var res = [];
+				for( var i=0; i<inners.length; ++i )
+					res.push( toHTML( inners[i] ) ); 
+				return res.join(' &#8853; ');
 			}
 			case types.RecursiveType:
 				return '<b>rec</b> '+
@@ -491,8 +518,7 @@ var TypeChecker = function(){
 	 *  Note that it also RENAMES any bounded variable that colides with the
 	 *  'from' name so that bounded names are never wrongly substituted.
 	 */
-	//FIXME substitution
-	var rename = function(type,from,to){
+	var substitution = function(type,from,to){
 		// to clone variables
 		var cloneVar = function(variable){
 			switch( variable.type() ){
@@ -520,6 +546,14 @@ var TypeChecker = function(){
 				for( var i in tags )
 					sum.add( tags[i], rec(t.inner(tags[i])) );
 				return sum;
+			}
+			case types.AlternativeType:{
+				var star = new AlternativeType();
+				var inners = t.inner();
+				for( var i=0;i<inners.length;++i ){
+					star.add( rec(inners[i]) ); 
+				}	
+				return star;
 			}
 			case types.StarType:{
 				var star = new StarType();
@@ -556,7 +590,7 @@ var TypeChecker = function(){
 						&& t.id().name() === to.name() ){
 					// capture avoiding substitution 
 					nvar = cloneVar( t.id() );
-					ninner = rename( t.inner(), t.id(), nvar );
+					ninner = substitution( t.inner(), t.id(), nvar );
 				}
 				
 				// switch again to figure out what constructor to use.
@@ -743,7 +777,33 @@ var TypeChecker = function(){
 				}
 				case types.PrimitiveType:
 					return t1.name() === t2.name();
-				
+				case types.AlternativeType:
+				case types.StarType:{
+					var i1s = t1.inner();
+					var i2s = t2.inner();
+					
+					if( i1s.length !== i2s.length )
+						return false;
+					// any order should do
+					var tmp_i2s = i2s.slice(0); // copies array
+					for(var i=0;i<i1s.length;++i){
+						var curr = i1s[i];
+						var found = false;
+						// tries to find matching element
+						for(var j=0;j<tmp_i2s.length;++j){
+							var tmp = tmp_i2s[j];
+							if( equalsTo(curr,m1,tmp,m2) ){
+								tmp_i2s.splice(j,1); // removes element
+								found = true;
+								break; // continue to next
+							}
+						}
+						// if not found, then must be different
+						if( !found )
+							return false;
+					}
+					return true;
+				}
 				case types.RecursiveType:
 				case types.ForallType:		
 				case types.ExistsType: {
@@ -924,6 +984,7 @@ var TypeChecker = function(){
 				case types.StackedType:
 					return subtype( t1.left(), m1, t2.left(), m2 ) &&
 						subtype( t1.right(), m1, t2.right(), m2 );
+				case types.AlternativeType:
 				case types.StarType:{
 					var i1s = t1.inner();
 					var i2s = t2.inner();
@@ -1046,11 +1107,11 @@ var TypeChecker = function(){
 		}
 		
 		this.size = function(){
-			return Object.keys(map).length+( parent===null ? 0 : parent.size() );
+			return Object.keys(map).length+( parent === null ? 0 : parent.size() );
 		}
 		this.allElements = function(){
 			var keys = Object.keys(map);
-			if( parent != null )
+			if( parent !== null )
 				keys = keys.concat( parent.allElements() );
 			return keys;
 		}
@@ -1060,7 +1121,7 @@ var TypeChecker = function(){
 		}
 		
 		this.clone = function(){
-			var env = parent != null ?
+			var env = parent !== null ?
 				new Environment( parent.clone() ) :
 				new Environment( null );
 
@@ -1072,7 +1133,7 @@ var TypeChecker = function(){
 		}
 		
 		this.isEqual = function(other){
-			if( this.size() != other.size() )
+			if( this.size() !== other.size() )
 				return false;
 				
 			var mine = this.allElements();
@@ -1094,7 +1155,7 @@ var TypeChecker = function(){
 		
 	var findBranch = function(tag,ast){
 		for( var i=0; i<ast.branches.length; ++i ){
-			if( ast.branches[i].tag===tag )
+			if( ast.branches[i].tag === tag )
 				return ast.branches[i];
 		}
 		return undefined;
@@ -1184,7 +1245,7 @@ var TypeChecker = function(){
 				see.push( t );
 
 				// unfold
-				t = rename(t.inner(),t.id(),t);
+				t = substitution(t.inner(),t.id(),t);
 				continue;
 			}
 			break;
@@ -1296,12 +1357,12 @@ var TypeChecker = function(){
 				return;
 			if( el.type() === types.LocationVariable && !isFresh(res,el) ){
 				var loc = new LocationVariable(null);
-				res = new ExistsType( loc, rename( res, el, loc ) );
+				res = new ExistsType( loc, substitution( res, el, loc ) );
 				return;
 			}
 			if( el.type() === types.TypeVariable && !isFresh(res,el) ){
 				var loc = new TypeVariable(null);
-				res = new ExistsType( loc, rename( res, el, loc ) );
+				res = new ExistsType( loc, substitution( res, el, loc ) );
 				return;
 			}
 		});
@@ -1379,7 +1440,7 @@ var TypeChecker = function(){
 				assert( locvar.type() === value.id().type(),
 					'Variable mismatch, expecting '+locvar.type()+' got '+value.id().type(), ast.val);
 
-				value = rename( value.inner(), value.id(), locvar );
+				value = substitution( value.inner(), value.id(), locvar );
 				value = unstack( value, e, ast);
 				
 				value = purify(value);
@@ -1421,7 +1482,7 @@ var TypeChecker = function(){
 						assert( isFresh(exp,loc),
 							'Label "'+loc.name()+'" is not free in '+exp, ast);
 		
-						exp = rename( exp , id, loc );
+						exp = substitution( exp , id, loc );
 						return new ExistsType(loc,exp);
 					default:
 						var label = ast.label;
@@ -1435,7 +1496,7 @@ var TypeChecker = function(){
 						assert( isFresh(exp,variable),
 							'Label "'+variable.name()+'" is not free in '+exp, ast);
 		
-						exp = rename( exp , packed, variable );
+						exp = substitution( exp , packed, variable );
 						return new ExistsType(variable,exp);
 				}
 			}
@@ -1450,6 +1511,13 @@ var TypeChecker = function(){
 				return sum;
 			}
 			
+			case AST.kinds.ALTERNATIVE_TYPE: {
+				var star = new AlternativeType();
+				for( var i=0; i<ast.types.length;++i ){
+					star.add( check(ast.types[i], env) );
+				}
+				return star;
+			}
 			case AST.kinds.STAR_TYPE: {
 				var star = new StarType();
 				for( var i=0; i<ast.types.length;++i ){
@@ -1769,7 +1837,7 @@ var TypeChecker = function(){
 					'Not a Forall '+exp.toString(), ast.exp );
 				
 				var packed = check(ast.id, env);
-				return rename( exp.inner(), exp.id(), packed );
+				return substitution( exp.inner(), exp.id(), packed );
 			}
 			
 			
@@ -2198,7 +2266,8 @@ var TypeChecker = function(){
 				typeinfo.info = function(pos){
 					var ptr = null;
 					
-					// search for closest one FIXME: may exist more than 1
+					// FIXME: may exist more than 1, how to show more??
+					// search for closest one
 					// keeps the last... which may not always be nice
 					for( var i in type_info ){
 						var ast = type_info[i].ast;

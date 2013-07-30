@@ -1,4 +1,6 @@
 
+// NOTE READY, just parser test.
+
 typedef T = forall p.TODO
 typedef H = forall p.TODO
 
@@ -64,7 +66,7 @@ let newPipe = fun( _ : [] ).
 	
 	let takeAll = <C>fun Rec( reader :
 		[ tryTake : [] :: C -o NoResult#( [] :: C ) +
-					 Depleted#[] + Result#( int :: C ) ] :: C ).
+					 Depleted#[] + Result#( int :: C ) ] :: C ) : Unknown.
 		let res = reader.tryTake({}) in
 			case res of
 				Depleted#_ -> {} // pipe closed, done
