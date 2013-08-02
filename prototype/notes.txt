@@ -34,7 +34,7 @@ LOW PRIORITY:
 
 CODE STYLE:
  	--- ALWAYS USE IDENTITY === and !==
-	- use 'instanceof' instead of has prorperty 'ast' for errors
+	- use 'instanceof' instead of has property 'ast' for errors
 	+ use finally for exceptions?
 	- CONSTANTS ARE CAPPED
 	- console.debug for debug messages

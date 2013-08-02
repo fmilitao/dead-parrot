@@ -14,6 +14,17 @@ typedef EMPT = forall p.( rw p (E#[]) )
 typedef ELEM = forall T.rec X.
 	forall p.( rw p (N#[T,exists q.( ref q :: (EMPT[q] (+) X[q]) )] ))
 
-// FIXME: how to test this?????
+typedef Y = rec X.forall p.( ref p :: rw p (exists q.(X[q])) )
 
-<X>(fun( X : X).X)
+// This is OK because 'X' variable and 'X' id are stored differently
+<X>(fun( X : X).X);
+
+<t>fun( x : Y[t] ).
+	open <w,y> = !x in
+		!y // FIXME this is a HUGE mess..., unclear where unFold is needed, etc.
+		// MESSY MESSY... NOT COOL
+		//delete x;
+		//delete y
+	end
+
+

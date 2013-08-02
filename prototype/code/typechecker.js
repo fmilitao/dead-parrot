@@ -11,6 +11,9 @@ TODO:
 	working once alternatives are added).
 	This is also important for when sharing is introduced since we may need to
 	index multiple elements that are equal type-wise.
+		FIXME this is messy, needs to redefine size, equals and clone to use
+			the cap array, and then visit must also be changed to enable that.
+
 	3. Add alternatives, will require multiple typing environments. Perhaps
 	even multiple return types for each of the different alternatives.
 	4. Find a better way to merge environment and types, so as to allow
@@ -349,7 +352,7 @@ var TypeChecker = function(){
 			case types.PrimitiveType:
 				return true;
 			case types.DelayedApp:
-				return isFresh(t.inner()) && isFresh(t.id());
+				return isFresh(t.inner(),loc) && isFresh(t.id(),loc);
 			default:
 				assert( false, "Assertion error on " +t.type() );
 				break;
@@ -506,7 +509,8 @@ var TypeChecker = function(){
 				return "["+res.join(', ')+"]";
 			}
 			case types.LocationVariable:
-				return "<b>loc</b>";
+				//return "<b>loc</b>";
+				return '<span class="type_location">'+t.name()+'</span>';
 			case types.TypeVariable:
 				return '<span class="type_variable">'+t.name()+'</span>';
 			case types.PrimitiveType:
@@ -650,6 +654,14 @@ var TypeChecker = function(){
 				// ok to apply
 				if( inner.type() === types.ForallType )
 					return substitution( inner.inner(), inner.id(), id );
+				/*
+				if( inner.type() === types.RecursiveType &&
+					inner.inner().type() === types.ForallType ){
+						var ninner = inner.inner();
+						var inside = substitution( ninner.inner(), ninner.id(), id );
+						console.log( inside );
+						return new RecursiveType(inner.id(),inside);
+				}*/
 				// still delayed
 				return new DelayedApp(inner,id);
 			}
@@ -1107,11 +1119,12 @@ var TypeChecker = function(){
 	//
 	
 	var Environment = function(parent){
-		var map = {};
 		
+		// scope methods		
 		this.newScope = function(){ return new Environment(this); }
 		this.endScope = function(){ return parent; }
 
+		var map = {};
 		this.set = function(id,value){
 			if ( map.hasOwnProperty(id) )
 				return undefined; // already exists
@@ -1121,11 +1134,9 @@ var TypeChecker = function(){
 		this.get = function(id){
 			if ( map.hasOwnProperty(id) )
 				return map[id];
-			else{
-				if( parent === null )
-					return undefined;
-				return parent.get(id);				
-			}
+			if( parent === null )
+				return undefined;
+			return parent.get(id);
 		}
 		this.remove = function(id){
 			if( map.hasOwnProperty(id) ){
@@ -1133,14 +1144,31 @@ var TypeChecker = function(){
 				 // so that it is no longer listed
 				delete map[id];
 				return tmp;
-			} else {
-				if( parent === null )
-					return undefined; // not found
-				return parent.remove(id);
 			}
+			if( parent === null )
+				return undefined; // not found
+			return parent.remove(id);
 		}
+		
+		// '$' is not a source-level identifier
+		var TYPE_INDEX='$';
+		// includes both TypeVariables and LocationVariables
+		this.setType = function(id,value){
+			// type variables cannot be hidden, must be unique
+			// otherwise it would either require renaming collisions
+			// or could allow access to parts that colide. 
+			if( this.getType(id) !== undefined )
+				return undefined; // already there
+			return this.set(TYPE_INDEX+id,value);
+		}
+		this.getType = function(id){
+			return this.get(TYPE_INDEX+id);
+		}
+		
+		// FIXME caps in unsorted array
 		this.size = function(){
-			return Object.keys(map).length+( parent === null ? 0 : parent.size() );
+			return Object.keys(map).length+
+				( parent === null ? 0 : parent.size() );
 		}
 		
 		this.clone = function(){
@@ -1198,19 +1226,43 @@ var TypeChecker = function(){
 			return this.remove(CAP_INDEX+id);
 		}
 		
-		var TYPE_INDEX='$';
-		// includes both TypeVariables and LocationVariables
-		this.setType = function(id,value){
-			// type variables cannot be hidden, must be unique
-			// otherwise it would either require renaming collisions
-			// or could allow access to parts that colide. 
-			if( this.getType(id) !== undefined )
+		/*
+		var caps = [];
+		this.searchCap = function(id){
+			for(var i=0;i<caps.length;++i){
+				var val = caps[i];
+				switch(val.type()){
+					case types.CapabilityType:
+						if( val.location().name() === id )
+							return i;
+						break;
+					case types.TypeVariable:
+						if( val.name() === id )
+							return i;
+						break;
+					default:
+						// another types disallowed, for now
+						assert(false,'Error: '+val);
+				}
+			}
+			return -1;
+		}
+		this.setCap = function(id,value){
+			if( this.searchCap(id) !== -1 )
 				return undefined; // already there
-			return this.set(TYPE_INDEX+id,value);
+			caps.push(value); // add new capability
+			return null;
 		}
-		this.getType = function(id){
-			return this.get(TYPE_INDEX+id);
-		}
+		this.removeCap = function(id){
+			var i = this.searchCap(id);
+			if( i !== -1 ){
+				// removes and returns element
+				return caps.splice(i,1)[0]; 
+			}
+			if( parent === null )
+				return undefined; // not found
+			return parent.removeCap(id);
+		}*/
 	};
 	
 	// TypeVariables must be upper cased.
@@ -1324,6 +1376,43 @@ var TypeChecker = function(){
 		}
 		return t;
 	}
+	
+	var unFold = function(tt,ast){
+		// the following are safeguards to bound execution
+		var see = [];
+		var visited = 0;
+		
+		var t = tt;
+		while( true ) {
+
+			if( t.type() === types.DelayedApp ){
+				var inner = t.inner();
+				if( inner.type() === types.RecursiveType )
+					inner = unFold(inner,ast);
+				// intentionally leave for next if case
+				if( inner.type() === types.ForallType )
+					return substitution( inner.inner(), inner.id(), t.id() );
+					
+				assert( false, 'Cannot delay application any further', ast);
+			}
+			// by unfold: rec X.A <: A[rec X.A/X]
+			if( t.type() === types.RecursiveType ){
+				// these are not exactly perfect but two simple ways to check
+				// if we may be unfolding an unending recursive type
+				// counting is the easiest, the second is the most likely to
+				// catch such pointless loops earlier.
+				assert( (++visited) < 100 , 'Failed to unfold: '+tt +', max unfolds reached');
+				assert( see.indexOf( t ) === -1, 'Fix-point reached after '+visited+' unfolds' , ast);
+				see.push( t );
+
+				// unfold
+				t = substitution(t.inner(),t.id(),t);
+				continue;
+			}
+			break;
+		}
+		return t;
+	}
 		
 	// attempts to convert type to bang
 	var purify = function(t){
@@ -1337,7 +1426,14 @@ var TypeChecker = function(){
 	
 	// unstacks to 'delta' all capabilities stacked in type
 	var unstack = function( type, d, ast ){
+		/*
+		if( type.type() === types.RecursiveType ||
+			type.type() === types.DelayedApp ){
+				type = unFold(type,ast);
+				return unstack(type,d,ast);
+		}*/
 		
+		// FIXME also unstack recursive types and delayed apps?
 		if( type.type() === types.StackedType ){
 			
 			var unstackType = function(t){
@@ -1497,8 +1593,10 @@ var TypeChecker = function(){
 					'Variable mismatch, expecting '+locvar.type()+' got '+value.id().type(), ast.val);
 
 				value = substitution( value.inner(), value.id(), locvar );
+				// unstack anything that became newly available
+				value = unFold( value, ast );
 				value = unstack( value, e, ast);
-				
+				// attempt to make pure
 				value = purify(value);
 
 				//addName( ast.id, value, e, ast );
