@@ -92,7 +92,7 @@ type_fun :
 	| type_fun ';' type_cap
 		{ $$ = AST.makeGuaranteeType($1,$3,@$); }
 	| type_fun '[' type_root ']'
-		{ $$ = AST.makeTypeApp($1,$3,@$); }
+		{ $$ = AST.makeDelayableTypeApp($1,$3,@$); }
 	;
 
 type_cap :

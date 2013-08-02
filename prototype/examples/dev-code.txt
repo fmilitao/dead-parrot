@@ -1,14 +1,13 @@
 
-// TODO: delayed type application, feature requirements.
+// Testing delayed type application.
+// enables types to have pending forall applications that are only later
+// resolved to an actual type.
 
-// test of delayed type application (useful on recursive types)
-
-// non-delayed version of type application applies directly to a forall
+// non-delayed, immeidate apply.
 typedef Test1 = forall p.( (forall q.q)[p])
 
-// the delayed version must carry a pending type application until an unfold
-// solves the type variable and then retries to apply.
+// delayed application.
+// carries pending type application until an unfold solves the type variable.
 typedef Test2 = rec X.forall p.( exists q.( X[q] ) )
-// note that it is TYPE_VARIABLE [ TYPE ]
 
 "done"

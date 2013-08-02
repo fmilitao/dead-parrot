@@ -265,7 +265,17 @@ var TypeChecker = function(){
 		};
 	}();
 	
-	// FIXME delayed application
+	
+	var DelayedApp = function(){
+		var type = addType('DelayedApp');
+		
+		return function(delayed_type,app_type){
+			inherit( this, type );
+
+			this.inner = function(){ return delayed_type; }
+			this.id = function(){ return app_type; }
+		};
+	}();
 	
 	//
 	// VISITORS
@@ -339,6 +349,8 @@ var TypeChecker = function(){
 			case types.NoneType:
 			case types.PrimitiveType:
 				return true;
+			case types.DelayedApp:
+				return isFresh(t.inner()) && isFresh(t.id());
 			default:
 				assert( false, "Assertion error on " +t.type() );
 				break;
@@ -406,6 +418,8 @@ var TypeChecker = function(){
 				return t.name();
 			case types.NoneType:
 				return 'none';
+			case types.DelayedApp:
+				return toString(t.inner())+'['+toString(t.id())+']';
 			default:
 				assert( false, "Assertion error on " +t.type() );
 				break;
@@ -500,6 +514,8 @@ var TypeChecker = function(){
 				return '<b>'+t.name()+'</b>';
 			case types.NoneType:
 				return '<b>none</b>';
+			case types.DelayedApp:
+				return toHTML(t.inner())+'['+toHTML(t.id())+']';
 			default:
 				assert( false, "Assertion error on " +t.type() );
 				break;
@@ -629,6 +645,15 @@ var TypeChecker = function(){
 			case types.LocationVariable:
 			case types.TypeVariable:
 				return t;
+			case types.DelayedApp: {
+				var inner = rec(t.inner());
+				var id = rec(t.id());
+				// ok to apply
+				if( inner.type() === types.ForallType )
+					return substitution( inner.inner(), inner.id(), id );
+				// still delayed
+				return new DelayedApp(inner,id);
+			}
 			default:
 				assert( false, "Assertion error on " +t.type() );
 				break;
@@ -736,11 +761,16 @@ var TypeChecker = function(){
 				case types.SumType: {
 					var t1s = t1.tags();
 					var t2s = t2.tags();
-					if( Object.keys(t1s).length !== Object.keys(t2s).length )
+					// note that it is an array of tags (strings)
+					if( t1s.length !== t2s.length )
 						return false;
-					for( var i in t1s ){
-						//console.log( t1s[i] );
-						if( !t2s.hasOwnProperty(i) ||
+					for( var i=0; i<t1s.length; ++i ){
+						//console.log('---'+ t1s );
+						//console.log('---'+ t2s );
+						//console.log( i );
+						//console.log( t2s.hasOwnProperty(i) );
+						//console.log( t2.inner(t2s[i]) );
+						if( t2s.indexOf(t1s[i])===-1 ||
 							!equalsTo( t1.inner(t1s[i]), m1, t2.inner(t1s[i]), m2 ) )
 							return false;
 					}
@@ -831,6 +861,10 @@ var TypeChecker = function(){
 						return t1.name() === t2.name();
 					
 					return equalsTo( a1, m1, a2, m2 );
+				case types.DelayedApp:{
+					return equalsTo( t1.inner(), m1, t2.inner(), m2 ) &&
+						equalsTo( t1.id(), m1, t2.id(), m2 ) ;
+				}
 				default:
 					assert( false, "Assertion error on " +t2.type() );
 					break;
@@ -1056,6 +1090,10 @@ var TypeChecker = function(){
 					
 					return subtype( a1, m1, a2, m2 );	
 				}
+				case types.DelayedApp: {
+					return subtype( t1.inner(), m1, t2.inner(), m2 ) &&
+						subtype( t1.id(), m1, t2.id(), m2 ) ;
+				}
 				default:
 					assert( false, 'Assertion Error Subtype '+t1.type() );
 			}
@@ -1219,6 +1257,7 @@ var TypeChecker = function(){
 
 	// removes all BangTypes
 	var unBang = function(t){
+		// by subtyping rule: !A <: A
 		while( t.type() === types.BangType )
 			t = t.inner();
 		return t;
@@ -1231,10 +1270,12 @@ var TypeChecker = function(){
 		
 		var t = tt;
 		while( true ) {
+			// by subtyping rule: !A <: A
 			if( t.type() === types.BangType ){
 				t = t.inner();
 				continue;
 			}
+			// by unfold: rec X.A <: A[rec X.A/X]
 			if( t.type() === types.RecursiveType ){
 				// these are not exactly perfect but two simple ways to check
 				// if we may be unfolding an unending recursive type
@@ -1828,6 +1869,24 @@ var TypeChecker = function(){
 
 				return assert( unstack( fun.body(), env, ast ),
 					"Unstack error on " + fun.body(), ast.exp );
+			}
+			
+			case AST.kinds.DELAY_TYPE_APP: {
+				var exp = check( ast.exp, env );
+				exp = unAll(exp,ast.exp);
+				var packed = check(ast.id, env); // the type to apply
+
+				if( exp.type() === types.ForallType ){
+					// can be applied immediately
+					return substitution( exp.inner(), exp.id(), packed );
+				}
+				// application cannot occur right now, but delayed applications
+				// are only allowed on (bounded) type variables 
+				assert( exp.type() === types.TypeVariable ||
+					exp.type() === types.DelayedApp, // for nested delays 
+					'Not a TypeVariable '+exp.toString(), ast.exp );
+				
+				return new DelayedApp(exp,packed);
 			}
 			
 			case AST.kinds.TYPE_APP: {

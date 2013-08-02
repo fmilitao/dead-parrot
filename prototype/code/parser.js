@@ -42,6 +42,7 @@ var AST = new function(){
 		'PRIMITIVE_TYPE',
 		'NONE_TYPE',
 		'RECURSIVE_TYPE',
+		'DELAY_TYPE_APP',
 		// constructs
 		'FORALL',
 		'PACK',
@@ -233,6 +234,9 @@ var AST = new function(){
 	}
 	this.makeNoneType = function(info){
 		return aux( this.kinds.NONE_TYPE, {}, info);
+	}
+	this.makeDelayableTypeApp = function(exp,type,info){
+		return aux( this.kinds.DELAY_TYPE_APP, {exp: exp, id: type}, info);
 	}
 
 }();

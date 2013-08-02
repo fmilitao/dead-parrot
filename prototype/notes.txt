@@ -6,6 +6,8 @@ REMEMBER:
  	- IDIOT YOU ARE USING RECURSION WHEN WHILE IS ENOUGH...
  	
 TODO:
+	-- packing up to subtyping, instead of equals? list-adt example would
+	be made slightly simpler, I guess.
 	-- multi-open and multi-pack syntax sugar? use arrays of stuff
 	open <a,b,c,d,x> = <p,q,X, ... >
 	

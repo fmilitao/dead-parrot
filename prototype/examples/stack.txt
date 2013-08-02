@@ -12,7 +12,7 @@ let newStack = <T>fun( _ : [] ).
 		<ELEM[T][h]:NE, // NonEmpty Stack
 		{
 		
-			push = fun( e : T :: EMPT[h] (+) ELEM[T][h] ).
+			push = fun( e : T :: ( EMPT[h] (+) ELEM[T][h] ) ).
 				// by reading the contents of head, it will make require
 				// to break down the alternative into its sub-cases 
 				open <n,next> = new !head in
@@ -33,7 +33,7 @@ let newStack = <T>fun( _ : [] ).
 						end
 				end,
 		
-			isEmpty = fun( _ : [] :: EMPT[h] (+) ELEM[T][h] ).
+			isEmpty = fun( _ : [] :: ( EMPT[h] (+) ELEM[T][h] ) ).
 				// again, reading 'opens' the alternatives
 				case !head of
 					E#v ->
