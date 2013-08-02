@@ -6,7 +6,6 @@
 
 /*
 TODO:
-	1. Add delayed type application, that on substitution tries to expand.
 	2. Fix indexing issue, must allow some sort of array of non-indexed types
 	instead of hackish trick to find non-indexed elements (since those stop
 	working once alternatives are added).
@@ -1140,17 +1139,8 @@ var TypeChecker = function(){
 				return parent.remove(id);
 			}
 		}
-		/* this.hasKey = function(id){
-			return map[id];
-		} */
 		this.size = function(){
 			return Object.keys(map).length+( parent === null ? 0 : parent.size() );
-		}
-		this.allElements = function(){
-			var keys = Object.keys(map);
-			if( parent !== null )
-				keys = keys.concat( parent.allElements() );
-			return keys;
 		}
 		
 		this.clone = function(){
@@ -1158,13 +1148,20 @@ var TypeChecker = function(){
 				new Environment( parent.clone() ) :
 				new Environment( null );
 
-			this.elements( function(i,v) {
+			this.visit(false, // only for the local elements
+				function(i,v) { // assumes id names are exposed
 				// this only works if v is immutable.
 				env.set(i,v);
 			});
 			return env;
 		}
 		
+		this.allElements = function(){
+			var keys = Object.keys(map);
+			if( parent !== null )
+				keys = keys.concat( parent.allElements() );
+			return keys;
+		}
 		this.isEqual = function(other){
 			if( this.size() !== other.size() )
 				return false;
@@ -1181,13 +1178,15 @@ var TypeChecker = function(){
 			return true;
 		}
 		
-		
-		this.elements = function(f){
+		// no order is guaranteed!
+		this.visit = function(all,f){
 			for( var i in map ){
 				var isCap = i[0] === CAP_INDEX;
 				var isType = i[0] === TYPE_INDEX;
 				f(i,map[i],isCap,isType);
 			}
+			if( all && parent !== null )
+				parent.visit(all,f);
 		}
 		
 		// operations over capabilities
@@ -1344,16 +1343,14 @@ var TypeChecker = function(){
 			var unstackType = function(t){
 				switch( t.type() ){
 				case types.CapabilityType:
-					var capN = t.location().name(); 
-					//var capI = capIndex( capN );
-					assert( d.setCap( capN , t ) ,
-						'Duplicated capability for '+ capN, ast );
+					var loc = t.location().name(); 
+					assert( d.setCap( loc, t ) ,
+						'Duplicated capability for '+ loc, ast );
 					break;
 				case types.TypeVariable:
-					var capN = t.name(); 
-					//var capI = capIndex( capN );
-					assert( d.setCap( capN , t ) ,
-					 'Duplicated capability for '+ capN, ast );
+					var nam = t.name(); 
+					assert( d.setCap( nam , t ) ,
+					 'Duplicated capability for '+ nam, ast );
 					break;
 				case types.StarType:{
 					var tps = t.inner();
@@ -1384,7 +1381,8 @@ var TypeChecker = function(){
 		// 1. stack all capabilities
 		var tmp = new StarType();
 
-		env.elements(function(id,cap,isCap,isType){
+		env.visit(false, //only the elements at this level
+			function(id,cap,isCap,isType){
 			// ok to ignore type and location variable declarations
 			if( isType )
 				return;
@@ -1418,7 +1416,8 @@ var TypeChecker = function(){
 		}
 
 		// 2. pack all bounded location variables
-		env.elements(function(e,el,isCap,isType){
+		env.visit(false,
+			function(e,el,isCap,isType){
 			// ignores all elements that are not type/location variables
 			if( !isType )
 				return;
@@ -2266,7 +2265,7 @@ var TypeChecker = function(){
 							return new PrimitiveType("string");
 
 						default:
-							assert(false,"Assertion error on " + ast.kind, ast);
+							assert(false,"Error on " + ast.kind, ast);
 				} });
 		}
 
@@ -2275,42 +2274,41 @@ var TypeChecker = function(){
 	var printEnvironment = function(env,ast,pos){
 		var gamma = [];
 		var delta = [];
-		var keys = env.allElements();
+		var visited = [];
 		
-		for( var i=0; i<keys.length; ++i ){
-			var id = keys[i];
-			var val = env.get( id );
-			// if duplicated do not print it... sort of lame
-			if( keys.indexOf( id ) < i ){
-				continue;
-			}
+		env.visit( true, // visit all elements 
+		function(id,val,isCap,isType){
+			// if duplicated do not print, this may happen due to
+			// stack of environments for names (i.e. non type/loc vars).
+			if( visited.indexOf(id) !== -1 )
+				return; 
+			visited.push(id);
 			
-			//FIXME: hack that breaks modularity
-			if( id[0] === '.' ){
+			if( isCap ){
 				// is a capability
 				delta.push( val.toHTML() );
-				continue;
+				return;
 			}
 			
-			if( id[0] === '$' ){
+			if( isType ){
 				// is a type/location variable
 				if( val.type() === types.LocationVariable ){
 					gamma.push('<span class="type_location">'+val.name()+'</span>: <b>loc</b>');
-					continue;
+					return;
 				}
 				if( val.type() === types.TypeVariable ){
 					gamma.push('<span class="type_variable">'+val.name()+'</span>: <b>type</b>');
-					continue;
+					return;
 				}
 			}
 			
 			if( val.type() === types.BangType ){
-				gamma.push('<span class="type_name">'+id+'</span>'+": "+val.toHTML());
-				continue;
+				gamma.push('<span class="type_name">'+id+'</span>'+": "+val.inner().toHTML());
+				return;
 			}			
 			
-			delta.push('<span class="type_name">'+keys[i]+'</span>'+": "+val.toHTML());
-		}
+			delta.push('<span class="type_name">'+id+'</span>'+": "+val.toHTML());
+		});
 		
 		gamma.sort(); // to ensure always the same order
 		gamma = gamma.join(',\n    ');
