@@ -1140,10 +1140,9 @@ var TypeChecker = function(){
 				return parent.remove(id);
 			}
 		}
-		this.hasKey = function(id){
+		/* this.hasKey = function(id){
 			return map[id];
-		}
-		
+		} */
 		this.size = function(){
 			return Object.keys(map).length+( parent === null ? 0 : parent.size() );
 		}
@@ -1152,10 +1151,6 @@ var TypeChecker = function(){
 			if( parent !== null )
 				keys = keys.concat( parent.allElements() );
 			return keys;
-		}
-		this.elements = function(f){
-			for( var i in map )
-				f(i,map[i]);
 		}
 		
 		this.clone = function(){
@@ -1185,7 +1180,44 @@ var TypeChecker = function(){
 			}
 			return true;
 		}
+		
+		
+		this.elements = function(f){
+			for( var i in map ){
+				var isCap = i[0] === CAP_INDEX;
+				var isType = i[0] === TYPE_INDEX;
+				f(i,map[i],isCap,isType);
+			}
+		}
+		
+		// operations over capabilities
+		var CAP_INDEX='.';
+		this.setCap = function(id,value){
+			return this.set(CAP_INDEX+id,value);
+		}
+		this.removeCap = function(id){
+			return this.remove(CAP_INDEX+id);
+		}
+		
+		var TYPE_INDEX='$';
+		// includes both TypeVariables and LocationVariables
+		this.setType = function(id,value){
+			// type variables cannot be hidden, must be unique
+			// otherwise it would either require renaming collisions
+			// or could allow access to parts that colide. 
+			if( this.getType(id) !== undefined )
+				return undefined; // already there
+			return this.set(TYPE_INDEX+id,value);
+		}
+		this.getType = function(id){
+			return this.get(TYPE_INDEX+id);
+		}
 	};
+	
+	// TypeVariables must be upper cased.
+	var isTypeVariableName = function(n){
+		return n[0] === n[0].toUpperCase();
+	}
 	
 	//
 	// TYPE CHECKER
@@ -1304,8 +1336,6 @@ var TypeChecker = function(){
 		return t;
 	}
 	
-	var capIndex = function(id){ return "."+id; }
-	
 	// unstacks to 'delta' all capabilities stacked in type
 	var unstack = function( type, d, ast ){
 		
@@ -1315,14 +1345,14 @@ var TypeChecker = function(){
 				switch( t.type() ){
 				case types.CapabilityType:
 					var capN = t.location().name(); 
-					var capI = capIndex( capN );
-					assert( d.set( capI , t ) ,
+					//var capI = capIndex( capN );
+					assert( d.setCap( capN , t ) ,
 						'Duplicated capability for '+ capN, ast );
 					break;
 				case types.TypeVariable:
 					var capN = t.name(); 
-					var capI = capIndex( capN );
-					assert( d.set( capI , t ) ,
+					//var capI = capIndex( capN );
+					assert( d.setCap( capN , t ) ,
 					 'Duplicated capability for '+ capN, ast );
 					break;
 				case types.StarType:{
@@ -1354,26 +1384,21 @@ var TypeChecker = function(){
 		// 1. stack all capabilities
 		var tmp = new StarType();
 
-		env.elements(function(id,cap){
+		env.elements(function(id,cap,isCap,isType){
+			// ok to ignore type and location variable declarations
+			if( isType )
+				return;
+			
+			if( isCap ){
+				tmp.add( cap );
+				return;
+			}
 			
 			switch( cap.type() ){
-				case types.CapabilityType:
-					tmp.add( cap );
-					break;
 				// these can be ignored
 				case types.BangType:
 				case types.PrimitiveType:
-				case types.LocationVariable:
 					break;
-				case types.TypeVariable:
-					// safe to ignore type variable of itself
-					if( id === cap.name() )
-						break;
-					if( id[0] === '.' ){
-						tmp.add( cap );
-						break;
-					}
-					// intentionally fall through
 				default:
 					// fails if attempting to stack something else
 					assert( false, 'Auto-stack failure, '+
@@ -1393,42 +1418,30 @@ var TypeChecker = function(){
 		}
 
 		// 2. pack all bounded location variables
-		env.elements(function(e,el){
-			if( e[0] === '.' ) // ignore hidden elements
+		env.elements(function(e,el,isCap,isType){
+			// ignores all elements that are not type/location variables
+			if( !isType )
 				return;
-			if( el.type() === types.LocationVariable && !isFresh(res,el) ){
-				var loc = new LocationVariable(null);
-				res = new ExistsType( loc, substitution( res, el, loc ) );
-				return;
-			}
-			if( el.type() === types.TypeVariable && !isFresh(res,el) ){
-				var loc = new TypeVariable(null);
-				res = new ExistsType( loc, substitution( res, el, loc ) );
-				return;
+
+			switch( el.type() ){
+				case types.LocationVariable:
+					if( !isFresh(res,el) ){
+						var loc = new LocationVariable(null);
+						res = new ExistsType( loc, substitution( res, el, loc ) );
+					}
+					break;
+				case types.TypeVariable:
+					if( !isFresh(res,el) ){
+						var loc = new TypeVariable(null);
+						res = new ExistsType( loc, substitution( res, el, loc ) );
+					}
+					break;
+				default:
+					// fails if attempting to stack something else
+					assert( false, 'Auto-stack failure, '+e+' : '+el.type(), ast );
 			}
 		});
 		return res;	
-	}
-
-	var addName = function(id,value,e,ast){
-		// check for collisions
-		var ee;
-		
-		// cannot occur anywhere, cannot be hidden
-		if( value.type() === types.LocationVariable ){
-			ee = e.get(id);
-			
-			// ok to collide with capabilities since they cannot be accessed
-			if( ee != undefined && ee.type() === types.CapabilityType )
-				ee = undefined;
-		}else{
-			// cannot occur at the same level
-			ee = e.hasKey(id);
-		}
-		assert( ee === undefined,
-			"Identifier '" + id + "' already in scope", ast );
-
-		e.set( id, value );
 	}
 
 	// this wrapper function allows us to inspect the type and envs
@@ -1456,8 +1469,11 @@ var TypeChecker = function(){
 				assert( ast.id !== null || value.type() === types.BangType,
 					'Cannot drop linear type', ast );
 				
-				if( ast.id !== null )
-					addName( ast.id, value, e, ast );
+				if( ast.id !== null ){
+					//addName( ast.id, value, e, ast );
+					assert( e.set( ast.id, value ),
+						"Identifier '" + ast.id + "' already in scope", ast );
+				}
 
 				var res = check( ast.exp, e );
 				return safelyEndScope( res, e, ast.exp );
@@ -1473,7 +1489,7 @@ var TypeChecker = function(){
 				var e = env.newScope();
 				var loc = ast.type;
 				var locvar;
-				if( loc[0] === loc[0].toUpperCase() )
+				if( isTypeVariableName(loc) )
 					locvar = new TypeVariable(loc);
 				else
 					locvar = new LocationVariable(loc);
@@ -1486,8 +1502,12 @@ var TypeChecker = function(){
 				
 				value = purify(value);
 
-				addName( ast.id, value, e, ast );
-				addName( loc, locvar, e, ast );
+				//addName( ast.id, value, e, ast );
+				assert( e.set( ast.id, value ),
+						"Identifier '" + ast.id + "' already in scope", ast );
+				//addName( loc, locvar, e, ast );
+				assert( e.setType( loc, locvar ),
+						"Type '" + loc + "' already in scope", ast );
 				
 				var res = check( ast.exp, e );
 				return safelyEndScope( res, e, ast);
@@ -1502,11 +1522,11 @@ var TypeChecker = function(){
 					case types.LocationVariable:
 						var label = ast.label;
 						var name = packed.name();
-						var id = env.get( packed.name() ); // old variable						
+						var id = env.getType( packed.name() ); // old variable						
 						assert( id, "Identifier '" + name + "' not found", ast);
 						
 						var loc;
-						if( name[0] === name[0].toUpperCase() )
+						if( isTypeVariableName(name) )
 							loc = new TypeVariable(label);
 						else
 							loc = new LocationVariable(label);
@@ -1528,7 +1548,7 @@ var TypeChecker = function(){
 					default:
 						var label = ast.label;
 						
-						assert( label === null || label[0] === label[0].toUpperCase(),
+						assert( label === null || isTypeVariableName(label),
 							'TypeVariables must be upper-cased',ast);
 							
 						var variable = new TypeVariable(label);
@@ -1592,7 +1612,9 @@ var TypeChecker = function(){
 					e = e.newScope();
 					value = unstack( value, e, branch.exp );
 					value = purify( value );
-					addName( branch.id, value, e, ast );
+					//addName( branch.id, value, e, ast );
+					assert( e.set( branch.id, value ),
+						"Identifier '" + branch.id + "' already in scope", ast );
 					var res = check( branch.exp, e );
 					
 					if( endEnv === null ){
@@ -1614,25 +1636,37 @@ var TypeChecker = function(){
 				return result;
 			}
 			
+			
+			case AST.kinds.NAME_TYPE: {
+				var label = ast.text;
+				var tmp = env.getType( label );
+				// if label matches type in environment, but we only allow
+				// access to type variables and location variables using this
+				// AST.kind --- all other uses are assumed to be recursives.
+				if( tmp !== undefined &&
+					( tmp.type() === types.TypeVariable ||
+					  tmp.type() === types.LocationVariable ) )
+						return tmp;
+				
+				// look for type definitions
+				var lookup = typedefs[label];
+		
+				// found something
+				if( lookup !== undefined && lookup !== null )
+					return lookup;
+		
+				assert( false, 'Unknown type '+label, ast);
+			}
+			
 			case AST.kinds.ID: {
 				var id = ast.text;
 				var val = env.get( id );
 			
 				assert( val, "Identifier '" + id + "' not found", ast);
 
-				// the following types should not be accessible even
-				// if they are in the typing environment
-				assert( val.type() !== types.CapabilityType,
-					"'" + id + "' is a capability", ast );	
-				assert( val.type() !== types.LocationVariable,
-					"'" + id + "' is a location variable", ast );
-				assert( val.type() !== types.TypeVariable ||
-					id !== val.name(), // FIXME clean up this test
-					"'" + id + "' is a type variable", ast );
-
 				if( val.type() !== types.BangType )
 					env.remove( id );
-									
+
 				return val;
 			}
 			
@@ -1655,8 +1689,8 @@ var TypeChecker = function(){
 					"Invalid dereference '"+exp+"'", ast );
 
 				var loc = exp.location().name();
-				var capI = capIndex( loc );
-				var cap = env.remove( capI );
+				//var capI = capIndex( loc );
+				var cap = env.removeCap( loc );
 				
 				assert( cap, "No capability to '"+loc+"'", ast );
 				
@@ -1670,7 +1704,7 @@ var TypeChecker = function(){
 					residual = UnitType;
 				
 				cap = new CapabilityType( cap.location(), residual );
-				assert( env.set( capI, cap ) ,'Failed to re-add cap', ast);
+				assert( env.setCap( loc, cap ) ,'Failed to re-add cap', ast);
 				return old;
 			}
 			
@@ -1680,8 +1714,8 @@ var TypeChecker = function(){
 				
 				if( exp.type() === types.ReferenceType ){
 					var loc = exp.location().name();
-					var capI = capIndex( loc )
-					var cap = env.remove( capI );
+					//var capI = capIndex( loc )
+					var cap = env.removeCap( loc );
 					
 					assert( cap, "No capability to '"+loc+"'", ast );
 					
@@ -1716,14 +1750,14 @@ var TypeChecker = function(){
 					"Invalid assign '"+lvalue+"' := '"+value+"'", ast.lvalue);
 				
 				var loc = lvalue.location().name();
-				var capI = capIndex( loc );
-				var cap = env.remove( capI );
+				//var capI = capIndex( loc );
+				var cap = env.removeCap( loc );
 				
 				assert( cap, "Cannot assign, no capability to '"+loc+"'", ast );
 				
 				var old = cap.value();
 				cap = new CapabilityType( cap.location(), purify(value) );
-				env.set( capI , cap );
+				env.setCap( loc , cap );
 				return old;
 			}
 			
@@ -1826,8 +1860,8 @@ var TypeChecker = function(){
 								return t;
 							} else {
 								assert( t === null, 'MATCHING ERROR', ast.arg);
-								var capI = capIndex( cap_loc );
-								var cap = assert( env.remove( capI ),
+								//var capI = capIndex( cap_loc );
+								var cap = assert( env.removeCap( cap_loc ),
 									'Missing capability '+cap_loc, ast.arg);
 								return cap;
 							}
@@ -1843,8 +1877,8 @@ var TypeChecker = function(){
 								return t;
 							} else {
 								assert( t===null, 'MATCHING ERROR', ast.arg);
-								var capI = capIndex( p_loc );
-								var cap = assert( env.remove( capI ),
+								//var capI = capIndex( p_loc );
+								var cap = assert( env.removeCap( p_loc ),
 									'Missing capability '+p_loc, ast.arg);
 								return cap;
 							}
@@ -1945,8 +1979,11 @@ var TypeChecker = function(){
 					"Incompatible sizes "+ast.ids.length+" != "+values.length, ast.exp);
 
 				var e = env.newScope();
-				for( var i=0;i<ast.ids.length;++i)
-					addName( ast.ids[i], values[i], e, ast );
+				for( var i=0;i<ast.ids.length;++i){
+					assert( e.set( ast.ids[i], values[i] ),
+						"Identifier '" + ast.ids[i] + "' already in scope", ast );
+					//addName( ast.ids[i], values[i], e, ast );
+				}
 				
 				var res = check( ast.exp, e );
 				return safelyEndScope( res, e, ast);
@@ -1955,7 +1992,7 @@ var TypeChecker = function(){
 			// TYPES
 			case AST.kinds.REF_TYPE: {
 				var id = ast.text;
-				var loc = env.get( id );
+				var loc = env.getType( id );
 				
 				assert( loc !== undefined && loc.type() === types.LocationVariable,
 					'Unknow Location Variable '+id, ast );
@@ -1969,12 +2006,12 @@ var TypeChecker = function(){
 				
 				var variable;
 				// type variable if starts with upper case
-				if( id[0] === id[0].toUpperCase() )
+				if( isTypeVariableName(id) )
 					variable = new TypeVariable(id);
 				else
 					variable = new LocationVariable(id);
 				
-				e.set( id, variable );
+				e.setType( id, variable );
 
 				return new ExistsType( variable, check( ast.type, e ) );
 			}
@@ -1985,12 +2022,12 @@ var TypeChecker = function(){
 				
 				var variable;
 				// type variable if starts with upper case
-				if( id[0] === id[0].toUpperCase() )
+				if( isTypeVariableName(id) )
 					variable = new TypeVariable(id);
 				else
 					variable = new LocationVariable(id);
 
-				e.set( id, variable );
+				e.setType( id, variable );
 
 				return new ForallType( variable, check( ast.exp, e ) );
 			}
@@ -1999,11 +2036,11 @@ var TypeChecker = function(){
 				var id = ast.id;
 				var e = env.newScope();
 				
-				assert( id[0] === id[0].toUpperCase(),
+				assert( isTypeVariableName(id),
 					'Type Variables must be upper-cased', ast );
 					
 				var variable = new TypeVariable(id);
-				e.set( id, variable );
+				e.setType( id, variable );
 				return new RecursiveType( variable, check( ast.exp, e ) );
 			}
 						
@@ -2022,7 +2059,7 @@ var TypeChecker = function(){
 			
 			case AST.kinds.CAP_TYPE: {
 				var id = ast.id;
-				var loc = env.get( id );
+				var loc = env.getType( id );
 				
 				assert( loc !== undefined && loc.type() === types.LocationVariable,
 					'Unknow Location Variable '+id, ast);
@@ -2056,8 +2093,8 @@ var TypeChecker = function(){
 					switch( cap.type() ){
 						case types.CapabilityType:
 							var loc = cap.location().name();
-							var capI = capIndex( loc );
-							var c = assert( env.remove( capI ),
+							//var capI = capIndex( loc );
+							var c = assert( env.removeCap( loc ),
 								'Missing capability '+loc, ast.type);
 							var u = unBang(cap.value());
 							assert( subtypeOf( c.value() , cap.value() ),
@@ -2066,8 +2103,8 @@ var TypeChecker = function(){
 							return cap;
 						case types.TypeVariable:
 							var loc = cap.name();
-							var capI = capIndex( loc );
-							var c = assert( env.remove( capI ),
+							//var capI = capIndex( loc );
+							var c = assert( env.removeCap( loc ),
 								'Missing capability '+loc, ast.type);
 							assert( subtypeOf( c , cap ),
 								'Incompatible capability '+c+' vs '+cap, ast.type );
@@ -2101,27 +2138,6 @@ var TypeChecker = function(){
 						"Duplicated field '" + id + "' in '"+rec+"'", field);
 				}
 				return rec;
-			}
-			
-			case AST.kinds.NAME_TYPE: {
-				var label = ast.text;
-				var tmp = env.get( label );
-				// if label matches type in environment, but we only allow
-				// access to type variables and location variables using this
-				// AST.kind --- all other uses are assumed to be recursives.
-				if( tmp !== undefined &&
-					( tmp.type() === types.TypeVariable ||
-					  tmp.type() === types.LocationVariable ) )
-						return tmp;
-				
-				// look for type definitions
-				var lookup = typedefs[label];
-		
-				// found something
-				if( lookup !== undefined && lookup !== null )
-					return lookup;
-		
-				assert( false, 'Unknown type '+label, ast);
 			}
 			
 			case AST.kinds.PRIMITIVE_TYPE:
@@ -2158,12 +2174,14 @@ var TypeChecker = function(){
 							
 							var variable;
 							// type variable if starts with upper case
-							if( id[0] === id[0].toUpperCase() )
+							if( isTypeVariableName(id) )
 								variable = new TypeVariable(id);
 							else
 								variable = new LocationVariable(id);
 
-							addName( id, variable, e, ast );
+							//addName( id, variable, e, ast );
+							assert( e.setType( id, variable ),
+								"Type '" + id + "' already in scope", ast );
 			
 							return new ForallType( variable, check( ast.exp, e ) );
 						}
@@ -2186,13 +2204,17 @@ var TypeChecker = function(){
 								var rec_fun = new BangType(
 									new FunctionType(arg_type, result)
 								);
-								addName( ast.rec, rec_fun, e, ast );
+								assert( e.set( ast.rec, rec_fun ),
+									"Identifier '" + ast.rec + "' already in scope", ast );
+								//addName( ast.rec, rec_fun, e, ast );
 							}
 							
 							
 							var unstacked = unstack(arg_type,e,ast);
 							
-							addName( id, purify(unstacked), e, ast );
+							//addName( id, purify(unstacked), e, ast );
+							assert( e.set( id, purify(unstacked) ),
+									"Identifier '" + id + "' already in scope", ast );
 
 							var res = check( ast.exp, e );
 							res = safelyEndScope( res, e, ast.exp );
@@ -2256,33 +2278,44 @@ var TypeChecker = function(){
 		var keys = env.allElements();
 		
 		for( var i=0; i<keys.length; ++i ){
-			var val = env.get(keys[i]);
+			var id = keys[i];
+			var val = env.get( id );
 			// if duplicated do not print it... sort of lame
-			if( keys.indexOf(keys[i]) < i ){
-				continue;
-			}
-			if( val.type() === types.BangType || val.type() === types.LocationVariable ){
-				gamma.push('<span class="type_name">'+keys[i]+'</span>'+": "+val.toHTML());
-				continue;
-			}			
-			if( keys[i][0] === '.' ){
-				delta.push( val.toHTML() );
-				continue;
-			}
-			// HACK to find type variable declaration (has same name as abstracted type)
-			if( val.type() === types.TypeVariable && keys[i] === val.name() ){
-				gamma.push('<span class="type_name">'+keys[i]+'</span>'+": <b>type</b>");
+			if( keys.indexOf( id ) < i ){
 				continue;
 			}
 			
+			//FIXME: hack that breaks modularity
+			if( id[0] === '.' ){
+				// is a capability
+				delta.push( val.toHTML() );
+				continue;
+			}
+			
+			if( id[0] === '$' ){
+				// is a type/location variable
+				if( val.type() === types.LocationVariable ){
+					gamma.push('<span class="type_location">'+val.name()+'</span>: <b>loc</b>');
+					continue;
+				}
+				if( val.type() === types.TypeVariable ){
+					gamma.push('<span class="type_variable">'+val.name()+'</span>: <b>type</b>');
+					continue;
+				}
+			}
+			
+			if( val.type() === types.BangType ){
+				gamma.push('<span class="type_name">'+id+'</span>'+": "+val.toHTML());
+				continue;
+			}			
+			
 			delta.push('<span class="type_name">'+keys[i]+'</span>'+": "+val.toHTML());
-
 		}
 		
 		gamma.sort(); // to ensure always the same order
 		gamma = gamma.join(',\n    ');
 		
-		delta.sort(); // to ensure always the same order
+		delta.sort(); // ...same order
 		delta = delta.join(',\n    ');
 	
 		return "@"+(ast.line+1)+":"+ast.col+' '+ast.kind+"\n\u0393 = "+gamma+"\n"+
@@ -2313,6 +2346,7 @@ var TypeChecker = function(){
 					var type = ast.typedefs[i];
 					assert( !typedefs.hasOwnProperty(type.id),
 						'Duplicated typedef: '+type.id, type )
+					// map of type names to typechecker types.
 					typedefs[type.id] = check( type.type, env );
 				}
 			}

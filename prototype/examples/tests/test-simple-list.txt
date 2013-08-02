@@ -1,12 +1,56 @@
 //OK {}
 //OK ![]
 
+typedef Empty = E#(exists p.( ref p :: rw p [] ))
+
 typedef Node = forall T.rec Node.(  
 	// List Node
 	N#(exists p.( ref p :: rw p [T,Node] ) )
 	// Empty Node 
 	+ E#(exists p.( ref p :: rw p [] ) )
  )
+
+let ListADT = <T> 
+	<Empty:Empty,
+	<Node[T]:List, {
+	newList = fun ( _ : [] ).
+		E#new {},
+	
+	// FIXME: should packing consider up to subtyping?
+	// right now it matches the type with 'equals' and therefore we need
+	// to state the return type in order to consider it.
+	insertN = fun _( e : T , list : Node[T] ): Node[T].
+		N#new {e,list},
+	// FIXME: without intersection types there is no way to relate the two
+	// abstracted types and therefore, we must have this code duplication
+	insertE = fun _( e : T , list : Empty ): Node[T].
+		N#new {e,list},
+
+	// This might be a be dumb that the last element does not contain
+	// anything stored in it...
+	remove = fun( list : Node[T] ).
+		case list of
+			N#node ->
+				open <p,x> = node in
+					let result = !x in
+						delete x;
+						Result#result
+					end
+				end
+		|	E#node ->
+				open <p,x> = node in
+					let result = !x in
+						delete x;
+						Empty#{} // no result
+					end
+				end
+		end
+	}>>
+	in
+	0
+end
+
+;
 
 let LIST = <T> {
 	newList = fun ( _ : [] ).E#new {},

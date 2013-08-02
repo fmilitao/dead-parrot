@@ -3,11 +3,17 @@
 // enables types to have pending forall applications that are only later
 // resolved to an actual type.
 
-// non-delayed, immeidate apply.
+// non-delayed, immediate apply.
 typedef Test1 = forall p.( (forall q.q)[p])
 
 // delayed application.
 // carries pending type application until an unfold solves the type variable.
 typedef Test2 = rec X.forall p.( exists q.( X[q] ) )
 
-"done"
+typedef EMPT = forall p.( rw p (E#[]) )
+typedef ELEM = forall T.rec X.
+	forall p.( rw p (N#[T,exists q.( ref q :: (EMPT[q] (+) X[q]) )] ))
+
+// FIXME: how to test this?????
+
+<X>(fun( X : X).X)

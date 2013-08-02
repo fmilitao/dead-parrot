@@ -1,4 +1,5 @@
 
+// Tests for alternatives
 
 // this just returns the same type
 // RESULT: 
