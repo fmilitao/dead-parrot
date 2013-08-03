@@ -9,12 +9,16 @@
 <p>fun( x : ref p :: ( rw p (I#int) (+) rw p (B#boolean) ) ).
 	x
 
+;
+
 // this should return a sum type
 // forall p.( 
 //		ref p :: ( rw p (I#int) (+) rw p (B#boolean) )
 //	 -o I#int + B#boolean :: rw p ![] )
 <p>fun( x : ref p :: ( rw p (I#int) (+) rw p (B#boolean) ) ).
 	!x
+
+;
 	
 // this should return an alternative
 // forall p.( 

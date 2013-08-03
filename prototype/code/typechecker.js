@@ -6,18 +6,17 @@
 
 /*
 TODO:
-	2. Fix indexing issue, must allow some sort of array of non-indexed types
-	instead of hackish trick to find non-indexed elements (since those stop
-	working once alternatives are added).
-	This is also important for when sharing is introduced since we may need to
-	index multiple elements that are equal type-wise.
-		FIXME this is messy, needs to redefine size, equals and clone to use
-			the cap array, and then visit must also be changed to enable that.
+	2. Fix indexing issue.
+		How to identify collisions?
+		All members of alternatives (which may include *-types), must be unique.
+		TODO: have a list locations method in alternative types? How to avoid
+			duplicates?
 
 	3. Add alternatives, will require multiple typing environments. Perhaps
 	even multiple return types for each of the different alternatives.
 	4. Find a better way to merge environment and types, so as to allow
 	alternatives.
+	
 	5. Add rely and guarantee types. Including focus, defocus, sharing and
 	framing of the defocus-guarantee.
 	6. Add a conevienet way to type check a stdlib. This means that we need to
@@ -654,14 +653,18 @@ var TypeChecker = function(){
 				// ok to apply
 				if( inner.type() === types.ForallType )
 					return substitution( inner.inner(), inner.id(), id );
+				
 				/*
 				if( inner.type() === types.RecursiveType &&
 					inner.inner().type() === types.ForallType ){
 						var ninner = inner.inner();
 						var inside = substitution( ninner.inner(), ninner.id(), id );
+						console.log( t );
+						console.log( inner );
 						console.log( inside );
+						console.log( id );
 						return new RecursiveType(inner.id(),inside);
-				}*/
+				} */
 				// still delayed
 				return new DelayedApp(inner,id);
 			}
@@ -1168,6 +1171,7 @@ var TypeChecker = function(){
 		// FIXME caps in unsorted array
 		this.size = function(){
 			return Object.keys(map).length+
+				caps.length+
 				( parent === null ? 0 : parent.size() );
 		}
 		
@@ -1176,26 +1180,29 @@ var TypeChecker = function(){
 				new Environment( parent.clone() ) :
 				new Environment( null );
 
-			this.visit(false, // only for the local elements
-				function(i,v) { // assumes id names are exposed
-				// this only works if v is immutable.
-				env.set(i,v);
-			});
+			for( var i in map ){
+				// assuming it is OK to alias content (i.e. immutable stuff)
+				env.set( i, map[i] );	
+			}
+			for( var i=0; i<caps.length;++i ){
+				env.setCap(null,caps[i]); // null is a trick for no id
+			}
 			return env;
 		}
 		
-		this.allElements = function(){
+		// this should not be visible outside the environment object
+		this.__allElements__ = function(){
 			var keys = Object.keys(map);
 			if( parent !== null )
-				keys = keys.concat( parent.allElements() );
+				keys = keys.concat( parent.__allElements__() );
 			return keys;
 		}
 		this.isEqual = function(other){
 			if( this.size() !== other.size() )
 				return false;
 				
-			var mine = this.allElements();
-			var theirs = other.allElements();
+			var mine = this.__allElements__();
+			var theirs = other.__allElements__();
 			for( var id in mine ){
 				if( !theirs.hasOwnProperty(id) )
 					return false;
@@ -1203,30 +1210,53 @@ var TypeChecker = function(){
 				if( !equals( this.get(mine[id]), other.get(theirs[id]) ) )
 					return false;
 			}
+			
+			var m_caps = this.__caps__;
+			var t_caps = other.__caps__;
+			if( m_caps.length !== t_caps.length )
+				return false;
+			// for now requiring same order should be enough, but FIXME
+			for( var i=0;i<m_caps.length;++i){
+				var found = false;
+				for( var j=0;j<t_caps.length;++j ){
+					if( equals( m_caps[i], t_caps[j] ) ){
+						found = true;
+						break;
+					}
+					
+				}
+				if( !found )
+					return false;
+			}
+			
 			return true;
 		}
+		this.__caps__ = function(){ return caps; }
 		
 		// no order is guaranteed!
 		this.visit = function(all,f){
 			for( var i in map ){
-				var isCap = i[0] === CAP_INDEX;
+				//var isCap = i[0] === CAP_INDEX;
 				var isType = i[0] === TYPE_INDEX;
-				f(i,map[i],isCap,isType);
+				f(i,map[i],false,isType);
+			}
+			for( var i=0; i<caps.length;++i ){
+				f(null,caps[i],true,false);
 			}
 			if( all && parent !== null )
 				parent.visit(all,f);
 		}
 		
-		// operations over capabilities
+		// operations over capabilities, old version
+		/*
 		var CAP_INDEX='.';
 		this.setCap = function(id,value){
 			return this.set(CAP_INDEX+id,value);
 		}
 		this.removeCap = function(id){
 			return this.remove(CAP_INDEX+id);
-		}
+		}*/
 		
-		/*
 		var caps = [];
 		this.searchCap = function(id){
 			for(var i=0;i<caps.length;++i){
@@ -1262,7 +1292,7 @@ var TypeChecker = function(){
 			if( parent === null )
 				return undefined; // not found
 			return parent.removeCap(id);
-		}*/
+		}
 	};
 	
 	// TypeVariables must be upper cased.
@@ -1426,14 +1456,6 @@ var TypeChecker = function(){
 	
 	// unstacks to 'delta' all capabilities stacked in type
 	var unstack = function( type, d, ast ){
-		/*
-		if( type.type() === types.RecursiveType ||
-			type.type() === types.DelayedApp ){
-				type = unFold(type,ast);
-				return unstack(type,d,ast);
-		}*/
-		
-		// FIXME also unstack recursive types and delayed apps?
 		if( type.type() === types.StackedType ){
 			
 			var unstackType = function(t){
@@ -1456,6 +1478,11 @@ var TypeChecker = function(){
 				}
 				case types.NoneType:
 					break; // nothing to do
+				case types.AlternativeType:
+					// FIXME experimental
+					assert( d.setCap( null , t ) ,
+					 'Duplicated capability for '+ null, ast );
+					break;
 				default: 
 					assert( false, 'Cannot unstack: '+t+' of '+t.type(), ast);
 				}
@@ -1594,7 +1621,7 @@ var TypeChecker = function(){
 
 				value = substitution( value.inner(), value.id(), locvar );
 				// unstack anything that became newly available
-				value = unFold( value, ast );
+				value = unFold( value, ast ); //FIXME ugly?
 				value = unstack( value, e, ast);
 				// attempt to make pure
 				value = purify(value);
