@@ -6,6 +6,7 @@
 
 \s+                   /* skip whitespace */
 \/\/.*                /* skip comments */
+"/*"(.|\n|\r)*?"*/"   /* skip multiline comment */
 "int"                 return 'INT_TYPE'
 "boolean"             return 'BOOLEAN_TYPE'
 "string"              return 'STRING_TYPE'

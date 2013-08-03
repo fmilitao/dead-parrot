@@ -1,16 +1,18 @@
-// WELCOME!
+/* WELCOME! (alpha version, NOT FEATURE COMPLETE)
 
-// Dead-Parrot is a prototype implementation of our language written entirely
-// in javascript and should run directly in a web-browser.
+ Dead-Parrot is a prototype implementation of our language written entirely
+ in javascript and should run directly in any modern web-browser.
 
-// Parsing and typechecking errors should be flagged automatically.
-// Visit the project page for more details. 
+ Parsing and typechecking errors should be flagged automatically.
+ Visit the project page for more details on libraries used, etc.
 
-// NOTES:
-//  * only one-line comments work.
-//  * the languages uses a few IDIOMS for convenient (see idioms example).
-//  * examples' files are fetched dynamically (AJAX)
+ NOTES:
+  - allows C-style comments.
+  - the languages uses a few IDIOMS for convenience (see idioms example).
+  - examples files are fetched dynamically (AJAX), may be slow.
+*/
 
 let x = { a = 2, b = "Hello World!", c = false } in
+	// functional value and application
 	fun( _ : [] ).(x.b) {}
 end

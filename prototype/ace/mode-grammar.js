@@ -70,6 +70,7 @@ ace.define('ace/mode/grammar_highlight_rules', ['require', 'exports', 'module' ,
 var oop = require("../lib/oop");
 var lang = require("../lib/lang");
 var unicode = require("../unicode");
+//var DocCommentHighlightRules = require("./doc_comment_highlight_rules").DocCommentHighlightRules;
 var TextHighlightRules = require("./text_highlight_rules").TextHighlightRules;
 
 var GrammarHighlightRules = function() {
@@ -89,6 +90,10 @@ var GrammarHighlightRules = function() {
             {
                 token : "comment",
                 regex : "\\/\\/.*$"
+            }, {
+                token : "comment", // multi line comment
+                regex : "\\/\\*",
+                next : "comment"
             },
             // others...
             {
@@ -98,7 +103,7 @@ var GrammarHighlightRules = function() {
                 token : "constant.numeric", // number
                 regex : "[0-9]+"
             }, {
-                token : "keyword.operator", // FIXME?
+                token : "keyword.operator", // too many useless stuff?
                 regex : /-o|--|\+\+|[!$%&*+\-~]|#|;|:|\||===|==|=|!=|!==|<=|>=|<<=|>>=|>>>=|<>|<|>|!|&&|\|\||\?\:|\*=|%=|\+=|\-=|&=|\^=/,
             }, {
 				token : "constant.language.boolean",
@@ -124,7 +129,7 @@ var GrammarHighlightRules = function() {
                 token : "keyword.operator",
                 regex : "[()]"
             }, {
-                token : "variable.language", // TODO: is this better?
+                token : "variable.language", // Is this highlight better?
                 regex : "[[\\]]"
             }, /*{
                 token : "paren.lparen",
@@ -135,6 +140,16 @@ var GrammarHighlightRules = function() {
             }, */ {
                 token : "text",
                 regex : "\\s+"
+            }
+        ],
+        "comment" : [
+            {
+                token : "comment", // closing comment
+                regex : ".*?\\*\\/",
+                next : "start"
+            }, {
+                token : "comment", // comment spanning whole line
+                regex : ".+"
             }
         ]
     };

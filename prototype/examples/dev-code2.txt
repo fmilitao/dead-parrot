@@ -1,1 +1,9 @@
-"free"
+/* 
+ * 	multi line comment
+ // test
+ */
+
+let x = "free" /* ok ok */ in
+	x //
+	
+end
