@@ -1,9 +1,3 @@
-/* 
- * 	multi line comment
- // test
- */
 
-let x = "free" /* ok ok */ in
-	x //
-	
-end
+<p>fun( x : ref p :: rw p (A#int) ).
+	(x :: rw p (A#int+B#int))

@@ -1,3 +1,43 @@
+BACKTRACK
+	failed to read element
+	failed to join early
+
+ #1 ignore other alternatives (assume just 1)
+REMOVE caps must consider alternatives?, kind of like an unstack?
+ #2 consider others...
+ALTERNATIVES
+
+split (environment)
+	- DELETE, ASSIGN, DEREF
+	- STACK (including auto)
+	causes splits
+
+join (environment)
+
+try-join (environment)
+	// simplifies when all alternatives and types are already compatible
+
+
+each type may be: A * B * C (+) D * E, i.e. unstar may be necessary.
+
+<p> fun( x : ref p :: ( rw p A#int (+) rw p B#boolean ) ).
+ // x : ref p ; rw p A#int (+) rw p B#boolean
+		let y = 0 in
+// x : ref p, y : int ; rw p A#int (+) rw p B#boolean
+	// x : ref p, y : int , z = A#int ; rw p ![]
+	// x : ref p, y : int , z = B#boolean ; rw p ![]
+			let z = !x in
+				z // : B#boolean + A#int 
+	// x : ref p, y : int ; rw p ![]
+	// x : ref p, y : int ; rw p ![]
+			// FORCE JOIN @ end of scope for those that were created?
+			end
+		end
+	// FORCE JOIN at end of function's scope.
+
+
+=========================================
+
 REMEMBER:
  	- to disable chrome's cache
  	- launch 'static' on trunk/
