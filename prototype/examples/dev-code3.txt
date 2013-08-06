@@ -1,6 +1,11 @@
 
 // Tests for alternatives
 
+<A><q><p>fun( x : ref p :: ( ( A * rw q (I#int) ) (+) rw q (B#boolean) ) ).
+	x
+
+/*
+
 // this just returns the same type
 // RESULT: 
 // forall p.( 
@@ -29,3 +34,4 @@
 		A#i -> x := i
 	|   B#b -> x := b
 	end
+*/

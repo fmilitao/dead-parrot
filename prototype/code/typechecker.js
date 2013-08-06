@@ -508,7 +508,6 @@ var TypeChecker = function(){
 				return "["+res.join(', ')+"]";
 			}
 			case types.LocationVariable:
-				//return "<b>loc</b>";
 				return '<span class="type_location">'+t.name()+'</span>';
 			case types.TypeVariable:
 				return '<span class="type_variable">'+t.name()+'</span>';
@@ -1168,7 +1167,6 @@ var TypeChecker = function(){
 			return this.get(TYPE_INDEX+id);
 		}
 		
-		// FIXME caps in unsorted array
 		this.size = function(){
 			return Object.keys(map).length+
 				caps.length+
@@ -1258,22 +1256,40 @@ var TypeChecker = function(){
 		}*/
 		
 		var caps = [];
+		// CAUTION: the following functions/methods ASSUME there is a separation
+		// in the domain of LocationVariables and TypeVariables so that just
+		// comparing strings is enough to know if some string is equal to some
+		// Loc/TypeVariable without needing to compare the types, just strings.
+		/**
+		 * @param {Type} val
+		 * @param {String} id
+		 * @return if there is a type/loc variable with name 'id' in type 'val'
+		 */
+		var capContains = function(id,val){
+			switch( val.type() ){
+				case types.CapabilityType:
+					return val.location().name() === id;
+				case types.TypeVariable:
+					return val.name() === id;
+				// cap may be anywhere, linear search
+				case types.StarType:
+				case types.AlternativeType:{
+					var ins = val.inner();
+					for(var i=0;i<ins.length;++i){
+						if( capContains(id,ins[i]))
+							return true;
+					}
+					return false;
+				}
+				default:
+					// another types disallowed, for now
+					assert(false,'Error @capContains: '+val);
+			}
+		}
 		this.searchCap = function(id){
 			for(var i=0;i<caps.length;++i){
-				var val = caps[i];
-				switch(val.type()){
-					case types.CapabilityType:
-						if( val.location().name() === id )
-							return i;
-						break;
-					case types.TypeVariable:
-						if( val.name() === id )
-							return i;
-						break;
-					default:
-						// another types disallowed, for now
-						assert(false,'Error: '+val);
-				}
+				if( capContains(id,caps[i]) )
+					return i;
 			}
 			return -1;
 		}
