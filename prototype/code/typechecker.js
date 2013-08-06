@@ -1690,13 +1690,26 @@ var TypeChecker = function(){
 	// this wrapper function allows us to inspect the type and envs
 	// of some node, while leaving the checker mostly clean.
 	var check = function(ast,env) {
-		type_info.push( { ast : ast , env : env.clone() } );
+		type_info.push( { ast : ast, env : env.clone() } );
 		
-		var res = check_inner(ast,env);
-		return res;
+		return check_inner(ast,env);
 	};
 
-	// returns a type or throws exception with type error
+	/**
+	 * @param {AST} ast, tree to check
+	 * @param {Environment} env, typing environment at beginning
+	 * @return either the type checked for 'ast' or throws a type error with
+	 * 	what failed to type check. 
+	 */
+	/*TODO
+	 * 	1. return an object { type : type of expression, 
+	 * 	 env: with the effect on the environment } so that all environments 
+	 *   can be immutable.
+	 * 	2. throw a BackTrack exception when trying to access a non-opened
+	 * alternative type. Then there is a tryAlternative that will either
+	 * catch it or not. Also note that merging at the end may cause same
+	 * exception to be raised.?
+	 */
 	var check_inner = function( ast, env ) {
 		
 		switch(ast.kind) {
@@ -1725,7 +1738,7 @@ var TypeChecker = function(){
 				/*
 				return {
 					type: res,
-					effect: env
+					env: env
 				}; */
 				return res;
 			}
@@ -2379,11 +2392,10 @@ var TypeChecker = function(){
 			// if duplicated do not print, this may happen due to
 			// stack of environments for names (i.e. non type/loc vars).
 			if( visited.indexOf(id) !== -1 )
-				return; 
+				return;
 			visited.push(id);
 			
 			if( isCap ){
-				// is a capability
 				delta.push( val.toHTML() );
 				return;
 			}
@@ -2450,14 +2462,20 @@ var TypeChecker = function(){
 			return check( ast.exp, env );
 		} finally {
 			var end = new Date().getTime();
-			
+			var diff = end-start;
+			/* FIXME:
+			 *  - this should move elsewhere (problem on testing BangType, etc
+			 * 	while in other scopes...)
+			 *  - missing counting backtracks
+			 *  - problem on printing more than just 1 typing environment since
+			 * many more may match as the closest typing environment. Currently
+			 * it just keeps the last but that is not necessarily always useful.
+			 */
 			if( typeinfo ){
 				typeinfo.info = function(pos){
 					var ptr = null;
 					
-					// FIXME: may exist more than 1, how to show more??
 					// search for closest one
-					// keeps the last... which may not always be nice
 					for( var i in type_info ){
 						var ast = type_info[i].ast;
 						if( ptr === null ){
@@ -2497,7 +2515,6 @@ var TypeChecker = function(){
 					if( ptr === null )
 						return '';
 			
-					var diff = end-start;
 					return '<b title="click to hide">Type Information</b><br/>'+
 						'('+diff+'ms) <br/>'+
 						printEnvironment(
