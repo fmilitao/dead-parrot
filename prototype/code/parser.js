@@ -117,9 +117,6 @@ var AST = new function(){
 	this.makeDeRef = function(exp,info){
 		return aux( this.kinds.DEREF, {exp: exp}, info);
 	}
-	this.makeDeRef = function(exp,info){
-		return aux( this.kinds.DEREF, {exp: exp}, info);
-	}
 	this.makeNew = function(exp,info){
 		return aux( this.kinds.NEW, {exp: exp}, info);
 	}
@@ -294,50 +291,51 @@ var Parser = function(file){
 		};
 	}
 
-    if( typeof grammar == 'undefined' ){
-		var parser = null;
-		
-        console.log('"grammar" undefined, generating a new one now...');
 
-        var Jison = require('jison'), bnf = require('jison/bnf');
-        
-        // synchronous fetch of grammar file (this doesn't work locally due to
-        // permissions on fetching from javascript, must be run in a server)
-        var r = new XMLHttpRequest();
- 		r.open("GET", file, false); //note async
- 		r.send(null);
- 		if( r.status == 200 )
- 			grammar = r.responseText;
- 		else{
- 			console.error('Error fetching grammar.');
- 			return null;
- 		}
+	var parser = null;
+    var Jison = require('jison'), bnf = require('jison/bnf');
+    
+    // synchronous fetch of grammar file (this doesn't work locally due to
+    // permissions on fetching from javascript, must be run in a server)
+    var r = new XMLHttpRequest();
+	r.open("GET", file, false); //note async
+	r.send(null);
+	if( r.status == 200 )
+		grammar = r.responseText;
+	else{
+		console.error('Error fetching grammar.');
+		return null;
+	}
 
-        try {
-            var cfg = bnf.parse(grammar);
-        	parser = new Jison.Generator(cfg, { type : "lalr" });
-		} catch (e) {
-			console.error("Error parsing grammar file.\n" + e);
-			return null;
-        }
+    try {
+        var cfg = bnf.parse(grammar);
+    	parser = new Jison.Generator(cfg, { type : "lalr" });
+	} catch (e) {
+		console.error("Error parsing grammar file.\n" + e);
+		return null;
+    }
 
-        if (!parser.conflicts) {
-            console.debug('Parser generated successfully.');
-            parser = parser.createParser();
-        } else {
-            console.error('Error generating parser, conflicts encountered:');
-            parser.resolutions.forEach(function(res) {
-                var r = res[2];
-                if (!r.bydefault)
-                    return null;
-                console.error(r.msg + "\n" + "(" + r.s + ", " + r.r + ") -> " + r.action);
-            });
-        }
-        
-        return wrap(parser);
-    }else{
+    if (!parser.conflicts) {
+        console.debug('Parser generated successfully.');
+        parser = parser.createParser();
+    } else {
+        console.error('Error generating parser, conflicts encountered:');
+        parser.resolutions.forEach(function(res) {
+            var r = res[2];
+            if (!r.bydefault)
+                return null;
+            console.error(r.msg + "\n" + "(" + r.s + ", " + r.r + ") -> " + r.action);
+        });
+    }
+    
+    return wrap(parser);
+
+    /* // this does not work well with blanket.js
+    if( typeof grammar === 'undefined' ){
+     	console.log('"grammar" undefined, generating a new one now...');
+    } else {
         // a precompiled grammar is available, (include 'grammar.js' for this)
         return wrap(new grammar.Parser());
-    }
+    }*/
     
 }

@@ -6,16 +6,14 @@
 
 /*
 TODO:
-	2. Fix indexing issue.
-		How to identify collisions?
-		All members of alternatives (which may include *-types), must be unique.
-		TODO: have a list locations method in alternative types? How to avoid
-			duplicates?
-
-	3. Add alternatives, will require multiple typing environments. Perhaps
-	even multiple return types for each of the different alternatives.
-	4. Find a better way to merge environment and types, so as to allow
-	alternatives.
+	--- clean up typing environment code.
+	--- how to handle collisions? specially with capabilities?
+	--- merging environments with different caps
+	--- stacking alternatives.
+		3. Add alternatives, will require multiple typing environments. Perhaps
+		even multiple return types for each of the different alternatives.
+		4. Find a better way to merge environment and types, so as to allow
+		alternatives.
 	
 	5. Add rely and guarantee types. Including focus, defocus, sharing and
 	framing of the defocus-guarantee.
@@ -1228,7 +1226,7 @@ var TypeChecker = function(){
 			var t_caps = other.__caps__;
 			if( m_caps.length !== t_caps.length )
 				return false;
-			// for now requiring same order should be enough
+			// for now requiring same order should be enough?
 			for( var i=0;i<m_caps.length;++i){
 				var found = false;
 				for( var j=0;j<t_caps.length;++j ){
@@ -1260,7 +1258,9 @@ var TypeChecker = function(){
 		}
 		
 		this.apply = function(other){
-			parent = other.endScope(); // HACK
+			// HACK: parent is an assignable so just point to the
+			// target one... lots of aliasing in this data-structure...
+			parent = other.endScope();
 			map = {};
 			caps = [];
 			other.visit(false, function(id,val,isCap,isType){
@@ -1622,7 +1622,6 @@ var TypeChecker = function(){
 					return t;
 				} else {
 					assert( t===null, 'Error @autoStack ', a );
-					//var capI = capIndex( p_loc );
 					var cap = assert( e.removeCap( p_loc ),
 						'Missing capability '+p_loc, a );
 					return cap;
