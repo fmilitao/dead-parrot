@@ -1,3 +1,7 @@
+A * B * C
+A (+) B (+) C
+is seriously broken...
+
 1. check returns { t : type, e : env }.
 2. all returns just { t : * , e : env } // always the same environment
 3. then immutable environments

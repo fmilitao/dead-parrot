@@ -100,11 +100,12 @@ type_cap :
 	  type
 	| type_cap '::' type
 		{ $$ = AST.makeStackedType($1,$3,@$); }
-	| star_type
-		{ $$ = AST.makeStarType($1,@$); }
+	| type '*' star_type
+		{ $$ = AST.makeStarType([$1].concat($3),@$); }
 	| sum_type
 		{ $$ = AST.makeSumType($1,@$); }
 	;
+	
 
 type :
 	 '!' type
@@ -145,12 +146,12 @@ alternative_type :
 	| alternative_type '(+)' type_fun
 		{ $$ = $1.concat([$3]); }
 	;
-
+	
 star_type :
-	  type '*' type
-	  	{ $$ = [$1,$3]; }
-	| start_type '*' type
-		{ $$ = $1.concat([$3]); }
+	  type
+	  	{ $$ = [$1]; }
+	| type '*' star_type
+		{ $$ = [$1].concat($3); }
 	;
 
 sum_type :

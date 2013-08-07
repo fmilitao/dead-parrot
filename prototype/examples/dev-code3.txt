@@ -1,8 +1,8 @@
 
 // Tests for alternatives
 
-<A><q><p>fun( x : ref p :: ( ( A * rw q (I#int) ) (+) rw q (B#boolean) ) ).
-	x
+<B><A><p>fun( x : ref p :: ( ( B * A * rw p (I#int)) (+) ( B * A * rw p (B#boolean)) ) ).
+	!x
 
 /*
 

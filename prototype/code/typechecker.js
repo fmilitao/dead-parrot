@@ -282,9 +282,10 @@ var TypeChecker = function(){
 		};
 	}();
 	
-	var BackTrack = function(id){
+	var Backtrack = function(id){
 		// creates a new object for backtracking
-		return { cause : id };
+		this.cause = id;
+		return this;
 	}
 	
 	//
@@ -436,19 +437,27 @@ var TypeChecker = function(){
 			}
 	};
 	
+	// defines which types get wrapping parenthesis
+	var _toHTML = function(t){
+		if( t.type() === types.ReferenceType ||
+			t.type() === types.FunctionType ||
+			t.type() === types.StackedType ||
+			t.type() === types.StarType || 
+			t.type() === types.AlternativeType ||
+			t.type() === types.SumType ){
+				return '('+toHTML(t)+')';
+			}
+		return toHTML(t);
+	}
+	
 	var toHTML = function (t){
 		switch ( t.type() ){
 			case types.FunctionType:
 				//return toHTML(t.argument())+" -o "+toHTML(t.body());
-				return toHTML(t.argument())+" &#x22b8; "+toHTML(t.body());
+				return _toHTML(t.argument())+" &#x22b8; "+_toHTML(t.body());
 			case types.BangType:{
-				var inner = t.inner();
-				if( inner.type() === types.ReferenceType ||
-					inner.type() === types.FunctionType ||
-					inner.type() === types.StackedType || 
-					inner.type() === types.SumType )
-					return "!("+toHTML(t.inner())+')';	
-				return "!"+toHTML(t.inner());
+				var inner = t.inner();	
+				return "!"+_toHTML(t.inner());
 			}
 			case types.SumType:{
 				var tags = t.tags();
@@ -462,14 +471,14 @@ var TypeChecker = function(){
 				var inners = t.inner();
 				var res = [];
 				for( var i=0; i<inners.length; ++i )
-					res.push( toHTML( inners[i] ) ); 
+					res.push( _toHTML( inners[i] ) ); 
 				return res.join(' * ');
 			}
 			case types.AlternativeType:{
 				var inners = t.inner();
 				var res = [];
 				for( var i=0; i<inners.length; ++i )
-					res.push( toHTML( inners[i] ) ); 
+					res.push( _toHTML( inners[i] ) ); 
 				return res.join(' &#8853; ');
 			}
 			case types.RecursiveType:
@@ -477,22 +486,19 @@ var TypeChecker = function(){
 				( t.id().type() === types.LocationVariable ?
 					'<span class="type_location">' :
 					'<span class="type_variable">')
-				+t.id().name()+'</span>'
-				+'.('+toHTML(t.inner())+')';
+				+t.id().name()+'</span>.'+_toHTML(t.inner());
 			case types.ExistsType:
 				return '&#8707;'+
 				( t.id().type() === types.LocationVariable ?
 					'<span class="type_location">' :
 					'<span class="type_variable">')
-				+t.id().name()+'</span>'
-				+'.('+toHTML(t.inner())+')';
+				+t.id().name()+'</span>.'+_toHTML(t.inner());
 			case types.ForallType:
 				return '&#8704;'+
 				( t.id().type() === types.LocationVariable ?
 					'<span class="type_location">' :
 					'<span class="type_variable">')
-				+t.id().name()+'</span>'
-				+'.('+toHTML(t.inner())+')';
+				+t.id().name()+'</span>.'+_toHTML(t.inner());
 			case types.ReferenceType:
 				return "<b>ref</b> "+
 				'<span class="type_location">'+t.location().name()+'</span>';
@@ -1127,7 +1133,7 @@ var TypeChecker = function(){
 	
 	//
 	// TYPING ENVIRONMENT
-	// FIXME: should switch to immutable?
+	//
 	
 	var Environment = function(parent){
 		
@@ -1140,7 +1146,7 @@ var TypeChecker = function(){
 			if ( map.hasOwnProperty(id) )
 				return undefined; // already exists
 			map[id] = value;
-			return null;
+			return null; // ok
 		}
 		this.get = function(id){
 			if ( map.hasOwnProperty(id) )
@@ -1152,7 +1158,7 @@ var TypeChecker = function(){
 		this.remove = function(id){
 			if( map.hasOwnProperty(id) ){
 				var tmp = map[id];
-				 // so that it is no longer listed
+				 // ensures that it is no longer listed
 				delete map[id];
 				return tmp;
 			}
@@ -1178,7 +1184,7 @@ var TypeChecker = function(){
 		
 		this.size = function(){
 			return Object.keys(map).length+
-				caps.length+
+					caps.length+
 				( parent === null ? 0 : parent.size() );
 		}
 		
@@ -1222,7 +1228,7 @@ var TypeChecker = function(){
 			var t_caps = other.__caps__;
 			if( m_caps.length !== t_caps.length )
 				return false;
-			// for now requiring same order should be enough, but FIXME
+			// for now requiring same order should be enough
 			for( var i=0;i<m_caps.length;++i){
 				var found = false;
 				for( var j=0;j<t_caps.length;++j ){
@@ -1243,7 +1249,6 @@ var TypeChecker = function(){
 		// no order is guaranteed!
 		this.visit = function(all,f){
 			for( var i in map ){
-				//var isCap = i[0] === CAP_INDEX;
 				var isType = i[0] === TYPE_INDEX;
 				f(i,map[i],false,isType);
 			}
@@ -1254,16 +1259,19 @@ var TypeChecker = function(){
 				parent.visit(all,f);
 		}
 		
-		// operations over capabilities, old version
-		/*
-		var CAP_INDEX='.';
-		this.setCap = function(id,value){
-			return this.set(CAP_INDEX+id,value);
+		this.apply = function(other){
+			parent = other.endScope(); // HACK
+			map = {};
+			caps = [];
+			other.visit(false, function(id,val,isCap,isType){
+				if( isCap ){
+					caps.push(val);
+					return;
+				}
+				map[id] = val;
+			});
 		}
-		this.removeCap = function(id){
-			return this.remove(CAP_INDEX+id);
-		}*/
-		
+				
 		var caps = [];
 		// CAUTION: the following functions/methods ASSUME there is a separation
 		// in the domain of LocationVariables and TypeVariables so that just
@@ -1302,7 +1310,7 @@ var TypeChecker = function(){
 			}
 			return -1;
 		}
-		this.setCap = function(id,value){
+		this.setCap = function(id,value){ // FIXME this 'id' is a bit silly
 			if( this.searchCap(id) !== -1 )
 				return undefined; // already there
 			caps.push(value); // add new capability
@@ -1342,7 +1350,7 @@ var TypeChecker = function(){
 	 * @return undefined if they cannot be merged, or the type that is
 	 * 	compatible with both.
 	 */
-	var merge = function(t1,t2){
+	var mergeType = function(t1,t2){
 		// if bang mismatch, we need to not consider the sum as banged because
 		// our types cannot do a case on whether the type is liner or pure
 		var b1 = t1.type() === types.BangType;
@@ -1358,7 +1366,7 @@ var TypeChecker = function(){
 		
 		// both the same type
 		if( t1.type() === types.BangType ){
-			var tmp = merge( t1.inner(),t2.inner() );
+			var tmp = mergeType( t1.inner(),t2.inner() );
 			if( tmp !== undefined )
 				return new BangType( tmp );
 		}
@@ -1393,6 +1401,9 @@ var TypeChecker = function(){
 		// all other cases must have exactly the same type
 		if( equals(t1,t2) )
 			return t1;
+		// FIXME should subtyping replace equals? i.e.:
+		// if( subtypeOf(t1,t2) ) return t2;
+		// if( subtypeOf(t2,t1) ) return t1;
 			
 		return undefined;
 	}
@@ -1492,43 +1503,43 @@ var TypeChecker = function(){
 	 */
 	var unstack = function( type, d, ast ){
 		if( type.type() === types.StackedType ){
-			
-			var unstackType = function(t){
-				switch( t.type() ){
-				case types.CapabilityType:
-					var loc = t.location().name(); 
-					assert( d.setCap( loc, t ) ,
-						'Duplicated capability for '+ loc, ast );
-					break;
-				case types.TypeVariable:
-					var nam = t.name(); 
-					assert( d.setCap( nam , t ) ,
-					 'Duplicated capability for '+ nam, ast );
-					break;
-				case types.StarType:{
-					var tps = t.inner();
-					for( var i=0; i<tps.length; ++i )
-						unstackType(tps[i]);
-					break;
-				}
-				case types.NoneType:
-					break; // nothing to do
-				case types.AlternativeType:
-					assert( d.setCap( null , t ) ,
-					 'Duplicated capability '+ t, ast );
-					break;
-				default: 
-					assert( false, 'Cannot unstack: '+t+' of '+t.type(), ast);
-				}
-			}
-			
 			// all types are on the right, recursion is on left
-			unstackType( type.right() );
+			unstackType( type.right(), d, ast );
 			
 			return unstack( type.left(), d, ast );
 		}
 		
 		return type;
+	}
+	
+	var unstackType = function(t, d, ast){
+		switch( t.type() ){
+		case types.CapabilityType:
+			var loc = t.location().name(); 
+			assert( d.setCap( loc, t ) ,
+				'Duplicated capability for '+ loc, ast );
+			break;
+		case types.TypeVariable:
+			var nam = t.name(); 
+			assert( d.setCap( nam , t ) ,
+			 'Duplicated capability for '+ nam, ast );
+			break;
+		case types.StarType:{
+			var tps = t.inner();
+			for( var i=0; i<tps.length; ++i ){
+				unstackType(tps[i], d, ast);
+			}
+			break;
+		}
+		case types.NoneType:
+			break; // nothing to do
+		case types.AlternativeType:
+			assert( d.setCap( null , t ) ,
+			 'Duplicated capability '+ t, ast );
+			break;
+		default: 
+			assert( false, 'Cannot unstack: '+t+' of '+t.type(), ast);
+		}
 	}
 	
 	/** Attempts to expand a type 't' so as to match type 'p'
@@ -1621,6 +1632,8 @@ var TypeChecker = function(){
 				assert( t === null || t.type() === types.NoneType,
 					'Error @autoStack ', a );
 				return NoneType;
+			case types.AlternativeType:
+				assert( false, 'FIXME: NOT DONE stacking of (+) !', a);
 			default: // other types just fall through, 
 					 // leave the given type in.
 		}
@@ -1709,25 +1722,87 @@ var TypeChecker = function(){
 	// this wrapper function allows us to inspect the type and envs
 	// of some node, while leaving the checker mostly clean.
 	var check = function(ast,env) {
-		type_info.push( { ast : ast, env : env.clone() } );
+		var clone = env.clone(); // needed for reverting
+		var type_info_length = type_info.length;
+		type_info.push( { ast : ast, env : clone } );
 		
-		return check_inner(ast,env);
+		try{
+			return check_inner( ast, env );
+		} catch( e ) {
+			if( e instanceof Backtrack ){
+				var split = clone.clone();
+				var cap = split.removeCap( e.cause );
+				// note that split no longer has 'e.cause' in it.
+				
+				// if not here or not an alternative, continue upwards
+				if( cap === undefined ||
+					cap.type() !== types.AlternativeType ){
+					// not here, continue upwards
+					throw e;
+				} else {
+					// backtrack to consider split environment.
+					backtrack_counter++;
+					// drops wrong bits
+					type_info = type_info.slice(0,type_info_length);
+					
+					// must be of AlternativeType
+					var alts = cap.inner();
+					
+					var result = null;
+					var end_env = null;
+					
+					for( var i=0; i<alts.length; ++i ){
+						var tmp_env = split.clone();
+						var alternative = alts[i];
+						unstackType( alternative, tmp_env, ast );
+						// FIXME must unstack type!! could contain stars!
+						
+						// retry
+						// note that we intentionally fail if there is another
+						// backtrack request. This is why it is a 'check' and
+						// not a 'check_inner' so that it starts from the split
+						// environment and may continue to split from there, not
+						// here...
+						var res = check( ast, tmp_env );
+						if( result === null )
+							result = res;
+						else {
+							// attempt to merge results
+							var tmp = mergeType( result, res );
+							
+							// if failed, then try unpacking the alternative
+							// upwards in hopes that expression will work.
+							if( tmp === undefined )
+								throw e;
+							//assert( tmp, 'Incompatible branch results: '+ result+' vs '+res, ast);
+							result = tmp;	
+						}
+						
+						if( end_env === null )
+							end_env = tmp_env;
+						else{
+							if( !end_env.isEqual( tmp_env ) )
+								throw e;
+						}
+					}
+					env.apply( end_env );
+					// FIXME merge/apply typing environments
+					return result;
+				}
+				
+			}
+			// not our cause
+			throw e;
+		}
 	};
 
 	/**
 	 * @param {AST} ast, tree to check
 	 * @param {Environment} env, typing environment at beginning
 	 * @return either the type checked for 'ast' or throws a type error with
-	 * 	what failed to type check. 
-	 */
-	/*TODO
-	 * 	1. return an object { t : type of expression, 
-	 * 	 e: env with the effect on the environment } so that all environments 
-	 *   can be immutable.
-	 * 	2. throw a BackTrack exception when trying to access a non-opened
-	 * alternative type. Then there is a tryAlternative that will either
-	 * catch it or not. Also note that merging at the end may cause same
-	 * exception to be raised.?
+	 * 	what failed to type check.
+	 * 	Also may throw {Backtrack} if needs to backtrack on some location or
+	 *  type variable that are (still) packed inside an alternative type.
 	 */
 	var check_inner = function( ast, env ) {
 		
@@ -1735,8 +1810,12 @@ var TypeChecker = function(){
 			
 			// EXPRESSIONS
 			case AST.kinds.LET: {
-				var value = check( ast.val, env ); // FIXME this pushes to the same environment which might be bad
-				value = unstack( value, env, ast );				
+				var value = check( ast.val, env );
+
+				var e = env.newScope();
+				// note that it should unstack to the local scope, so as to 
+				// leave the enclosing environment unchanged
+				value = unstack( value, e, ast );				
 				// attempt to make resulting type a bang type
 				value = purify(value);
 				
@@ -1745,7 +1824,6 @@ var TypeChecker = function(){
 				assert( ast.id !== null || value.type() === types.BangType,
 					'Cannot drop linear type', ast );
 				
-				var e = env.newScope();
 				if( ast.id !== null ){
 					// creating a new environment should avoid this error, but
 					// include this check for consistency
@@ -1857,7 +1935,7 @@ var TypeChecker = function(){
 					if( result === undefined )
 						result = res;
 					else { // else try to merge both
-						var tmp = merge( result, res );
+						var tmp = mergeType( result, res );
 						assert( tmp, 'Incompatible branch results: '+
 							result+' vs '+res, ast);
 						result = tmp;
@@ -1869,52 +1947,43 @@ var TypeChecker = function(){
 			case AST.kinds.PACK: {
 				var exp = check(ast.exp, env);
 				var packed = check(ast.id, env);
+
+				// CAREFUL 'ast.label' is left as null when unspecified which is
+				// used on the constructors below to pick a fresh name.
+				var label = ast.label;
+				var variable;
 				
 				switch( packed.type() ){
 					case types.TypeVariable:
-					case types.LocationVariable:
-						// CAREFUL 'ast.label' is left as null when unspecified
-						// which is used on the constructors below to pick a
-						// fresh name.
-						var label = ast.label;
-						
-						// these are assuming packed was a valid type, by e2.
-						var name = packed.name();
-						
+					case types.LocationVariable: {
 						// create the new type/location variable with the 
 						// given label, even if null for fresh.
-						var variable;
-						if( isTypeVariableName(name) )
+						if( isTypeVariableName(packed.name()) )
 							variable = new TypeVariable(label);
 						else
 							variable = new LocationVariable(label);
-		
-						// This is necessary to avoid capture of the old
-						// location/type variables that may occur in exp
-						// We cannot ensure capture avoidance because the label
-						// may be given, thus committing ourselves to some label
-						// from which we may not be able to move without 
-						// breaking programmer's expectations.
-						assert( isFresh(exp,variable),
-							'Label "'+variable.name()+'" is not free in '+exp, ast );
-		
-						exp = substitution( exp , packed, variable );
-						return new ExistsType(variable,exp);
+						break;
+					}
 					default: {
-						var label = ast.label;
-						
 						assert( label === null || isTypeVariableName(label),
 							'TypeVariables must be upper-cased', ast );
 							
-						var variable = new TypeVariable(label);
-
-						assert( isFresh(exp,variable),
-							'Label "'+variable.name()+'" is not free in '+exp, ast );
-		
-						exp = substitution( exp, packed, variable );
-						return new ExistsType(variable,exp);
+						variable = new TypeVariable(label);
+						break;
 					}
 				}
+				
+				// This is necessary to avoid capture of the old
+				// location/type variables that may occur in exp
+				// We cannot ensure capture avoidance because the label
+				// may be given, thus committing ourselves to some label
+				// from which we may not be able to move without 
+				// breaking programmer's expectations.
+				assert( isFresh(exp,variable),
+					'Label "'+variable.name()+'" is not free in '+exp, ast );
+
+				exp = substitution( exp , packed, variable );
+				return new ExistsType(variable,exp);
 			}
 			
 			case AST.kinds.SUM_TYPE: {
@@ -1997,6 +2066,12 @@ var TypeChecker = function(){
 				
 				assert( cap, "No capability to '"+loc+"'", ast );
 				
+				// if there a capability to such location, but it is not a
+				// CapabilityType (i.e. should be AlternativeType) retry
+				// by backtracking the typechecker.
+				if( cap.type() !== types.CapabilityType )
+					throw new Backtrack(loc);
+				
 				var old = cap.value();
 				
 				var residual;
@@ -2020,6 +2095,9 @@ var TypeChecker = function(){
 					
 					assert( cap, "No capability to '"+loc+"'", ast );
 					
+					if( cap.type() !== types.CapabilityType )
+						throw new Backtrack(loc);
+
 					// just return the old contents of 'cap'
 					return cap.value();
 					
@@ -2053,6 +2131,9 @@ var TypeChecker = function(){
 				var cap = env.removeCap( loc );
 				
 				assert( cap, "Cannot assign, no capability to '"+loc+"'", ast );
+				
+				if( cap.type() !== types.CapabilityType )
+					throw new Backtrack(loc);
 				
 				var old = cap.value();
 				cap = new CapabilityType( cap.location(), purify(value) );
@@ -2404,12 +2485,14 @@ var TypeChecker = function(){
 			// stack of environments for names (i.e. non type/loc vars).
 			if( visited.indexOf(id) !== -1 )
 				return;
-			visited.push(id);
 			
 			if( isCap ){
 				delta.push( val.toHTML() );
 				return;
 			}
+			
+			// only non-caps may not be repeated, since caps have null 'id'
+			visited.push(id);
 			
 			if( isType ){
 				// is a type/location variable
@@ -2444,6 +2527,7 @@ var TypeChecker = function(){
 	
 	var type_info;
 	var unique_counter;
+	var backtrack_counter;
 	var typedefs;
 
 	return function(ast,typeinfo){
@@ -2456,6 +2540,7 @@ var TypeChecker = function(){
 			var env = new Environment(null);
 			type_info = [];
 			unique_counter = 0;
+			backtrack_counter = 0;
 			typedefs = {};
 				
 			assert( ast.imports === null , 'FIXME: imports not done.' , ast);
@@ -2471,20 +2556,22 @@ var TypeChecker = function(){
 			}
 			
 			return check( ast.exp, env );
+		} catch( e ){
+			if( e instanceof Backtrack ){
+				assert(false, 'Backtracking failure due to: '+e.cause, ast );
+			}
+			// not our cause
+			throw e;
+			
 		} finally {
 			var end = new Date().getTime();
 			var diff = end-start;
-			/* FIXME:
-			 *  - this should move elsewhere (problem on testing BangType, etc
-			 * 	while in other scopes...)
-			 *  - missing counting backtracks
-			 *  - problem on printing more than just 1 typing environment since
-			 * many more may match as the closest typing environment. Currently
-			 * it just keeps the last but that is not necessarily always useful.
-			 */
+			// IMPROVE: this should move elsewhere (problem on testing BangType,
+			// etc while in other scopes...)
 			if( typeinfo ){
 				typeinfo.info = function(pos){
 					var ptr = null;
+					var indexes = [];
 					
 					// search for closest one
 					for( var i in type_info ){
@@ -2500,6 +2587,7 @@ var TypeChecker = function(){
 							if( dy < _dy ){
 								// if closer, pick new one
 								ptr = i;
+								indexes = [i];
 								continue;
 							}
 							
@@ -2511,7 +2599,14 @@ var TypeChecker = function(){
 								// if closer, pick new one
 								if( dx < _dx ){
 									ptr = i;
+									indexes = [i];
 									continue;
+								}else{
+									if( dx === _dx ){
+										// one more
+										indexes.push(i);
+										continue;
+									}	
 								}
 							}
 						}
@@ -2523,15 +2618,27 @@ var TypeChecker = function(){
 					 	}*/
 					}
 					
-					if( ptr === null )
+					if( ptr === null || indexes.length === 0 )
 						return '';
 			
-					return '<b title="click to hide">Type Information</b><br/>'+
-						'('+diff+'ms) <br/>'+
-						printEnvironment(
-						type_info[ptr].env,
-						type_info[ptr].ast,
-						pos);
+					var msg = '<b title="click to hide">Type Information</b><br/>'+
+						'('+diff+'ms, backtracks='+backtrack_counter+')';
+					
+					for(var i=0;i<indexes.length;++i){
+						var ptr = indexes[i];
+						// minor trick: only print if the same kind since alternatives
+						// are always over the same kind...
+						// IMPROVE: is there a better way to display this information?
+						if( type_info[ptr].ast.kind !==
+							type_info[indexes[0]].ast.kind )
+							continue;
+						msg += '<br/>'+printEnvironment(
+							type_info[ptr].env,
+							type_info[ptr].ast, pos
+						);
+					}
+					
+					return msg;
 				}
 			}
 		}
