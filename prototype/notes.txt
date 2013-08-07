@@ -1,27 +1,54 @@
-BACKTRACK
-	failed to read element
-	failed to join early
+1. check returns { t : type, e : env }.
+2. all returns just { t : * , e : env } // always the same environment
+3. then immutable environments
 
- #1 ignore other alternatives (assume just 1)
-REMOVE caps must consider alternatives?, kind of like an unstack?
- #2 consider others...
-ALTERNATIVES
+BACKTRACK on alternatives.
+	Whenever an attempt is made to read a capability that is inside an 
+alternative it will throw an exception BackTrack(id,cause) that tells that it
+requires unpacking that (+) type.
+	Each check() has a try catch. If its environment has it packed, then attempt
+if already unpacked, send it upwards.
+	Attempt to merge, if fail throw exception that the backtrack should occur in
+enclosing expression. If that fails too, and reaches top then all failed.
 
-split (environment)
-	- DELETE, ASSIGN, DEREF
-	- STACK (including auto)
-	causes splits
+tryAlternative( ast, env ){
+	try{
+		return check( ast, env );
+	}catch(e){
+		if( e instanceof Backtrack ){
+			// was already unpacked here... fail upwards
+			if( env.get( id ).type() !== types.AlternativeType )
+				throw e;
+			
+			// retry while unpacked
+			var envs = env.unpack(id);
+			var res = [];
+			for(var i=0;i<envs.length;++i){
+				res.push( tryAlternative( ast, envs[i] ) );
+			}
+			// attempt to merge
+			if fail, then backtrack... again.
+			
+			return ...;
+		}
+		
+		// not our cause, re-throw.
+		throw e;
+	}
+}
 
-join (environment)
+if( env.get(id) === types.AlternativeType )
+	// please unpack 'id' so that I can typecheck...
+	throw new Backtrack(id, cause);
 
-try-join (environment)
-	// simplifies when all alternatives and types are already compatible
+=========================================
 
+IMPORTANT EXAMPLES
 
 each type may be: A * B * C (+) D * E, i.e. unstar may be necessary.
 
 <p> fun( x : ref p :: ( rw p A#int (+) rw p B#boolean ) ).
- // x : ref p ; rw p A#int (+) rw p B#boolean
+// x : ref p ; rw p A#int (+) rw p B#boolean
 		let y = 0 in
 // x : ref p, y : int ; rw p A#int (+) rw p B#boolean
 	// x : ref p, y : int , z = A#int ; rw p ![]
@@ -35,6 +62,15 @@ each type may be: A * B * C (+) D * E, i.e. unstar may be necessary.
 		end
 	// FORCE JOIN at end of function's scope.
 
+Delta, A + B, C + D
+Delta, A , C + D
+	Delta, A, C --> Delta, A1, C1
+	Delta, A, D --> Delta, A2, C2
+		merged to: Delta, (A1 * C1) + (A2 * C2)
+Delta, B, C + D
+	Delta, B, C --> Delta, B1, C1
+	Delta, B, D --> Delta, B2, D2
+		merged to: Delta, (B1 * C1) + (B2 * D2)
 
 =========================================
 
