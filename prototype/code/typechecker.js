@@ -1488,8 +1488,7 @@ var TypeChecker = function(){
 	 * @param type - the type with stacked stuff
 	 * @param d - the typing environment that is to be extended
 	 * @param ast - just for errors
-	 * @return {t : {Type}, e : {Environment}} - with the resulting type and
-	 * 	environment (with the unstacked types).
+	 * @return {Type} with the resulting type.
 	 */
 	var unstack = function( type, d, ast ){
 		if( type.type() === types.StackedType ){
@@ -1529,7 +1528,7 @@ var TypeChecker = function(){
 			return unstack( type.left(), d, ast );
 		}
 		
-		return { t : type, e : d };
+		return type;
 	}
 	
 	/** Attempts to expand a type 't' so as to match type 'p'
@@ -1542,7 +1541,6 @@ var TypeChecker = function(){
 	 * @return {Type} that tries to add the missing bits to 'm' as
 	 * 	much as possible.
 	 */
-	// FIXME has effects in the typing environment
 	var autoStack = function(t,p,e,a){
 		switch( p.type() ) {
 			case types.StarType: {
@@ -1551,7 +1549,7 @@ var TypeChecker = function(){
 					// assume that it has all types there and do not
 					// auto-stack anything since otherwise we would
 					// need to compare and see what is missing, etc.
-					return { t : t, e : e };
+					return t;
 				}
 				else {
 					// any other type should be ignored, but this
@@ -1561,25 +1559,25 @@ var TypeChecker = function(){
 					var inners = p.inner();
 					var tmp = new StarType();
 					for(var i=0;i<inners.length;++i){
-						tmp.add( autoStack(null, inners[i],e,a).t );
+						tmp.add( autoStack(null, inners[i],e,a) );
 					}
-					return { t : tmp, e : e };
+					return tmp;
 				}
 			}
 			case types.StackedType: {
 				if( t !== null && t.type() === types.StackedType ){
-					return { t : new StackedType(
-						autoStack( t.left(), p.left(), e, a ).t,
-						autoStack( t.right(), p.right(), e, a ).t 
-					), e : e };
+					return new StackedType(
+						autoStack( t.left(), p.left(), e, a ),
+						autoStack( t.right(), p.right(), e, a ) 
+					);
 				}
 				else{
 					// any non-stacked type is assume to be the left
 					// part of the soon to be stacked type
-					return { t : new StackedType(
-						autoStack( t, p.left(), e, a ).t,
-						autoStack( null, p.right(), e, a ).t 
-					), e : e };
+					return new StackedType(
+						autoStack( t, p.left(), e, a ),
+						autoStack( null, p.right(), e, a ) 
+					);
 				}
 			}
 			case types.CapabilityType: {
@@ -1594,12 +1592,12 @@ var TypeChecker = function(){
 					assert( t_loc === cap_loc,
 						'Incompatible capability '+
 						t_loc+' vs '+cap_loc, a );
-					return { t : t, e : e };
+					return t;
 				} else {
 					assert( t === null, 'Error @autoStack ', a );
 					var cap = assert( e.removeCap( cap_loc ),
 						'Missing capability '+cap_loc, a );
-					return { t : cap, e : e };
+					return cap;
 				}
 			}
 			case types.TypeVariable: {
@@ -1610,23 +1608,23 @@ var TypeChecker = function(){
 					var t_loc = t.name();
 					assert( t_loc === p_loc,
 						'Incompatible variable '+t_loc+' vs '+p_loc, a );
-					return { t : t, e : e };
+					return t;
 				} else {
 					assert( t===null, 'Error @autoStack ', a );
 					//var capI = capIndex( p_loc );
 					var cap = assert( e.removeCap( p_loc ),
 						'Missing capability '+p_loc, a );
-					return { t : cap, e : e };
+					return cap;
 				}
 			}
 			case types.NoneType:
 				assert( t === null || t.type() === types.NoneType,
 					'Error @autoStack ', a );
-				return { t : NoneType, e : e };
+				return NoneType;
 			default: // other types just fall through, 
 					 // leave the given type in.
 		}
-		return { t : t, e : e };
+		return t;
 	}
 	
 	/**
@@ -1737,30 +1735,30 @@ var TypeChecker = function(){
 			
 			// EXPRESSIONS
 			case AST.kinds.LET: {
-				var value = check( ast.val, env ).t;
-				value = unstack( value, env, ast ).t;				
+				var value = check( ast.val, env ); // FIXME this pushes to the same environment which might be bad
+				value = unstack( value, env, ast );				
+				// attempt to make resulting type a bang type
 				value = purify(value);
+				
 				// sequence is encoded as LET with id 'null', but this construct
-				// drops the first expression's value so it must be of BangType.
+				// drops the first expression's value so it must be of BangType
 				assert( ast.id !== null || value.type() === types.BangType,
 					'Cannot drop linear type', ast );
 				
 				var e = env.newScope();
 				if( ast.id !== null ){
 					// creating a new environment should avoid this error, but
-					// include this check for consistency.
+					// include this check for consistency
 					assert( e.set( ast.id, value ),
 						'Identifier '+ ast.id +' already in scope', ast );
 				}
 
-				var res = check( ast.exp, e ).t;
-				// auto-stack any remaining capabilities
-				res = safelyEndScope( res, e, ast.exp );
-				return { t : res, e : env };
+				var res = check( ast.exp, e );
+				return safelyEndScope( res, e, ast.exp );
 			}
 			
 			case AST.kinds.LET_TUPLE: {
-				var exp = check( ast.val, env ).t;
+				var exp = check( ast.val, env );
 				exp = unAll(exp, ast.val);
 				assert( exp.type() === types.TupleType,
 					"Type '" + exp + "' not tuple", ast.exp);
@@ -1770,19 +1768,19 @@ var TypeChecker = function(){
 					"Incompatible sizes "+ast.ids.length+" != "+values.length, ast.exp);
 
 				var e = env.newScope();
-				for( var i=0;i<ast.ids.length;++i){
+				for( var i=0; i<ast.ids.length ; ++i ){
 					assert( e.set( ast.ids[i], values[i] ),
 						"Identifier '" + ast.ids[i] + "' already in scope", ast );
 				}
 				
-				var res = check( ast.exp, e ).t;
-				return { t : safelyEndScope( res, e, ast), e : env };
+				var res = check( ast.exp, e );
+				return safelyEndScope( res, e, ast );
 			}
 			
 			case AST.kinds.OPEN: {
-				var value = check( ast.val, env ).t;
-				
+				var value = check( ast.val, env );
 				value = unAll( value, ast.val );
+				
 				assert( value.type() === types.ExistsType,
 					"Type '" + value + "' not existential", ast.exp);
 
@@ -1798,28 +1796,29 @@ var TypeChecker = function(){
 					+' got '+value.id().type(), ast.val);
 
 				value = substitution( value.inner(), value.id(), locvar );
-				// unstack anything that became newly available
+				// unfold anything that became newly available
 				value = unFold( value, ast );
 				
+				// any unstack occurs in the inner expression
 				var e = env.newScope();
-				value = unstack( value, e, ast).t;
-				// attempt to make pure
-				value = purify(value);
+				value = unstack( value, e, ast);
+				// attempt to make it pure before adding to typing env.
+				value = purify( value );
 
 				assert( e.set( ast.id, value ),
 						"Identifier '" + ast.id + "' already in scope", ast );
 				assert( e.setType( loc, locvar ),
 						"Type '" + loc + "' already in scope", ast );
 				
-				var res = check( ast.exp, e ).t;
-				return { t : safelyEndScope( res, e, ast), e : env };
+				var res = check( ast.exp, e );
+				return safelyEndScope( res, e, ast);
 			}
 			
 			case AST.kinds.CASE: {
-				var val = check(ast.exp, env).t;
-				val = unAll(val,ast.exp);
+				var val = unAll( check( ast.exp, env ), ast.exp );
 				assert( val.type() === types.SumType,
 					"'" + val.type() + "' not a SumType", ast);
+				
 				// checks only the branches that are listed in the sum type
 				var tags = val.tags();
 				var initEnv = env.clone();
@@ -1838,52 +1837,57 @@ var TypeChecker = function(){
 					}
 					
 					e = e.newScope();
-					value = unstack( value, e, branch.exp ).t;
-					value = purify( value );
-					//addName( branch.id, value, e, ast );
+					value = purify( unstack( value, e, branch.exp ) );
+
 					assert( e.set( branch.id, value ),
 						"Identifier '" + branch.id + "' already in scope", ast );
-					var res = check( branch.exp, e ).t;
 					
+					var res = check( branch.exp, e );
+					res = safelyEndScope( res, e, ast.exp );
+					
+					// check if effects are compatible
 					if( endEnv === null ){
 						endEnv = e.endScope();
 					}else{
 						assert( endEnv.isEqual( e.endScope() ),
 							"Incompatible effects on branch '" + tag + "'", branch);
 					}
-					res = safelyEndScope( res, e, ast.exp );
+
+					// if first result, remember it
 					if( result === undefined )
 						result = res;
-					else {
-						var tmp = merge(result,res);
-						assert( tmp,"Incompatible branch results: "+
+					else { // else try to merge both
+						var tmp = merge( result, res );
+						assert( tmp, 'Incompatible branch results: '+
 							result+' vs '+res, ast);
 						result = tmp;
 					}
 				}
-				return { t : result, e : env };
+				return result;
 			}
 			
 			case AST.kinds.PACK: {
-				var exp = check(ast.exp, env).t;
+				var exp = check(ast.exp, env);
+				var packed = check(ast.id, env);
 				
-				var packed = check(ast.id, env).t;
 				switch( packed.type() ){
 					case types.TypeVariable:
 					case types.LocationVariable:
+						// CAREFUL 'ast.label' is left as null when unspecified
+						// which is used on the constructors below to pick a
+						// fresh name.
 						var label = ast.label;
+						
+						// these are assuming packed was a valid type, by e2.
 						var name = packed.name();
-						var id = env.getType( packed.name() ); // old variable						
-						assert( id, "Identifier '" + name + "' not found", ast);
 						
-						var loc;
+						// create the new type/location variable with the 
+						// given label, even if null for fresh.
+						var variable;
 						if( isTypeVariableName(name) )
-							loc = new TypeVariable(label);
+							variable = new TypeVariable(label);
 						else
-							loc = new LocationVariable(label);
-						
-						assert( id.type() === loc.type(),
-							"'" + name + "' not a "+loc.type(), ast);
+							variable = new LocationVariable(label);
 		
 						// This is necessary to avoid capture of the old
 						// location/type variables that may occur in exp
@@ -1891,54 +1895,55 @@ var TypeChecker = function(){
 						// may be given, thus committing ourselves to some label
 						// from which we may not be able to move without 
 						// breaking programmer's expectations.
-						assert( isFresh(exp,loc),
-							'Label "'+loc.name()+'" is not free in '+exp, ast);
+						assert( isFresh(exp,variable),
+							'Label "'+variable.name()+'" is not free in '+exp, ast );
 		
-						exp = substitution( exp , id, loc );
-						return { t : new ExistsType(loc,exp), e : env };
-					default:
+						exp = substitution( exp , packed, variable );
+						return new ExistsType(variable,exp);
+					default: {
 						var label = ast.label;
 						
 						assert( label === null || isTypeVariableName(label),
-							'TypeVariables must be upper-cased',ast);
+							'TypeVariables must be upper-cased', ast );
 							
 						var variable = new TypeVariable(label);
 
-						// same as above.
 						assert( isFresh(exp,variable),
-							'Label "'+variable.name()+'" is not free in '+exp, ast);
+							'Label "'+variable.name()+'" is not free in '+exp, ast );
 		
-						exp = substitution( exp , packed, variable );
-						return { t : new ExistsType(variable,exp), e : env };
+						exp = substitution( exp, packed, variable );
+						return new ExistsType(variable,exp);
+					}
 				}
 			}
 			
 			case AST.kinds.SUM_TYPE: {
 				var sum = new SumType();
-				for( var i=0; i<ast.sums.length;++i ){
+				for( var i=0; i<ast.sums.length; ++i ){
 					var tag = ast.sums[i].tag;
-					var exp = check(ast.sums[i].exp, env).t;
-					sum.add( tag, exp);
+					sum.add( tag, check( ast.sums[i].exp, env ) );
 				}
-				return { t : sum, e : env };
+				return sum;
 			}
 			
 			case AST.kinds.ALTERNATIVE_TYPE: {
-				var star = new AlternativeType();
-				for( var i=0; i<ast.types.length;++i ){
-					star.add( check(ast.types[i], env).t );
+				var alt = new AlternativeType();
+				for( var i=0; i<ast.types.length; ++i ){
+					alt.add( check( ast.types[i], env ) );
 				}
-				return { t : star, e : env };
+				return alt;
 			}
 			case AST.kinds.STAR_TYPE: {
 				var star = new StarType();
-				for( var i=0; i<ast.types.length;++i ){
-					star.add( check(ast.types[i], env).t );
+				for( var i=0; i<ast.types.length; ++i ){
+					star.add( check( ast.types[i], env ) );
 				}
-				return { t : star, e : env };
+				return star;
 			}
 			
 			case AST.kinds.NAME_TYPE: {
+				// the typing environment remains unchanged because all type
+				// definitions and type/location variables should not interfere
 				var label = ast.text;
 				var tmp = env.getType( label );
 				// if label matches type in environment, but we only allow
@@ -1947,14 +1952,14 @@ var TypeChecker = function(){
 				if( tmp !== undefined &&
 					( tmp.type() === types.TypeVariable ||
 					  tmp.type() === types.LocationVariable ) )
-						return { t : tmp, e : env };
+						return tmp;
 				
 				// look for type definitions
 				var lookup = typedefs[label];
 		
 				// found something
 				if( lookup !== undefined && lookup !== null )
-					return { t : lookup, e : env };
+					return lookup;
 		
 				assert( false, 'Unknown type '+label, ast);
 			}
@@ -1968,30 +1973,26 @@ var TypeChecker = function(){
 				if( val.type() !== types.BangType )
 					env.remove( id );
 
-				return { t : val, e : env };
+				return val;
 			}
 			
 			case AST.kinds.NEW: {
-				var exp = check(ast.exp, env).t;
+				var exp = check(ast.exp, env);
 				// 'null' used to get a fresh location variable
 				var loc = new LocationVariable(null);
-				return { t : new ExistsType (
-					loc,
-					new StackedType(
-						new ReferenceType( loc ),
-						new CapabilityType( loc, purify(exp) ) )
-				), e : env };
+				return new ExistsType( loc,
+							new StackedType(
+								new ReferenceType( loc ),
+								new CapabilityType( loc, purify(exp) ) ) );
 			}
 			
 			case AST.kinds.DEREF: {
-				var exp = check(ast.exp, env).t;
+				var exp = unAll( check( ast.exp, env ), ast.exp );
 				
-				exp = unAll(exp,ast.exp);
 				assert( exp.type() === types.ReferenceType,
 					"Invalid dereference '"+exp+"'", ast );
 
 				var loc = exp.location().name();
-				//var capI = capIndex( loc );
 				var cap = env.removeCap( loc );
 				
 				assert( cap, "No capability to '"+loc+"'", ast );
@@ -2006,23 +2007,21 @@ var TypeChecker = function(){
 					residual = UnitType;
 				
 				cap = new CapabilityType( cap.location(), residual );
-				assert( env.setCap( loc, cap ) ,'Failed to re-add cap', ast);
-				return { t : old, e : env };
+				assert( env.setCap( loc, cap ), 'Failed to re-add cap', ast );
+				return old;
 			}
 			
 			case AST.kinds.DELETE: {
-				var exp = check(ast.exp, env).t;
-				exp = unAll(exp,ast.exp);
+				var exp = unAll( check( ast.exp, env ), ast.exp );
 				
 				if( exp.type() === types.ReferenceType ){
 					var loc = exp.location().name();
-					//var capI = capIndex( loc )
 					var cap = env.removeCap( loc );
 					
 					assert( cap, "No capability to '"+loc+"'", ast );
 					
 					// just return the old contents of 'cap'
-					return { t : cap.value(), e : env };
+					return cap.value();
 					
 				} else if( exp.type() === types.ExistsType ){
 					// Luis' delete rule...
@@ -2034,7 +2033,7 @@ var TypeChecker = function(){
 						var loc = ref.location();
 						assert( cap.type() === types.CapabilityType, "Expecting capability '"+exp+"'",ast);
 						assert( loc.name() === exp.id().name(), "Expecting matching location '"+exp+"'",ast);
-						return { t : new ExistsType(exp.id(),cap.value()), e : env };
+						return new ExistsType(exp.id(),cap.value());
 					}
 					
 				} 
@@ -2044,10 +2043,9 @@ var TypeChecker = function(){
 			}
 
 			case AST.kinds.ASSIGN: {
-				var lvalue = check(ast.lvalue, env).t;
-				var value = check(ast.exp, env).t;
+				var lvalue = unAll( check( ast.lvalue, env ), ast.lvalue );
+				var value = check( ast.exp, env );
 				
-				lvalue = unAll(lvalue,ast.lvalue);
 				assert( lvalue.type() === types.ReferenceType,
 					"Invalid assign '"+lvalue+"' := '"+value+"'", ast.lvalue);
 				
@@ -2059,53 +2057,51 @@ var TypeChecker = function(){
 				var old = cap.value();
 				cap = new CapabilityType( cap.location(), purify(value) );
 				env.setCap( loc , cap );
-				return { t : old, e : env };
+				return old;
 			}
 			
 			case AST.kinds.SELECT: {
-				var rec = check( ast.left, env ).t;
 				var id = ast.right;
-				rec = unAll(rec,ast.left);
+				var rec = unAll( check( ast.left, env ), ast.left );
 				
 				assert( rec.type() === types.RecordType,
 					"Invalid field selection '"+id+"' for '"+rec+"'", ast );
 
 				var res = rec.select(id);				
 				assert( res, "Invalid field '" + id + "' for '"+rec+"'", ast );
-				return { t : res, e : env };
+				return res;
 			}
 			
 			case AST.kinds.CALL: {
-				var fun = check(ast.fun, env).t;
-				fun = unAll(fun,ast.fun);
+				var fun = unAll( check( ast.fun, env ), ast.fun );
 				
 				assert( fun.type() === types.FunctionType,
-					'Type '+fun.toString()+' not a function', ast.fun);
+					'Type '+fun.toString()+' not a function', ast.fun );
 
-				var arg = check(ast.arg, env).t;
+				var arg = check( ast.arg, env );
 				var fun_arg = fun.argument();
 				
 				// attempts to match given argument with expected one
 				// this is necessary since parts of the argument may have been
 				// manually stacked and other should be implicitly put there.
-				arg = autoStack( arg, fun_arg, env, ast.arg ).t;
+				arg = autoStack( arg, fun_arg, env, ast.arg );
 				
 				assert( subtypeOf( arg, fun_arg ),
-					"Invalid call: expecting '"+fun_arg+"' got '"+arg+"'", ast.arg);
-					
+					"Invalid call: expecting '"+fun_arg+"' got '"+arg+"'", ast.arg );
+				
 				// auto-unstack return
-				return { t : assert( unstack( fun.body(), env, ast ).t,
-					"Unstack error on " + fun.body(), ast.exp ), e : env };
+				return assert( unstack( fun.body(), env, ast ),
+					"Unstack error on " + fun.body(), ast.exp );
 			}
 			
 			case AST.kinds.DELAY_TYPE_APP: {
-				var exp = check( ast.exp, env ).t;
+				var exp = check( ast.exp, env );
 				exp = unAll(exp,ast.exp);
-				var packed = check(ast.id, env).t; // the type to apply
+				var packed = check(ast.id, env); // the type to apply
 
 				if( exp.type() === types.ForallType ){
 					// can be applied immediately
-					return { t : substitution( exp.inner(), exp.id(), packed ), e : env };
+					return substitution( exp.inner(), exp.id(), packed );
 				}
 				// application cannot occur right now, but delayed applications
 				// are only allowed on (bounded) type variables 
@@ -2113,29 +2109,29 @@ var TypeChecker = function(){
 					exp.type() === types.DelayedApp, // for nested delays 
 					'Not a TypeVariable '+exp, ast.exp );
 				
-				return { t : new DelayedApp(exp,packed), e : env };
+				return new DelayedApp(exp,packed);
 			}
 			
 			case AST.kinds.TYPE_APP: {
-				var exp = check( ast.exp, env ).t;
+				var exp = check( ast.exp, env );
 				exp = unAll(exp,ast.exp);
 				assert( exp.type() === types.ForallType , 
 					'Not a Forall '+exp.toString(), ast.exp );
 				
-				var packed = check(ast.id, env).t;
-				return { t : substitution( exp.inner(), exp.id(), packed ), e : env };
+				var packed = check(ast.id, env);
+				return substitution( exp.inner(), exp.id(), packed );
 			}
 			
 			
 			case AST.kinds.TAGGED: {
 				var sum = new SumType();
 				var tag = ast.tag;
-				var exp = check(ast.exp, env).t;
+				var exp = check(ast.exp, env);
 				sum.add( tag, exp);
 				if( exp.type() === types.BangType ){
 					sum = new BangType(sum);
 				}
-				return { t : sum, e : env };
+				return sum;
 			}
 			
 			case AST.kinds.TUPLE_TYPE:
@@ -2149,7 +2145,7 @@ var TypeChecker = function(){
 				var bang = true;
 						
 				for(var i=0;i<ast.exp.length;++i){
-					var value = check( ast.exp[i], env ).t;
+					var value = check( ast.exp[i], env );
 					rec.add(value);
 					if( value.type() !== types.BangType )
 						bang = false;
@@ -2158,7 +2154,7 @@ var TypeChecker = function(){
 				if( bang )
 					rec = new BangType(rec);
 
-				return { t : rec, e : env };
+				return rec;
 			}
 			
 			// TYPES
@@ -2169,7 +2165,7 @@ var TypeChecker = function(){
 				assert( loc !== undefined && loc.type() === types.LocationVariable,
 					'Unknow Location Variable '+id, ast );
 				
-				return { t : new ReferenceType( loc ), e : env };
+				return new ReferenceType( loc );
 			}
 			
 			case AST.kinds.EXISTS_TYPE: {
@@ -2184,7 +2180,7 @@ var TypeChecker = function(){
 				
 				e.setType( id, variable );
 
-				return { t : new ExistsType( variable, check( ast.type, e ).t ), e : env };
+				return new ExistsType( variable, check( ast.type, e ) );
 			}
 			
 			case AST.kinds.FORALL_TYPE: {
@@ -2199,7 +2195,7 @@ var TypeChecker = function(){
 
 				e.setType( id, variable );
 
-				return { t : new ForallType( variable, check( ast.exp, e ).t ), e : env };
+				return new ForallType( variable, check( ast.exp, e ) );
 			}
 			
 			case AST.kinds.RECURSIVE_TYPE: {
@@ -2211,20 +2207,20 @@ var TypeChecker = function(){
 					
 				var variable = new TypeVariable(id);
 				e.setType( id, variable );
-				return { t : new RecursiveType( variable, check( ast.exp, e ).t ), e : env };
+				return new RecursiveType( variable, check( ast.exp, e ) );
 			}
 						
 			case AST.kinds.NONE_TYPE:
-				return { t : NoneType, e : env };
+				return NoneType;
 				
 			case AST.kinds.BANG_TYPE:
-				return { t : new BangType( check( ast.type , env ).t ), e : env };
+				return new BangType( check( ast.type , env ) );
 			
 			case AST.kinds.FUN_TYPE: {
-				return { t : new FunctionType( 
-					check( ast.arg, env ).t,
-					check( ast.exp, env ).t
-				), e : env };
+				return new FunctionType( 
+					check( ast.arg, env ),
+					check( ast.exp, env )
+				);
 			}
 			
 			case AST.kinds.CAP_TYPE: {
@@ -2234,45 +2230,44 @@ var TypeChecker = function(){
 				assert( loc !== undefined && loc.type() === types.LocationVariable,
 					'Unknow Location Variable '+id, ast);
 
-				var type = check( ast.type, env ).t;
-				type = purify(type);
-				return { t : new CapabilityType( loc, type ), e : env };
+				var type = check( ast.type, env );
+				return new CapabilityType( loc, purify(type) );
 			}
 			
 			case AST.kinds.STACKED_TYPE: {
-				return { t : new StackedType(
-					check( ast.left, env ).t,
-					check( ast.right, env ).t
-				), e : env };
+				return new StackedType(
+					check( ast.left, env ),
+					check( ast.right, env )
+				);
 			}
 			
 			case AST.kinds.CAP_STACK: {
-				var exp = check( ast.exp, env ).t;
-				var cap = check( ast.type, env ).t;
-				var c = autoStack ( null, cap, env, ast.type ).t;
+				var exp = check( ast.exp, env );
+				var cap = check( ast.type, env );
+				var c = autoStack ( null, cap, env, ast.type );
 				// make sure that the capabilities that were extracted from 
 				// the typing environment can be used as the written cap.
 				assert( subtypeOf( c , cap ),
 					'Incompatible capability "'+c+'" vs "'+cap+'"', ast.type );
-				return { t : new StackedType( exp, cap ), e : env };
+				return new StackedType( exp, cap );
 			}
 			
 			case AST.kinds.RECORD_TYPE: {
 				var rec = new RecordType();
-				for(var i=0;i<ast.exp.length;++i){
+				for( var i=0; i<ast.exp.length ; ++i ){
 					var field = ast.exp[i];
 					var id = field.id;
-					var value = check( field.exp, env ).t;
+					var value = check( field.exp, env );
 					assert( rec.add(id, value),
 						"Duplicated field '" + id + "' in '"+rec+"'", field);
 				}
-				return { t : rec, e : env };
+				return rec;
 			}
 			
 			case AST.kinds.PRIMITIVE_TYPE:
 				// any primitive type is acceptable but only ints, booleans
 				// and strings have actual values that match a primitive type.
-				return { t : new PrimitiveType(ast.text), e : env };
+				return new PrimitiveType(ast.text);
 
 			default:
 
@@ -2282,7 +2277,7 @@ var TypeChecker = function(){
 					var initial_size = env.size();
 					var result = f();
 					if( initial_size === env.size() )
-						return { t : new BangType(result.t), e : env };
+						return new BangType(result);
 					return result;
 				};
 		
@@ -2309,7 +2304,7 @@ var TypeChecker = function(){
 							assert( e.setType( id, variable ),
 								"Type '" + id + "' already in scope", ast );
 			
-							return { t : new ForallType( variable, check( ast.exp, e ).t ), e : env };
+							return new ForallType( variable, check( ast.exp, e ) );
 						}
 			
 						case AST.kinds.FUN: {
@@ -2317,14 +2312,14 @@ var TypeChecker = function(){
 							var result = null;
 							var initial_size = env.size();
 							var e = env.newScope();
-							var arg_type = check( ast.parms.type, e ).t;
+							var arg_type = check( ast.parms.type, e );
 							
 							// CAREFUL: only if it is a recursive function
 							// can it have a result type attached, otherwise
 							// currying of multiple arguments becomes messy
 							
 							if( ast.rec !== null ){ // recursive function
-								result = check( ast.result, e ).t;
+								result = check( ast.result, e );
 								assert( result !== null ,'No result type given on recursive function', ast );								
 								// note that all recursive functions must be pure
 								var rec_fun = new BangType(
@@ -2335,12 +2330,12 @@ var TypeChecker = function(){
 							}
 							
 							
-							var unstacked = unstack(arg_type,e,ast).t;
+							var unstacked = unstack(arg_type,e,ast);
 							
 							assert( e.set( id, purify(unstacked) ),
 									"Identifier '" + id + "' already in scope", ast );
 
-							var res = check( ast.exp, e ).t;
+							var res = check( ast.exp, e );
 							res = safelyEndScope( res, e, ast.exp );
 							
 							if( ast.rec !== null ){
@@ -2354,7 +2349,7 @@ var TypeChecker = function(){
 								res = result;
 							}
 							
-							return { t : new FunctionType(arg_type, res), e : env };
+							return new FunctionType(arg_type, res);
 						}
 						
 						case AST.kinds.RECORD: {
@@ -2369,11 +2364,11 @@ var TypeChecker = function(){
 								
 								var value;
 								if( endEnv === null ){
-									value = check( field.exp, env ).t;
+									value = check( field.exp, env );
 									endEnv = env;
 								}else{
 									var tmp_env = initEnv.clone();
-									value = check( field.exp, tmp_env ).t;
+									value = check( field.exp, tmp_env );
 									assert( endEnv.isEqual(tmp_env),
 										"Incompatible effects on field '" + id + "'", field);
 								}
@@ -2381,15 +2376,15 @@ var TypeChecker = function(){
 									"Duplicated field '" + id + "' in '"+rec+"'", field);
 							}
 			
-							return { t : rec, e : env };
+							return rec;
 						}
 						
 						case AST.kinds.NUMBER:
-							return { t : new PrimitiveType("int"), e : env };
+							return new PrimitiveType('int');
 						case AST.kinds.BOOLEAN:
-							return { t : new PrimitiveType("boolean"), e : env };
+							return new PrimitiveType('boolean');
 						case AST.kinds.STRING:
-							return { t : new PrimitiveType("string"), e : env };
+							return new PrimitiveType('string');
 
 						default:
 							assert(false,"Error @check " + ast.kind, ast);
@@ -2471,11 +2466,11 @@ var TypeChecker = function(){
 					assert( !typedefs.hasOwnProperty(type.id),
 						'Duplicated typedef: '+type.id, type )
 					// map of type names to typechecker types.
-					typedefs[type.id] = check( type.type, env ).t;
+					typedefs[type.id] = check( type.type, env );
 				}
 			}
 			
-			return check( ast.exp, env ).t;
+			return check( ast.exp, env );
 		} finally {
 			var end = new Date().getTime();
 			var diff = end-start;
