@@ -1,5 +1,5 @@
-//OK done
-//OK !string
+//OK {done,Label#0,Dead Cell}
+//OK [!string,!Label#!int,exists Dead.(!(ref Dead))]
 
 let f = fun( x : exists t.( ref t ) ).x in
 	let g = fun( y : exists g.ref g).(f y) in
@@ -19,4 +19,7 @@ let f = fun( x : forall t.( ref t :: rw t (exists g.ref g)) ).x in
 	end
 end;
 
-"done"
+open <t,x> = new 0 in
+	delete x;
+	{ "done", Label#0,<t:Dead,x>}
+end

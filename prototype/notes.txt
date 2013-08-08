@@ -1,10 +1,19 @@
-A * B * C
-A (+) B (+) C
-is seriously broken...
+--- clean up typing environment code.
+--- how to handle collisions? specially with capabilities?
+--- merging environments with different caps
+--- stacking alternatives.
+	3. Add alternatives, will require multiple typing environments. Perhaps
+	even multiple return types for each of the different alternatives.
+	4. Find a better way to merge environment and types, so as to allow
+	alternatives.
+	
+5. Add rely and guarantee types. Including focus, defocus, sharing and
+framing of the defocus-guarantee.
+6. Add a conevienet way to type check a stdlib. This means that we need to
+allow types to be created outside the scope of the function below. Probably
+the type constructors should be used directly by the library.
 
-1. check returns { t : type, e : env }.
-2. all returns just { t : * , e : env } // always the same environment
-3. then immutable environments
+=========================================
 
 BACKTRACK on alternatives.
 	Whenever an attempt is made to read a capability that is inside an 
@@ -14,67 +23,6 @@ requires unpacking that (+) type.
 if already unpacked, send it upwards.
 	Attempt to merge, if fail throw exception that the backtrack should occur in
 enclosing expression. If that fails too, and reaches top then all failed.
-
-tryAlternative( ast, env ){
-	try{
-		return check( ast, env );
-	}catch(e){
-		if( e instanceof Backtrack ){
-			// was already unpacked here... fail upwards
-			if( env.get( id ).type() !== types.AlternativeType )
-				throw e;
-			
-			// retry while unpacked
-			var envs = env.unpack(id);
-			var res = [];
-			for(var i=0;i<envs.length;++i){
-				res.push( tryAlternative( ast, envs[i] ) );
-			}
-			// attempt to merge
-			if fail, then backtrack... again.
-			
-			return ...;
-		}
-		
-		// not our cause, re-throw.
-		throw e;
-	}
-}
-
-if( env.get(id) === types.AlternativeType )
-	// please unpack 'id' so that I can typecheck...
-	throw new Backtrack(id, cause);
-
-=========================================
-
-IMPORTANT EXAMPLES
-
-each type may be: A * B * C (+) D * E, i.e. unstar may be necessary.
-
-<p> fun( x : ref p :: ( rw p A#int (+) rw p B#boolean ) ).
-// x : ref p ; rw p A#int (+) rw p B#boolean
-		let y = 0 in
-// x : ref p, y : int ; rw p A#int (+) rw p B#boolean
-	// x : ref p, y : int , z = A#int ; rw p ![]
-	// x : ref p, y : int , z = B#boolean ; rw p ![]
-			let z = !x in
-				z // : B#boolean + A#int 
-	// x : ref p, y : int ; rw p ![]
-	// x : ref p, y : int ; rw p ![]
-			// FORCE JOIN @ end of scope for those that were created?
-			end
-		end
-	// FORCE JOIN at end of function's scope.
-
-Delta, A + B, C + D
-Delta, A , C + D
-	Delta, A, C --> Delta, A1, C1
-	Delta, A, D --> Delta, A2, C2
-		merged to: Delta, (A1 * C1) + (A2 * C2)
-Delta, B, C + D
-	Delta, B, C --> Delta, B1, C1
-	Delta, B, D --> Delta, B2, D2
-		merged to: Delta, (B1 * C1) + (B2 * D2)
 
 =========================================
 

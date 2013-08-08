@@ -4,24 +4,6 @@
  *  - assertF, for asserting typing conditions.
  */
 
-/*
-TODO:
-	--- clean up typing environment code.
-	--- how to handle collisions? specially with capabilities?
-	--- merging environments with different caps
-	--- stacking alternatives.
-		3. Add alternatives, will require multiple typing environments. Perhaps
-		even multiple return types for each of the different alternatives.
-		4. Find a better way to merge environment and types, so as to allow
-		alternatives.
-	
-	5. Add rely and guarantee types. Including focus, defocus, sharing and
-	framing of the defocus-guarantee.
-	6. Add a conevienet way to type check a stdlib. This means that we need to
-	allow types to be created outside the scope of the function below. Probably
-	the type constructors should be used directly by the library.
- */
-
 var TypeChecker = function(){
 
 	var assert = function(f,msg,ast){
@@ -290,9 +272,9 @@ var TypeChecker = function(){
 	// VISITORS
 	//
 	
+//TODO	 * Should this be named 'isFree'?
 	/**
 	 * Searchs types 't' for location variable 'loc'. isFresh if NOT present.
-	 * Should this be named 'isFree'?
 	 * @param {Type} t that is to be traversed
 	 * @param {LocationVariable,TypeVariable} loc that is to be found
 	 * @return {Boolean} true if location variableis NOT in type.
@@ -1133,13 +1115,23 @@ var TypeChecker = function(){
 	// TYPING ENVIRONMENT
 	//
 	
+	// The typing environment is a spaghetti stack where the parent
+	// may be shared among several different typing environments.
+	// All methods return:
+	// 	undefined - new element collides with a previously existing one;
+	//  null/value - if all OK.
 	var Environment = function(parent){
 		
 		// scope methods		
 		this.newScope = function(){ return new Environment(this); }
 		this.endScope = function(){ return parent; }
 
+		// CAREFUL: '$' cannot be a source-level identifier
+		var TYPE_INDEX='$';
 		var map = {};
+		var caps = [];
+		
+		// operations over IDENTIFIERS
 		this.set = function(id,value){
 			if ( map.hasOwnProperty(id) )
 				return undefined; // already exists
@@ -1165,13 +1157,12 @@ var TypeChecker = function(){
 			return parent.remove(id);
 		}
 		
-		// '$' is not a source-level identifier
-		var TYPE_INDEX='$';
-		// includes both TypeVariables and LocationVariables
+		// operations over VARIABLES
+		// (includes both TypeVariables and LocationVariables)
 		this.setType = function(id,value){
 			// type variables cannot be hidden, must be unique
 			// otherwise it would either require renaming collisions
-			// or could allow access to parts that colide. 
+			// or could allow access to parts that collide. 
 			if( this.getType(id) !== undefined )
 				return undefined; // already there
 			return this.set(TYPE_INDEX+id,value);
@@ -1180,6 +1171,7 @@ var TypeChecker = function(){
 			return this.get(TYPE_INDEX+id);
 		}
 		
+		// other...
 		this.size = function(){
 			return Object.keys(map).length+
 					caps.length+
@@ -1196,11 +1188,12 @@ var TypeChecker = function(){
 				env.set( i, map[i] );	
 			}
 			for( var i=0; i<caps.length;++i ){
-				env.setCap(null,caps[i]); // null is a trick for no id
+				env.setCap( null, caps[i] ); // null is a trick for no id
 			}
 			return env;
 		}
 		
+		// FIXME this does not preserve spaghetti structure!
 		// this should not be visible outside the environment object
 		this.__allElements__ = function(){
 			var keys = Object.keys(map);
@@ -1208,6 +1201,7 @@ var TypeChecker = function(){
 				keys = keys.concat( parent.__allElements__() );
 			return keys;
 		}
+		this.__caps__ = function(){ return caps; }
 		this.isEqual = function(other){
 			if( this.size() !== other.size() )
 				return false;
@@ -1242,12 +1236,11 @@ var TypeChecker = function(){
 			
 			return true;
 		}
-		this.__caps__ = function(){ return caps; }
 		
 		// no order is guaranteed!
 		this.visit = function(all,f){
 			for( var i in map ){
-				var isType = i[0] === TYPE_INDEX;
+				var isType = (i[0] === TYPE_INDEX);
 				f(i,map[i],false,isType);
 			}
 			for( var i=0; i<caps.length;++i ){
@@ -1263,16 +1256,16 @@ var TypeChecker = function(){
 			parent = other.endScope();
 			map = {};
 			caps = [];
-			other.visit(false, function(id,val,isCap,isType){
-				if( isCap ){
-					caps.push(val);
-					return;
-				}
-				map[id] = val;
+			other.visit(false, // only for this level
+				function(id,val,isCap,isType){
+					if( isCap ){
+						caps.push(val);
+						return;
+					}
+					map[id] = val;
 			});
 		}
 				
-		var caps = [];
 		// CAUTION: the following functions/methods ASSUME there is a separation
 		// in the domain of LocationVariables and TypeVariables so that just
 		// comparing strings is enough to know if some string is equal to some
@@ -1293,7 +1286,7 @@ var TypeChecker = function(){
 				case types.AlternativeType:{
 					var ins = val.inner();
 					for(var i=0;i<ins.length;++i){
-						if( capContains(id,ins[i]))
+						if( capContains(id,ins[i]) )
 							return true;
 					}
 					return false;
@@ -1303,7 +1296,7 @@ var TypeChecker = function(){
 					assert(false,'Error @capContains: '+val);
 			}
 		}
-		this.searchCap = function(id){
+		this.searchCap = function(id){ // FIXME should be private
 			for(var i=0;i<caps.length;++i){
 				if( capContains(id,caps[i]) )
 					return i;
@@ -1325,6 +1318,38 @@ var TypeChecker = function(){
 			if( parent === null )
 				return undefined; // not found
 			return parent.removeCap(id);
+		}
+		
+		// join typing environments TODO
+		var join = function(a,b){
+			if( a === null && b === null )
+				return null;
+			if( a === null ^ b === null )
+				return undefined;
+			
+			var top;
+			if( a.__parent__ === b.__parent__ ){
+				// they should be equal anyway.
+				top = a.__parent__ ;
+			} else {
+				top = join(a.__parent__,b.__parent__);
+				if( top === undefined ) // failed to join parent
+					return undefined;
+			}
+			var env = new Environment( top );
+			// join IDENTIFIERS / VARIABLES
+			for( var i in a.__map__ ){
+				// missing property
+				if( !b.__map__.hasOwnProperty(i) )
+					return undefined;
+				// not of equal types
+				if( !isEquals(a.__map__[i],b.__map__[i]) )
+					return undefined;
+				env.__map__[i] = a.__map__[i];
+			}
+			// join CAPABILITIES
+			// TODO: those that are equal (unsorted) just add
+			// TODO: others must be stacked in a *-type and then (+)
 		}
 	};
 	
@@ -1363,8 +1388,23 @@ var TypeChecker = function(){
 		
 		if( t1.type() !== t2.type () )
 			return undefined;
-		
 		// both the same type
+		
+		if( t1.type() === types.StackedType ){
+			var left = mergeType( t1.left(), t2.left() );
+			if( left === undefined )
+				return undefined;
+			var right = mergeType( t1.right(), t2.right() );
+			if( right === undefined ){
+				// if they cannot be merged, then they are alternatives
+				// TODO: maybe partially merge is possible?
+				right = new AlternativeType();
+				right.add( t1.right() );
+				right.add( t2.right() );
+			}
+			return new StackedType(left,right);
+		}
+		
 		if( t1.type() === types.BangType ){
 			var tmp = mergeType( t1.inner(),t2.inner() );
 			if( tmp !== undefined )
@@ -1632,7 +1672,7 @@ var TypeChecker = function(){
 					'Error @autoStack ', a );
 				return NoneType;
 			case types.AlternativeType:
-				assert( false, 'FIXME: NOT DONE stacking of (+) !', a);
+				assert( false, 'NOT DONE stacking of (+) !', a); // FIXME
 			default: // other types just fall through, 
 					 // leave the given type in.
 		}
@@ -1754,7 +1794,6 @@ var TypeChecker = function(){
 						var tmp_env = split.clone();
 						var alternative = alts[i];
 						unstackType( alternative, tmp_env, ast );
-						// FIXME must unstack type!! could contain stars!
 						
 						// retry
 						// note that we intentionally fail if there is another
@@ -1770,22 +1809,22 @@ var TypeChecker = function(){
 							var tmp = mergeType( result, res );
 							
 							// if failed, then try unpacking the alternative
-							// upwards in hopes that expression will work.
+							// upwards in hopes that it will work on that exp.
 							if( tmp === undefined )
 								throw e;
-							//assert( tmp, 'Incompatible branch results: '+ result+' vs '+res, ast);
 							result = tmp;	
 						}
 						
 						if( end_env === null )
 							end_env = tmp_env;
 						else{
+							// FIXME should merge typing environments not just equals
 							if( !end_env.isEqual( tmp_env ) )
 								throw e;
 						}
 					}
+					// make changes visible as if nothing bad happened
 					env.apply( end_env );
-					// FIXME merge/apply typing environments
 					return result;
 				}
 				
