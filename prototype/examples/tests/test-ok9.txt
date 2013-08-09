@@ -1,5 +1,5 @@
 //OK {done,Label#0,Dead Cell}
-//OK [!string,!Label#!int,exists Dead.(!(ref Dead))]
+//OK [!string,!Label#!int,exists dead.(!(ref dead))]
 
 let f = fun( x : exists t.( ref t ) ).x in
 	let g = fun( y : exists g.ref g).(f y) in
@@ -21,5 +21,5 @@ end;
 
 open <t,x> = new 0 in
 	delete x;
-	{ "done", Label#0,<t:Dead,x>}
+	{ "done", Label#0,<t:dead,x>}
 end

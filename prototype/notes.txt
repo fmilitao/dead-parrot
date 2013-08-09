@@ -1,3 +1,7 @@
+FIXME: test-fail17.txt exploits a visibility bug...
+
+--- is it possible to delete twice if at multiple levels??
+
 --- clean up typing environment code.
 --- how to handle collisions? specially with capabilities?
 --- merging environments with different caps

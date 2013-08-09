@@ -1,3 +1,4 @@
+//TODO: http://www.adequatelygood.com/JavaScript-Module-Pattern-In-Depth.html
 /**
  * Notes:
  * 	- ignores all location and type abstractions (i.e. as if erased)
@@ -100,6 +101,7 @@ var Interpreter = function(){
 	//
 	
 	var loadCode = function(lib,heap){
+		// FIXME wrong pattern
 		var valuesFactory = { Function: Function, Record: Record,
 			Tuple: Tuple, Tagged: Tagged };
 		return Loader(lib,heap,valuesFactory);
@@ -275,6 +277,7 @@ var Interpreter = function(){
 			case AST.kinds.PACK:
 			case AST.kinds.FORALL:
 			case AST.kinds.TYPE_APP:
+			case AST.kinds.ALTERNATIVE_OPEN:
 				return run(ast.exp, env);
 			
 			case AST.kinds.NUMBER:

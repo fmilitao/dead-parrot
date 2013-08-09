@@ -3,13 +3,47 @@
 
 // ALTERNATIVES
 
+<p> fun( x : ref p :: ( rw p (A#int) (+) rw p (B#boolean) ) ).
+		@p 
+		let y = 0 in
+			let z = !x in
+				z
+			end
+		end
+
+/*
+
 <p>fun( x : ref p :: rw p (A#int+B#boolean) ).
+	@p
 	case !x of
 		A#i -> x := i
 	|   B#b -> x := b
 	end
 
-/*
+let f = 
+	<p>fun( e : ref p :: ( rw p int (+) rw p boolean ) ).
+		p@
+		open <n,next> = new !e in
+			e := N#{ <n,next::( rw n int (+) rw n boolean )> }
+		end
+	in
+		0
+end
+
+// warning with labels it will fail too late??
+
+let f = 
+	<p>fun( e : ref p :: ( rw p A#int (+) rw p B#boolean ) ).
+		p@
+		open <n,next> = new !e in
+			e := N#{ <n,next::( rw n A#int (+) rw n B#boolean )> }
+			// stacking 'rw p A#int' when the capability is
+			// 'rw n A#int+B#boolean' triggers backtrack on 'n'
+		end
+	in
+		0
+end
+
 
 IMPORTANT EXAMPLES
 

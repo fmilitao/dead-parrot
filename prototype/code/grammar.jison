@@ -28,6 +28,7 @@
 "typedef"             return 'TYPEDEF'
 "import"              return 'IMPORT'
 "none"                return 'NONE'
+"@"                   return '@'
 "(+)"                 return '(+)'
 "||"                  return '||'
 "|"                   return '|'
@@ -249,6 +250,8 @@ nonsequence :
 
 expression :
 	  value
+	| '@' type expression
+		{ $$ = AST.makeAlternativeOpen($2,$3,@$); }
 	| "!" expression
 		{ $$ = AST.makeDeRef($2,@$); }
 	| NEW expression

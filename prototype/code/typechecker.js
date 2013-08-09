@@ -261,13 +261,7 @@ var TypeChecker = function(){
 			this.id = function(){ return app_type; }
 		};
 	}();
-	
-	var Backtrack = function(id){
-		// creates a new object for backtracking
-		this.cause = id;
-		return this;
-	}
-	
+
 	//
 	// VISITORS
 	//
@@ -443,7 +437,7 @@ var TypeChecker = function(){
 				var tags = t.tags();
 				var res = [];
 				for( var i in tags ){
-					res.push( '<span class="type_tag">'+tags[i]+'</span>#'+toHTML(t.inner(tags[i])) ); 
+					res.push( '<span class="type_tag">'+tags[i]+'</span>#'+_toHTML(t.inner(tags[i])) ); 
 				}	
 				return res.join('+');
 			}
@@ -1202,6 +1196,7 @@ var TypeChecker = function(){
 			return keys;
 		}
 		this.__caps__ = function(){ return caps; }
+		// FIXME should join not just check if equals
 		this.isEqual = function(other){
 			if( this.size() !== other.size() )
 				return false;
@@ -1376,6 +1371,11 @@ var TypeChecker = function(){
 	 * 	compatible with both.
 	 */
 	var mergeType = function(t1,t2){
+		if( subtypeOf(t1,t2) )
+			return t2;
+		if( subtypeOf(t2,t1) )
+			return t1;
+
 		// if bang mismatch, we need to not consider the sum as banged because
 		// our types cannot do a case on whether the type is liner or pure
 		var b1 = t1.type() === types.BangType;
@@ -1385,6 +1385,7 @@ var TypeChecker = function(){
 			if( b1 ) t1 = t1.inner();
 			if( b2 ) t2 = t2.inner();
 		}
+		
 		
 		if( t1.type() !== t2.type () )
 			return undefined;
@@ -1668,11 +1669,29 @@ var TypeChecker = function(){
 				}
 			}
 			case types.NoneType:
+				// always valid to stack a NoneType
 				assert( t === null || t.type() === types.NoneType,
 					'Error @autoStack ', a );
 				return NoneType;
-			case types.AlternativeType:
-				assert( false, 'NOT DONE stacking of (+) !', a); // FIXME
+			case types.AlternativeType:{
+				assert( t == null , 'Not allowed for now', a);
+				var alts = p.inner();
+				for( var i=0; i<alts.length; ++i ){
+					var j = alts[i];
+					assert( j.type() === types.CapabilityType, 'TMP', a);
+					
+					var cap = e.removeCap( j.location().name() );
+					if( cap !== undefined ){
+						// FIXME missing subtyping to make sure it works?
+						// success
+						return p;
+					}	
+				}
+				// we must have *at least* one alternative for stacking (+)
+				// FIXME how to fetch these?? what if multiple available? removes just 1?
+				// or maybe ensure that there are no more?
+				assert( false, 'Failed to stack any of the alternatives', a);
+			}
 			default: // other types just fall through, 
 					 // leave the given type in.
 		}
@@ -1761,77 +1780,9 @@ var TypeChecker = function(){
 	// this wrapper function allows us to inspect the type and envs
 	// of some node, while leaving the checker mostly clean.
 	var check = function(ast,env) {
-		var clone = env.clone(); // needed for reverting
-		var type_info_length = type_info.length;
-		type_info.push( { ast : ast, env : clone } );
+		type_info.push( { ast : ast, env : env.clone() } );
 		
-		try{
-			return check_inner( ast, env );
-		} catch( e ) {
-			if( e instanceof Backtrack ){
-				var split = clone.clone();
-				var cap = split.removeCap( e.cause );
-				// note that split no longer has 'e.cause' in it.
-				
-				// if not here or not an alternative, continue upwards
-				if( cap === undefined ||
-					cap.type() !== types.AlternativeType ){
-					// not here, continue upwards
-					throw e;
-				} else {
-					// backtrack to consider split environment.
-					backtrack_counter++;
-					// drops wrong bits
-					type_info = type_info.slice(0,type_info_length);
-					
-					// must be of AlternativeType
-					var alts = cap.inner();
-					
-					var result = null;
-					var end_env = null;
-					
-					for( var i=0; i<alts.length; ++i ){
-						var tmp_env = split.clone();
-						var alternative = alts[i];
-						unstackType( alternative, tmp_env, ast );
-						
-						// retry
-						// note that we intentionally fail if there is another
-						// backtrack request. This is why it is a 'check' and
-						// not a 'check_inner' so that it starts from the split
-						// environment and may continue to split from there, not
-						// here...
-						var res = check( ast, tmp_env );
-						if( result === null )
-							result = res;
-						else {
-							// attempt to merge results
-							var tmp = mergeType( result, res );
-							
-							// if failed, then try unpacking the alternative
-							// upwards in hopes that it will work on that exp.
-							if( tmp === undefined )
-								throw e;
-							result = tmp;	
-						}
-						
-						if( end_env === null )
-							end_env = tmp_env;
-						else{
-							// FIXME should merge typing environments not just equals
-							if( !end_env.isEqual( tmp_env ) )
-								throw e;
-						}
-					}
-					// make changes visible as if nothing bad happened
-					env.apply( end_env );
-					return result;
-				}
-				
-			}
-			// not our cause
-			throw e;
-		}
+		return check_inner( ast, env );
 	};
 
 	/**
@@ -1839,8 +1790,6 @@ var TypeChecker = function(){
 	 * @param {Environment} env, typing environment at beginning
 	 * @return either the type checked for 'ast' or throws a type error with
 	 * 	what failed to type check.
-	 * 	Also may throw {Backtrack} if needs to backtrack on some location or
-	 *  type variable that are (still) packed inside an alternative type.
 	 */
 	var check_inner = function( ast, env ) {
 		
@@ -1996,10 +1945,16 @@ var TypeChecker = function(){
 					case types.LocationVariable: {
 						// create the new type/location variable with the 
 						// given label, even if null for fresh.
-						if( isTypeVariableName(packed.name()) )
+						if( isTypeVariableName(packed.name()) ){
+							assert( label === null || isTypeVariableName(label),
+								'TypeVariable is wrongly cased', ast );
 							variable = new TypeVariable(label);
-						else
+						} else {
+							assert( label === null || !isTypeVariableName(label),
+								'LocationVariable is wrongly cased', ast );
 							variable = new LocationVariable(label);
+						}
+						
 						break;
 					}
 					default: {
@@ -2022,6 +1977,51 @@ var TypeChecker = function(){
 
 				exp = substitution( exp , packed, variable );
 				return new ExistsType(variable,exp);
+			}
+			
+			case AST.kinds.ALTERNATIVE_OPEN: {
+				var type = check(ast.type, env);
+				assert( type.type() === types.LocationVariable ||
+						type.type() === types.TypeVariable,
+					'Cannot alt-open '+type,ast.type );
+				
+				var cap = env.removeCap( type.name() );
+				
+				assert( cap.type() === types.AlternativeType,
+					'Not AlternativeType '+cap, ast.type );
+				
+				var alts = cap.inner();
+				var env_start = env.clone();
+				var end_env = null;
+				var result = null;
+				
+				for( var i=0; i<alts.length; ++i ){
+					var tmp_env = end_env === null ? env : env_start.clone();
+					var alternative = alts[i];
+					alternative = unFold(alternative);
+					unstackType( alternative, tmp_env, ast.type );
+
+					var res = check( ast.exp, tmp_env );
+					if( result === null )
+						result = res;
+					else {
+						// attempt to merge results
+						var tmp = mergeType( result, res );
+						assert( tmp, 'Incompatible alternative results: '+
+							result+' vs '+res, ast);
+						result = tmp;
+					}
+					
+					if( end_env === null )
+						end_env = tmp_env;
+					else{
+						assert( end_env.isEqual( tmp_env ),
+							"Incompatible effects on alternatives", ast.exp);
+					}
+				}
+				// make changes visible as if nothing bad happened
+				//env.apply( end_env );
+				return result;
 			}
 			
 			case AST.kinds.SUM_TYPE: {
@@ -2104,11 +2104,8 @@ var TypeChecker = function(){
 				
 				assert( cap, "No capability to '"+loc+"'", ast );
 				
-				// if there a capability to such location, but it is not a
-				// CapabilityType (i.e. should be AlternativeType) retry
-				// by backtracking the typechecker.
-				if( cap.type() !== types.CapabilityType )
-					throw new Backtrack(loc);
+				assert( cap.type() === types.CapabilityType,
+					loc+" is not a capability", ast );
 				
 				var old = cap.value();
 				
@@ -2133,8 +2130,8 @@ var TypeChecker = function(){
 					
 					assert( cap, "No capability to '"+loc+"'", ast );
 					
-					if( cap.type() !== types.CapabilityType )
-						throw new Backtrack(loc);
+					assert( cap.type() === types.CapabilityType,
+						loc +" is not a capability", ast );
 
 					// just return the old contents of 'cap'
 					return cap.value();
@@ -2170,8 +2167,8 @@ var TypeChecker = function(){
 				
 				assert( cap, "Cannot assign, no capability to '"+loc+"'", ast );
 				
-				if( cap.type() !== types.CapabilityType )
-					throw new Backtrack(loc);
+				assert( cap.type() === types.CapabilityType,
+					loc+" is not a capability", ast );
 				
 				var old = cap.value();
 				cap = new CapabilityType( cap.location(), purify(value) );
@@ -2548,7 +2545,8 @@ var TypeChecker = function(){
 				gamma.push('<span class="type_name">'+id+'</span>'+": "+val.inner().toHTML());
 				return;
 			}			
-			
+			// FIXME problem on priting multiple levels of capabilities
+			// FIXME is it possible to delete twice if at multiple levels??
 			delta.push('<span class="type_name">'+id+'</span>'+": "+val.toHTML());
 		});
 		
@@ -2565,7 +2563,6 @@ var TypeChecker = function(){
 	
 	var type_info;
 	var unique_counter;
-	var backtrack_counter;
 	var typedefs;
 
 	return function(ast,typeinfo){
@@ -2578,7 +2575,6 @@ var TypeChecker = function(){
 			var env = new Environment(null);
 			type_info = [];
 			unique_counter = 0;
-			backtrack_counter = 0;
 			typedefs = {};
 				
 			assert( ast.imports === null , 'FIXME: imports not done.' , ast);
@@ -2594,13 +2590,6 @@ var TypeChecker = function(){
 			}
 			
 			return check( ast.exp, env );
-		} catch( e ){
-			if( e instanceof Backtrack ){
-				assert(false, 'Backtracking failure due to: '+e.cause, ast );
-			}
-			// not our cause
-			throw e;
-			
 		} finally {
 			var end = new Date().getTime();
 			var diff = end-start;
@@ -2660,7 +2649,7 @@ var TypeChecker = function(){
 						return '';
 			
 					var msg = '<b title="click to hide">Type Information</b><br/>'+
-						'('+diff+'ms, backtracks='+backtrack_counter+')';
+						'('+diff+'ms)';
 					
 					for(var i=0;i<indexes.length;++i){
 						var ptr = indexes[i];

@@ -104,7 +104,7 @@ var GrammarHighlightRules = function() {
                 regex : "[0-9]+"
             }, {
                 token : "keyword.operator", // too many useless stuff?
-                regex : /-o|--|\+\+|[!$%&*+\-~]|#|;|:|\||===|==|=|!=|!==|<=|>=|<<=|>>=|>>>=|<>|<|>|!|&&|\|\||\?\:|\*=|%=|\+=|\-=|&=|\^=/,
+                regex : /-o|@|--|\+\+|[!$%&*+\-~]|#|;|:|\||===|==|=|!=|!==|<=|>=|<<=|>>=|>>>=|<>|<|>|!|&&|\|\||\?\:|\*=|%=|\+=|\-=|&=|\^=/,
             }, {
 				token : "constant.language.boolean",
                 regex : /(?:true|false)\b/

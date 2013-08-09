@@ -44,6 +44,7 @@ var AST = new function(){
 		'RECURSIVE_TYPE',
 		'DELAY_TYPE_APP',
 		// constructs
+		'ALTERNATIVE_OPEN',
 		'FORALL',
 		'PACK',
 		'OPEN',
@@ -155,6 +156,9 @@ var AST = new function(){
 	}
 	this.makeOpen = function(type,id,val,exp, info){
 		return aux( this.kinds.OPEN, {type: type, id: id, val: val, exp: exp}, info);
+	}
+	this.makeAlternativeOpen = function(type,exp, info){
+		return aux( this.kinds.ALTERNATIVE_OPEN, {type: type, exp: exp}, info);
 	}
 	this.makeTypeApp = function(exp,type,info){
 		return aux( this.kinds.TYPE_APP, {exp: exp, id: type}, info);

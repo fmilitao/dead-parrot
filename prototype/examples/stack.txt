@@ -3,7 +3,7 @@
 // The example requires explicit stacking of capabilities to disambiguate
 // between different ways in which they could be stacked.
 
-typedef EMPT = forall p.( rw p (E#[]) )
+typedef EMPT = forall p.( rw p !(E#[]) )
 typedef ELEM = forall T.rec X.forall p.( rw p (N#[T,exists q.( ref q :: (EMPT[q] (+) X[q]) )] ))
 
 let newStack = <T>fun( _ : [] ).
@@ -13,40 +13,44 @@ let newStack = <T>fun( _ : [] ).
 		{
 		
 			push = fun( e : T :: ( EMPT[h] (+) ELEM[T][h] ) ).
+				@h // open alternative for location 'h'
 				// by reading the contents of head, it will make require
 				// to break down the alternative into its sub-cases 
 				open <n,next> = new !head in
 					// but we can always stack with more alternatives
 					// than we have, since that just weakens the type
 					head := N#{ e , <n,next::(EMPT[n] (+) ELEM[T][n])> }
-				end,
-			
-			pop = fun( _ : [] :: ELEM[T][h] ).
+				end
+				// FIXME matching error when types are at different stages of unfold
+			/*	,
+
+			pop = fun( _ : [] :: ( ELEM[T][h] ) ).
 				case !head of
 					N#a ->
 						let [e,n] = a in
 							open <t,ptr> = n in
-								head := !ptr;
+								(@t head := !ptr);
 								delete ptr;
 								e
 							end
 						end
 				end,
-		
+
 			isEmpty = fun( _ : [] :: ( EMPT[h] (+) ELEM[T][h] ) ).
-				// again, reading 'opens' the alternatives
+				@h // opens alternative
 				case !head of
 					E#v ->
 						head := E#v;
-						Empty#({}::EMPT[h])
+						Empty#({}::(EMPT[h]))
 				|	N#n ->
 						head := N#n;
-						NonEmpty#({}::ELEM[T][h])
+						NonEmpty#({}::(ELEM[T][h]))
 				end,
 
-			del = fun( _ : [] :: EMPT[h] ).
+			del = fun( _ : [] :: (EMPT[h]) ).
 				delete head
-		}>>
+				*/
+		} :: rw h !(E#[]) >>
 	end
 	in
 	"TODO: client code."
