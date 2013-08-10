@@ -1,20 +1,20 @@
 
 typedef EMPT = forall p.( rw p ![] )
-typedef ELEM = forall T.rec X.forall p.( rw p (N#[T,exists q.( (!ref q) :: (EMPT[q] (+) X[q]) )] ))
+typedef ELEM = rec X.forall p.( rw p (N#(exists q.( (!ref q) :: (X[q]) ) )) )
 
-let newStack = <T>fun( _ : [] ).
+let newStack =
 	open <h,head> = new {} in
-		<EMPT[h]:E,	// Empty Stack
-		<ELEM[T][h]:NE, // NonEmpty Stack
-		{
-		
-			push = fun( e : T :: ( EMPT[h] (+) ELEM[T][h] ) ).
-				@h 
+		<EMPT[h]:IN,
+		<ELEM[h]:OK,
+		(fun( e : ![] :: ( ELEM[h] ) ).
 				open <n,next> = new !head in
-					head := N#{ e , <n:nxt,next::(EMPT[n] (+) ELEM[T][n])> }
+					head := N#(<n:nxt,next::( ELEM[n]) >);
+					0
 				end
-		} :: rw h ![] >>
+		) :: rw h ![] >>
 	end
 	in
 	newStack
+	// should yield the type:
+	// exists IN.exists OK.(( ![] :: OK -o !int :: OK ) :: IN)
 end

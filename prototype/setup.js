@@ -285,6 +285,35 @@ $(document).ready(function() {
 	})();
 	
 	//
+	// Boxing Types
+	//
+	
+	// when hovered over 'triggers' change 'changers' to a boxed style, on out
+	// removes that style (which is the initial state).
+	var triggers = 'Q';
+	var changers = 'q';
+	var refreshTypeListners = function(){
+		$('.'+changers)
+				.css('background-color', 'inherit')
+			    .css('outline', 'none');
+		
+		$('.'+triggers).hover(
+		  function(){
+			  $(this)
+			    .siblings('.'+changers)
+			    .css('background-color', 'white')
+			    .css('outline', '2px solid #bbbbbb');
+		  },
+		  function(){
+			  $(this)
+			    .siblings('.'+changers)
+			    .css('background-color', 'inherit')
+			    .css('outline', 'none');
+		  }
+		);		
+	};
+	
+	//
 	// Worker Setup
 	//
 	
@@ -362,6 +391,9 @@ $(document).ready(function() {
     				t.show();
     		}
     		t.html( val.toString() );
+    		
+    		// for boxing types
+    		refreshTypeListners();
     	};
     	
     };

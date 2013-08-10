@@ -424,29 +424,38 @@ var TypeChecker = function(){
 		return toHTML(t);
 	}
 	
+	var wq = function(t){ return '<span class="q">'+t+'</span>'; } // changer
+	var wQ = function(t){ return '<span class="Q">'+t+'</span>'; } // trigger
+	
 	var toHTML = function (t){
 		switch ( t.type() ){
 			case types.FunctionType:
-				//return toHTML(t.argument())+" -o "+toHTML(t.body());
-				return _toHTML(t.argument())+" &#x22b8; "+_toHTML(t.body());
+				return wq( 
+					wq( _toHTML(t.argument()) ) +
+					wQ( " &#x22b8; " ) +
+					wq( _toHTML(t.body()) )
+					);
 			case types.BangType:{
 				var inner = t.inner();	
-				return "!"+_toHTML(t.inner());
+				return wq( wQ("!") + wq(_toHTML(t.inner())) );
 			}
 			case types.SumType:{
 				var tags = t.tags();
 				var res = [];
 				for( var i in tags ){
-					res.push( '<span class="type_tag">'+tags[i]+'</span>#'+_toHTML(t.inner(tags[i])) ); 
+					res.push(
+						wQ( '<span class="type_tag">'+tags[i]+'</span>#' )+
+						wq( _toHTML(t.inner(tags[i])) )
+					); 
 				}	
-				return res.join('+');
+				return wq( res.join('+') );
 			}
 			case types.StarType:{
 				var inners = t.inner();
 				var res = [];
 				for( var i=0; i<inners.length; ++i )
-					res.push( _toHTML( inners[i] ) ); 
-				return res.join(' * ');
+					res.push( wq( _toHTML( inners[i] ) ) ); 
+				return wq( res.join( wQ(' * ') ) );
 			}
 			case types.AlternativeType:{
 				var inners = t.inner();
@@ -481,7 +490,7 @@ var TypeChecker = function(){
 				'<span class="type_location">'+t.location().name()+'</span> '+
 				toHTML(t.value());
 			case types.StackedType:
-				return toHTML(t.left())+' :: '+toHTML(t.right());
+				return wq( wq(toHTML(t.left())) + wQ(' :: ')+ wq(toHTML(t.right())) );
 			case types.RecordType: {
 				var res = [];
 				var fields = t.getFields();
@@ -505,7 +514,7 @@ var TypeChecker = function(){
 			case types.NoneType:
 				return '<b>none</b>';
 			case types.DelayedApp:
-				return toHTML(t.inner())+'['+toHTML(t.id())+']';
+				return wq( wq( _toHTML(t.inner()) )+wQ('[')+ wq( toHTML(t.id()) )+wQ(']') );
 			default:
 				assert( false, "Assertion error on " +t.type() );
 				break;
@@ -726,6 +735,30 @@ var TypeChecker = function(){
 				return equalsTo( t1, m1, t2, m2 );
 			}
 			
+			/*FIXME
+			var del1 = t1.type() === types.DelayedApp;
+			var del2 = t2.type() === types.DelayedApp;
+			if( del1 ^ del2 ){
+				
+				//push( t1, del2 ); // assume they are the same
+				// if this is wrong, then it must be cause their internals
+				// are different. Therefore, it will fail elsewhere and it is
+				// OK to assume they are equal in here.
+
+				if( del1 ){
+					m1 = m1.newScope();
+					m1.set( t1.id().name(), t1 );
+					t1 = t1.inner();
+				}
+				if( rec2 ){
+					m2 = m2.newScope();
+					m2.set( t2.id().name(), t2 );
+					t2 = t2.inner();
+				}
+				
+				return equalsTo( t1, m1, t2, m2 );
+			}*/
+			
 			var var1 = t1.type() === types.TypeVariable;
 			var var2 = t2.type() === types.TypeVariable;
 			if( var1 ^ var2 ){
@@ -750,8 +783,10 @@ var TypeChecker = function(){
 			}
 			// ----
 			
-			if( t1.type() !== t2.type() )
+			if( t1.type() !== t2.type() ){
+				//console.log( t1 + ' vs ' + t2 );
 				return false;
+			}
 			
 			// assuming both same type
 			switch ( t1.type() ){

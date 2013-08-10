@@ -1,4 +1,22 @@
-FIXME: test-fail17.txt exploits a visibility bug...
+FIXME: exploits a visibility bug...
+
+IS THIS A BUG? (i.e. unsound??)
+
+//FAIL Invalid delete
+//FAIL HOW TO TESTS THIS??
+
+open <t,x> = new 0 in
+	let f = fun( _ : [] :: rw t int ).
+		( delete x; delete x; 0 )
+		// FIXME second delete should not be allowed!!
+	in
+		f {}
+	end
+end
+	
+
+
+// note unfolds on use.
 
 --- is it possible to delete twice if at multiple levels??
 
