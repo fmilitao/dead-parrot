@@ -2,38 +2,14 @@
 // Quick and Dirty Standard Lib for basic arithm.
 //
 
-/*
- * TODO:
-	import "code/stdlib.js"
-	
-	...
-	loadCode( heap )
-	loadTypes( env )
-	
-	// lazy man's import
-	
-	// should include:
-	Lib.print T -o T
-	Lib.println T -o T
-	Lib.add
-		type: !(int -o int -o int)
-		code: function(x){return function(y){return x+y;}}
-	Lib.mul
-	Lib.sub
-	Lib.div
-	Lib.rem
-	Lib.not
-	Lib.and
-	Lib.or
-	Lib.if { if= [] -o B, else = [] -o B }
- */
+// for now it just supports 'add' and 'println'
+var Loader = function( file, e, ctx ){
+	var v = ctx.values;
 
-// TODO move this elsewhere!
-var Loader = function(file,e,v){ // FIXME only one known library?
 	if( file === 'stdlib' ){
 		var rec = new v.Record();
 		
-		// println
+		// println: forall T.( T -o T )
 		var println = new v.Function();
 		println.call = function(msg){
 			send('println',msg.toString());
@@ -41,7 +17,7 @@ var Loader = function(file,e,v){ // FIXME only one known library?
 		};
 		rec.add('println',println);
 		
-		// add
+		// add: int -o int -o !int
 		var add = new v.Function();
 		add.call = function(msg){
 			var tmp = new v.Function();
@@ -50,13 +26,14 @@ var Loader = function(file,e,v){ // FIXME only one known library?
 		};
 		rec.add('add',add);
 		
+		// binds 'Lib' variable
 		e.set('Lib',rec);
 		
 		return null;
 	}
-	
+	// others are unknown
 	return undefined;
-};//importScripts;
+};
 
 //
 // Worker thread
@@ -79,14 +56,14 @@ var console = function(){
 }();
 
 var g = '../lib/jison.js';
-// leave the next comment for deploy script
+// leave the next comment for the deploy script
 //__DEV__g = 'grammar.js';
 importScripts(g);
 
 importScripts('parser.js','interpreter.js','typechecker.js');
 
 var parser = Parser('grammar.jison');
-var interpreter = Interpreter();
+var interpreter = function(ast){ return Interpreter.run(ast,Loader); };
 var checker = TypeChecker();
 
 // to avoid reparsing, the 'ast' is made available

@@ -1,13 +1,16 @@
-//TODO: http://www.adequatelygood.com/JavaScript-Module-Pattern-In-Depth.html
 /**
  * Notes:
  * 	- ignores all location and type abstractions (i.e. as if erased)
- * REQUIRED Global variables:
- * 	- AST.kinds, for all AST case analysis needs
- *  - Loader, for dynamically loading a file
+ * 
+ * REQUIRED Global variables (all declared in parser.js):
+ * 	- AST.kinds, for all AST case analysis needs.
+ *  - assertf, for error handling/flagging.
  */
-
-var Interpreter = function(){
+	
+var Interpreter = (function( AST, assertF ){
+	
+	// stuff to be exported from this module to outside contexts	
+	var exports = {};
 	
 	//
 	// Values
@@ -96,16 +99,12 @@ var Interpreter = function(){
 		}
 	}
 
-	//
-	// Dynamics Library Import
-	//
-	
-	var loadCode = function(lib,heap){
-		// FIXME wrong pattern
-		var valuesFactory = { Function: Function, Record: Record,
-			Tuple: Tuple, Tagged: Tagged };
-		return Loader(lib,heap,valuesFactory);
-	}
+	exports.values = {
+		Function: Function, 
+		Record: Record,
+		Tuple: Tuple,
+		Tagged: Tagged
+		};
 
 	//
 	// Utils
@@ -131,7 +130,7 @@ var Interpreter = function(){
 		}
 	}
 	
-	var wrapError = function( f, msg, ast ){
+	var assert = function( f, msg, ast ){
 		return assertF("Execution error",f,msg,ast);
 	}
 	
@@ -153,12 +152,12 @@ var Interpreter = function(){
 				return run(ast.exp, newEnv);
 			}
 			case AST.kinds.ID:
-				return wrapError(function() {
+				return assert(function() {
 					return env.get(ast.text);
 				}, "Identifier \'" + ast.text + "\' not found", ast);
 			case AST.kinds.DEREF: {
 				var exp = run(ast.exp, env);
-				return wrapError(function(){
+				return assert(function(){
 					return exp.get();
 				},"Invalid dereference",ast);
 			}
@@ -169,13 +168,13 @@ var Interpreter = function(){
 			case AST.kinds.ASSIGN: {
 				var lvalue = run(ast.lvalue, env);
 				var value = run(ast.exp, env);
-				return wrapError(function(){
+				return assert(function(){
 					return lvalue.set(value);
 				},"Invalid assign",ast.lvalue);
 			}
 			case AST.kinds.DELETE: {
 				var lvalue = run(ast.exp, env);
-				return wrapError(function(){
+				return assert(function(){
 					return lvalue.free();
 				},"Invalid delete",ast.exp);
 			}
@@ -185,7 +184,7 @@ var Interpreter = function(){
 			}
 			case AST.kinds.CASE: {
 				var val = run(ast.exp, env);
-				var tag = wrapError(function(){
+				var tag = assert(function(){
 					return val.tag();
 				},"Invalid case",ast.exp);
 				var branch = undefined;
@@ -195,7 +194,7 @@ var Interpreter = function(){
 						break;
 					}
 				}
-				wrapError(function(){return branch;},
+				assert(function(){return branch;},
 					"No matching branch for "+tag,ast);
 				var newEnv = env.newScope();
 				newEnv.set(branch.id,val.value());
@@ -213,14 +212,14 @@ var Interpreter = function(){
 			case AST.kinds.CALL: {
 				var fun = run(ast.fun, env);
 				var arg = run(ast.arg, env);
-				return wrapError(function(){
+				return assert(function(){
 					return fun.call(arg);
 				},"Invalid call",ast.arg);
 			}
 			case AST.kinds.SELECT: {
 				var rec = run(ast.left, env);
 				var id = ast.right;
-				return wrapError(function() {
+				return assert(function() {
 					return rec.select(id);
 				}, "Invalid field \'" + id + "\' for record", ast);
 			}
@@ -230,7 +229,7 @@ var Interpreter = function(){
 					var field = ast.exp[i];
 					var id = field.id;
 					var value = run(field.exp, env);
-					wrapError(function() {
+					assert(function() {
 						return rec.add(id, value);
 					}, "Duplicated field \'" + id + "\' in record", field);
 				}
@@ -245,11 +244,11 @@ var Interpreter = function(){
 			}
 			case AST.kinds.LET_TUPLE: {
 				var vals = run(ast.val, env);
-				vals = wrapError(function(){
+				vals = assert(function(){
 					return vals.values();
 				},"Invalid tuple",ast.val);
 				var ids = ast.ids;
-				wrapError( ids.length === vals.length,"Tuple size mismatch",ast.val);
+				assert( ids.length === vals.length,"Tuple size mismatch",ast.val);
 				var newEnv = env;
 				newEnv = env.newScope();
 				for (var i = 0; i < vals.length; ++i) {
@@ -263,16 +262,6 @@ var Interpreter = function(){
 			case AST.kinds.SHARE: 
 				return new Record();
 
-			case AST.kinds.PROGRAM:{
-				if( ast.imports !== null ){
-					var libs = ast.imports;
-					for( var i=0; i<libs.length; ++i ){
-						var lib = libs[i].substring(1,libs[i].length-1);
-						wrapError( loadCode(lib,env),"Invalid import: "+lib,ast );
-					}
-				}
-				// intentionally fall through
-			}
 			case AST.kinds.CAP_STACK:
 			case AST.kinds.PACK:
 			case AST.kinds.FORALL:
@@ -287,13 +276,31 @@ var Interpreter = function(){
 			// primitive javascript types.
 				return eval(ast.text);
 			default:
-				wrapError(false,"Assertion Error "+ast.kind,ast);
+				assert(false,"Assertion Error "+ast.kind,ast);
 				break;
 		}
 
 	}
-
-	return function(ast){
-		return run( ast, new Heap(null) );
-	}
-}
+	
+	exports.run = function( ast, loader ){
+		assert( ast.kind === AST.kinds.PROGRAM, 'Error @run', ast );
+		
+		var heap = new Heap(null);
+		// only needs to look at imports, not typedefs.
+		
+		if( ast.imports !== null ){
+		 	// loader does not need to be provided, but all imports are errors	
+			assert( loader, 'Error @run missing import loader', ast );
+			var libs = ast.imports;
+			for( var i=0; i<libs.length; ++i ){
+				// remove initial and ending quotes of the import string
+				var lib = libs[i].substring(1,libs[i].length-1);
+				assert( loader( lib, heap, exports ),
+					"Invalid import: "+lib, ast );
+			}
+		}
+		return run( ast.exp, heap );
+	};
+	
+	return exports;
+})(AST,assertF); // required globals

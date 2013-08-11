@@ -97,7 +97,7 @@ module('Parser');
 		}
 	});
 
-var interpreter = Interpreter();
+var interpreter = Interpreter.run;
 
 module('Interpreter Tests');
 	test( "Runs Examples", function() {

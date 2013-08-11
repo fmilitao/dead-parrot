@@ -1,3 +1,10 @@
+/* 
+ * GLOBALS used:
+ * 	- AST (for ast node kinds and creating nodes)
+ *  - ErrorWrapper
+ *  - assertf
+ *  - Parser (...the actual parser for the language)
+ */
 
 // http://www.gnu.org/software/bison/manual/html_node/Actions-and-Locations.html#Actions-and-Locations 
 var AST = new function(){
@@ -242,12 +249,12 @@ var AST = new function(){
 
 }();
 
-var ErrorWrapper = function(msg,kind,ast,debug){
+var ErrorWrapper = function(msg,kind,ast,debug,stack){
 	this.message = msg;
 	this.kind = kind;
 	this.ast = ast;
 	this.debug = debug;
-	this.stack = new Error().stack.toString();
+	this.stack = stack || new Error().stack.toString();
 }
 
 // convenient assert function to wrap errors
@@ -283,18 +290,12 @@ var Parser = function(file){
 			try{
 				return parser.parse(source);
 			}catch(e){
-				throw {
-					message : e.message,
-					kind: 'Parse Error',
-					ast: { line: parser.lexer.yylineno,
-							col: undefined },
-					debug: e,
-					stack : e.stack
-				};
+				throw new ErrorWrapper( e.message, 'Parse Error',
+					{ line: parser.lexer.yylineno, col: undefined },
+					e, e.stack );
 			}
 		};
 	}
-
 
 	var parser = null;
     var Jison = require('jison'), bnf = require('jison/bnf');
