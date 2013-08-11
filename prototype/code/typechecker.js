@@ -1,11 +1,17 @@
-/*
- * REQUIRED Global variables:
+/**
+ * Notes:
+ * 	- syntax direct alternatives using: @p Expression. Later this can be 
+ * replaced with just linear search for the correct way to open an (+) type.
+ * 
+ * REQUIRED Global variables (all declared in parser.js):
  * 	- AST.kinds, for all AST case analysis needs.
- *  - assertF, for asserting typing conditions.
+ *  - assertf, for error handling/flagging.
  */
 
-var TypeChecker = function(){
+var TypeChecker = (function(AST,assertF){
 
+	var exports = {};
+	
 	var assert = function(f,msg,ast){
 		return assertF('Type error',f,msg,ast);
 	}
@@ -246,11 +252,7 @@ var TypeChecker = function(){
 		};
 	}();
 	
-	//
-	// Utils
-	//
-	
-	
+	// this is a "fake" type that is just convenient
 	var DelayedApp = function(){
 		var type = addType('DelayedApp');
 		
@@ -261,6 +263,29 @@ var TypeChecker = function(){
 			this.id = function(){ return app_type; }
 		};
 	}();
+	
+	exports.types = types;
+	exports.factory = { // this looks dumb... how to improve?
+		FunctionType : FunctionType, 
+		BangType : BangType,
+		SumType : SumType,
+		StarType : StarType,
+		AlternativeType : AlternativeType,
+		ForallType : ForallType,
+		ExistsType : ExistsType,
+		RecordType : RecordType,
+		UnitType : UnitType,
+		NoneType : NoneType,
+		TupleType : TupleType,
+		ReferenceType : ReferenceType,
+		StackedType : StackedType,
+		CapabilityType : CapabilityType,
+		LocationVariable : LocationVariable,
+		TypeVariable : TypeVariable,
+		PrimitiveType : PrimitiveType,
+		RecursiveType : RecursiveType,
+		DelayedApp : DelayedApp
+	};
 
 	//
 	// VISITORS
@@ -2544,75 +2569,34 @@ var TypeChecker = function(){
 
 	}
 	
-	var printEnvironment = function(env,ast,pos){
-		var gamma = [];
-		var delta = [];
-		var visited = [];
-		
-		env.visit( true, // visit all elements 
-		function(id,val,isCap,isType){
-			// if duplicated do not print, this may happen due to
-			// stack of environments for names (i.e. non type/loc vars).
-			if( visited.indexOf(id) !== -1 )
-				return;
-			
-			if( isCap ){
-				delta.push( val.toHTML() );
-				return;
-			}
-			
-			// only non-caps may not be repeated, since caps have null 'id'
-			visited.push(id);
-			
-			if( isType ){
-				// is a type/location variable
-				if( val.type() === types.LocationVariable ){
-					gamma.push('<span class="type_location">'+val.name()+'</span>: <b>loc</b>');
-					return;
-				}
-				if( val.type() === types.TypeVariable ){
-					gamma.push('<span class="type_variable">'+val.name()+'</span>: <b>type</b>');
-					return;
-				}
-			}
-			
-			if( val.type() === types.BangType ){
-				gamma.push('<span class="type_name">'+id+'</span>'+": "+val.inner().toHTML());
-				return;
-			}			
-			// FIXME problem on priting multiple levels of capabilities
-			// FIXME is it possible to delete twice if at multiple levels??
-			delta.push('<span class="type_name">'+id+'</span>'+": "+val.toHTML());
-		});
-		
-		gamma.sort(); // to ensure always the same order
-		gamma = gamma.join(',\n    ');
-		
-		delta.sort(); // ...same order
-		delta = delta.join(',\n    ');
-	
-		return "@"+(ast.line+1)+":"+ast.col+' '+ast.kind+"\n\u0393 = "+gamma+"\n"+
-			   "\u0394 = "+delta;
-	}
-	
-	
 	var type_info;
 	var unique_counter;
 	var typedefs;
 
-	return function(ast,typeinfo){
+	exports.check = function(ast,typeinfo,loader){
+		// stats gathering
 		var start = new Date().getTime();
+		type_info = [];
 		
 		try{
-			assert( ast.kind === AST.kinds.PROGRAM, 'Failed program assertion', ast );
+			assert( ast.kind === AST.kinds.PROGRAM, 'Error @check', ast );
 				
 			// reset typechecke's state.
-			var env = new Environment(null);
-			type_info = [];
 			unique_counter = 0;
 			typedefs = {};
+			var env = new Environment(null);
 				
-			assert( ast.imports === null , 'FIXME: imports not done.' , ast);
+			if( ast.imports !== null ){
+			 	// loader does not need to be provided, but all imports are errors
+				assert( loader !== undefined, 'Error @check missing import loader', ast );
+				var libs = ast.imports;
+				for( var i=0; i<libs.length; ++i ){
+					// remove initial and ending quotes of the import string
+					var lib = libs[i].substring(1,libs[i].length-1);
+					assert( loader( lib, env, exports ),
+						"Invalid import: "+lib, ast );
+				}
+			}
 				
 			if( ast.typedefs !== null ){
 				for(var i=0;i<ast.typedefs.length;++i){
@@ -2626,84 +2610,12 @@ var TypeChecker = function(){
 			
 			return check( ast.exp, env );
 		} finally {
-			var end = new Date().getTime();
-			var diff = end-start;
-			// IMPROVE: this should move elsewhere (problem on testing BangType,
-			// etc while in other scopes...)
 			if( typeinfo ){
-				typeinfo.info = function(pos){
-					var ptr = null;
-					var indexes = [];
-					
-					// search for closest one
-					for( var i in type_info ){
-						var ast = type_info[i].ast;
-						if( ptr === null ){
-							ptr = i;
-						} else {
-							var old = type_info[ptr].ast;
-							
-							var dy = Math.abs(ast.line-pos.row);							
-							var _dy = Math.abs(old.line-pos.row);
-							
-							if( dy < _dy ){
-								// if closer, pick new one
-								ptr = i;
-								indexes = [i];
-								continue;
-							}
-							
-							// on same line
-							if( dy === _dy ){
-								var dx = Math.abs(ast.col-pos.column);
-								var _dx = Math.abs(old.col-pos.column);
-									
-								// if closer, pick new one
-								if( dx < _dx ){
-									ptr = i;
-									indexes = [i];
-									continue;
-								}else{
-									if( dx === _dx ){
-										// one more
-										indexes.push(i);
-										continue;
-									}	
-								}
-							}
-						}
-						/*
-						if( ( ast.line < pos.row || 
-					 		( ast.line === pos.row &&
-								ast.col <= pos.column ) ) ){
-					 			ptr = i;
-					 	}*/
-					}
-					
-					if( ptr === null || indexes.length === 0 )
-						return '';
-			
-					var msg = '<b title="click to hide">Type Information</b><br/>'+
-						'('+diff+'ms)';
-					
-					for(var i=0;i<indexes.length;++i){
-						var ptr = indexes[i];
-						// minor trick: only print if the same kind since alternatives
-						// are always over the same kind...
-						// IMPROVE: is there a better way to display this information?
-						if( type_info[ptr].ast.kind !==
-							type_info[indexes[0]].ast.kind )
-							continue;
-						msg += '<br/>'+printEnvironment(
-							type_info[ptr].env,
-							type_info[ptr].ast, pos
-						);
-					}
-					
-					return msg;
-				}
+				typeinfo.diff = (new Date().getTime())-start;
+				typeinfo.info = type_info; 
 			}
 		}
 
 	};
-}
+	return exports;
+})(AST,assertF); // required globals

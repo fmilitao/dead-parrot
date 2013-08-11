@@ -12,6 +12,8 @@
   - examples files are fetched dynamically (AJAX), may be slow.
 */
 
+import "stdlib"
+
 let x = { a = 2, b = "Hello World!", c = false } in
 	// functional value and application
 	fun( _ : [] ).(x.b) {}

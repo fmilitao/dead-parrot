@@ -99,7 +99,7 @@ var Interpreter = (function( AST, assertF ){
 		}
 	}
 
-	exports.values = {
+	exports.factory = {
 		Function: Function, 
 		Record: Record,
 		Tuple: Tuple,
@@ -194,8 +194,7 @@ var Interpreter = (function( AST, assertF ){
 						break;
 					}
 				}
-				assert(function(){return branch;},
-					"No matching branch for "+tag,ast);
+				assert( branch, "No matching branch for "+tag, ast );
 				var newEnv = env.newScope();
 				newEnv.set(branch.id,val.value());
 				return run(branch.exp, newEnv);
@@ -290,7 +289,7 @@ var Interpreter = (function( AST, assertF ){
 		
 		if( ast.imports !== null ){
 		 	// loader does not need to be provided, but all imports are errors	
-			assert( loader, 'Error @run missing import loader', ast );
+			assert( loader !== undefined, 'Error @run missing import loader', ast );
 			var libs = ast.imports;
 			for( var i=0; i<libs.length; ++i ){
 				// remove initial and ending quotes of the import string

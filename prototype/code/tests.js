@@ -119,7 +119,7 @@ module('Interpreter Tests');
 		}
 	});
 	
-var typechecker = TypeChecker();
+var typechecker = TypeChecker.check;
 
 module('Typechecker Tests');
 	test( "Typecheck Examples", function() {
