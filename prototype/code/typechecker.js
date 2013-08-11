@@ -33,7 +33,6 @@ var TypeChecker = (function(AST,assertF){
 	var inherit = function(obj,type){
 		obj.type = function(){ return type; }
 		obj.toString = function() { return toString(obj); }
-		obj.toHTML = function(){ return toHTML(obj); }
 	}
 
 	var FunctionType = function() {
@@ -367,6 +366,7 @@ var TypeChecker = (function(AST,assertF){
 			}
 		};
 
+	// required also for testing
 	var toString = function (t){
 		switch ( t.type() ){
 			case types.FunctionType:
@@ -430,116 +430,6 @@ var TypeChecker = (function(AST,assertF){
 				return 'none';
 			case types.DelayedApp:
 				return toString(t.inner())+'['+toString(t.id())+']';
-			default:
-				assert( false, "Assertion error on " +t.type() );
-				break;
-			}
-	};
-	
-	// defines which types get wrapping parenthesis
-	var _toHTML = function(t){
-		if( t.type() === types.ReferenceType ||
-			t.type() === types.FunctionType ||
-			t.type() === types.StackedType ||
-			t.type() === types.StarType || 
-			t.type() === types.AlternativeType ||
-			t.type() === types.SumType ){
-				return '('+toHTML(t)+')';
-			}
-		return toHTML(t);
-	}
-	
-	var wq = function(t){ return '<span class="q">'+t+'</span>'; } // changer
-	var wQ = function(t){ return '<span class="Q">'+t+'</span>'; } // trigger
-	
-	var toHTML = function (t){
-		switch ( t.type() ){
-			case types.FunctionType:
-				return wq( 
-					wq( _toHTML(t.argument()) ) +
-					wQ( " &#x22b8; " ) +
-					wq( _toHTML(t.body()) )
-					);
-			case types.BangType:{
-				var inner = t.inner();	
-				return wq( wQ("!") + wq(_toHTML(t.inner())) );
-			}
-			case types.SumType:{
-				var tags = t.tags();
-				var res = [];
-				for( var i in tags ){
-					res.push(
-						wQ( '<span class="type_tag">'+tags[i]+'</span>#' )+
-						wq( _toHTML(t.inner(tags[i])) )
-					); 
-				}	
-				return wq( res.join('+') );
-			}
-			case types.StarType:{
-				var inners = t.inner();
-				var res = [];
-				for( var i=0; i<inners.length; ++i )
-					res.push( wq( _toHTML( inners[i] ) ) ); 
-				return wq( res.join( wQ(' * ') ) );
-			}
-			case types.AlternativeType:{
-				var inners = t.inner();
-				var res = [];
-				for( var i=0; i<inners.length; ++i )
-					res.push( _toHTML( inners[i] ) ); 
-				return res.join(' &#8853; ');
-			}
-			case types.RecursiveType:
-				return '<b>rec</b> '+
-				( t.id().type() === types.LocationVariable ?
-					'<span class="type_location">' :
-					'<span class="type_variable">')
-				+t.id().name()+'</span>.'+_toHTML(t.inner());
-			case types.ExistsType:
-				return '&#8707;'+
-				( t.id().type() === types.LocationVariable ?
-					'<span class="type_location">' :
-					'<span class="type_variable">')
-				+t.id().name()+'</span>.'+_toHTML(t.inner());
-			case types.ForallType:
-				return '&#8704;'+
-				( t.id().type() === types.LocationVariable ?
-					'<span class="type_location">' :
-					'<span class="type_variable">')
-				+t.id().name()+'</span>.'+_toHTML(t.inner());
-			case types.ReferenceType:
-				return "<b>ref</b> "+
-				'<span class="type_location">'+t.location().name()+'</span>';
-			case types.CapabilityType:
-				return '<b>rw</b> '+
-				'<span class="type_location">'+t.location().name()+'</span> '+
-				toHTML(t.value());
-			case types.StackedType:
-				return wq( wq(toHTML(t.left())) + wQ(' :: ')+ wq(toHTML(t.right())) );
-			case types.RecordType: {
-				var res = [];
-				var fields = t.getFields();
-				for( var i in fields )
-					res.push('<span class="type_field">'+i+'</span>: '+toHTML(fields[i]));
-				return "["+res.join(', ')+"]";
-			}
-			case types.TupleType: {
-				var res = [];
-				var values = t.getValues();
-				for( var i in values )
-					res.push( toHTML(values[i]) );
-				return "["+res.join(', ')+"]";
-			}
-			case types.LocationVariable:
-				return '<span class="type_location">'+t.name()+'</span>';
-			case types.TypeVariable:
-				return '<span class="type_variable">'+t.name()+'</span>';
-			case types.PrimitiveType:
-				return '<b>'+t.name()+'</b>';
-			case types.NoneType:
-				return '<b>none</b>';
-			case types.DelayedApp:
-				return wq( wq( _toHTML(t.inner()) )+wQ('[')+ wq( toHTML(t.id()) )+wQ(']') );
 			default:
 				assert( false, "Assertion error on " +t.type() );
 				break;

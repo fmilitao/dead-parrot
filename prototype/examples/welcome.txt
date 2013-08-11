@@ -15,6 +15,7 @@
 import "stdlib"
 
 let x = { a = 2, b = "Hello World!", c = false } in
+	Lib.println[!int] (Lib.add 40 2);
 	// functional value and application
 	fun( _ : [] ).(x.b) {}
 end

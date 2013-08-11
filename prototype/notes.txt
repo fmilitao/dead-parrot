@@ -37,17 +37,6 @@ the type constructors should be used directly by the library.
 
 =========================================
 
-BACKTRACK on alternatives.
-	Whenever an attempt is made to read a capability that is inside an 
-alternative it will throw an exception BackTrack(id,cause) that tells that it
-requires unpacking that (+) type.
-	Each check() has a try catch. If its environment has it packed, then attempt
-if already unpacked, send it upwards.
-	Attempt to merge, if fail throw exception that the backtrack should occur in
-enclosing expression. If that fails too, and reaches top then all failed.
-
-=========================================
-
 REMEMBER:
  	- to disable chrome's cache
  	- launch 'static' on trunk/
@@ -77,7 +66,6 @@ depends on scoped types.
 =========================================
 
 LOW PRIORITY:
- - define when parentesis are needed in toHTML
  - define better parsing priorities to reduce use of parenthesis.
  	"fun( x ) . e := 2" should work directly, maybe?
  	might be messy to do with the share construct.
