@@ -1,8 +1,11 @@
 
 // NOTE READY, just parser test.
 
-typedef T = forall p.TODO
-typedef H = forall p.TODO
+typedef H = forall p.rec X.( ( rw p (Empty#[]) => rw p (Empty#[]) ; (X[p]) ) (+)
+			( rw p (Closed#[]) => none ) (+) 
+			( rw p (Node#(exists q.(X[q]))) => none ) )
+typedef T = forall p.( rw p (Empty#[]) =>
+	( (rw p (Closed#[])) (+) (rw p (Node#(exists q.H[q]))) ) )
 
 let newPipe = fun( _ : [] ).
 	// initial node to be shared:
@@ -16,9 +19,9 @@ let newPipe = fun( _ : [] ).
 				open <l2,oldlast> = !tail in
 					focus l2;
 						share l1 as (H[l1]) || (T[l1]);
-						oldlast := Node#{ e , <l1,last> };
+						oldlast := Node#{ e , <l1,last :: H[l1]> };
 					defocus;
-					tail := <l1,last>
+					tail := <l1,last :: T[l1]>
 				end
 			end,
 	
@@ -37,7 +40,7 @@ let newPipe = fun( _ : [] ).
 						Empty#_ -> // still empty, no need to change anything
 							first := Empty#{};
 							defocus;
-							head := <f1,first>; // reassign (content was/is linear type)
+							head := <f1,first :: H[f1]>; // reassign (content was/is linear type)
 							NoResult#{}
 				|		Closed#_ -> // end of pipe, pipe closed
 							delete first;
@@ -72,7 +75,9 @@ let newPipe = fun( _ : [] ).
 				Depleted#_ -> {} // pipe closed, done
 			|	Result#_ -> // ignores result
 					Rec ( reader ) // not closed
-			|	NoResult#_ -> "FIXME DIVERGE?" // FIXME error("invalid") 
+			// this should use Lib function that consumes caps and aborts at
+			// runtime? or maybe there is prettier way to signal this case.
+			|	NoResult#_ -> "FIXME DIVERGE?" // Lib.error("invalid") 
 			end
 		end
 		in

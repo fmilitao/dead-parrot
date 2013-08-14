@@ -86,6 +86,8 @@ $.ajax({
 	});
 
 var parser = Parser('code/grammar.jison');
+var interpreter = Interpreter.run;
+var typechecker = TypeChecker.check;
 
 module('Parser');
 
@@ -97,9 +99,8 @@ module('Parser');
 		}
 	});
 
-var interpreter = Interpreter.run;
-
 module('Interpreter Tests');
+
 	test( "Runs Examples", function() {
 		for( var i in examples ){
 			var test = fetchCode(examples_dir+examples[i]);
@@ -119,9 +120,10 @@ module('Interpreter Tests');
 		}
 	});
 	
-var typechecker = TypeChecker.check;
+
 
 module('Typechecker Tests');
+
 	test( "Typecheck Examples", function() {
 		for( var i in examples ){
 			var test = fetchCode(examples_dir+examples[i]);

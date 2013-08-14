@@ -1,3 +1,4 @@
+// FIXME dependent on equals function fix due to delayed type application.
 
 // Stack example
 // The example requires explicit stacking of capabilities to disambiguate

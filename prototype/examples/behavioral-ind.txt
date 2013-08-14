@@ -14,7 +14,7 @@ let newBehavior = fun( _ : [] ).
         open <p,field> = new {} in
             let method = 
         	{ // list of methods from which the behavior will be made
-    		 getInt = fun( _ : [] :: rw p int ).( !field ),
+             getInt = fun( _ : [] :: rw p int ).( !field ),
              setInt = fun( y : int :: rw p [] ).( field := y ),
              dispose = fun( _ : [] :: rw p int ).( delete field )
     		} in
@@ -52,7 +52,7 @@ let newBehavior = fun( _ : [] ).
         !x.setInt 0;
         !x.getInt {};
         !x.dispose {};
-        delete x // note that the eval yield the old function
+        delete x // note that the eval yields the old function
         // the value is there but we have no permission to run it!
         // the type check blocks its use since it is no longer safe.
     end

@@ -1,8 +1,10 @@
 
 // NOTE READY, just parser test.
 
-typedef Retry = forall p.TODO
-typedef OneUse = forall p.TODO
+typedef Retry = forall p.rec X.( ( rw p (Held#[]) => rw p (Held#[]) ; X )
+	(+) ( rw p (Released#[]) => none ) )
+	
+typedef OneUse = forall p.( rw p (Held#[]) => rw p (Released#int) )
 
 open <t,x> = new Held#{} in
 	share t as (Retry[t]) || (OneUse[t]);

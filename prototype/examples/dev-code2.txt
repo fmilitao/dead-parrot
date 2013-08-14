@@ -1,10 +1,4 @@
 
-typedef BUGGY = rec X.forall p.( [int,!ref p, exists q.X[q] ] )
+typedef A = int => int ; int
 
-// test equals on unfolded stuff.
-<t>fun( x : BUGGY[t] ).
-	let [a,b,c] = x in
-		open <q,y> = c in
-         <BUGGY[q],y>
-      end
-	end
+"free"

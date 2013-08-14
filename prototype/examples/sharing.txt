@@ -1,8 +1,8 @@
 
 // NOTE READY, just parser test.
 
-typedef Alias = forall t.BLAH
-
+typedef Alias = forall t.( ( rw t (Held#[]) => rw t (Released#int) ) 
+	(+) ( rw t (Released#int) => none ) )
 
 open <t,x> = new Held#{} in
 	share t as (Alias[t]) || (Alias[t]);

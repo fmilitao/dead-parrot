@@ -1,74 +1,84 @@
-FIXME: exploits a visibility bug...
+FIXME:
 
-IS THIS A BUG? (i.e. unsound??)
+ - equals is broken due to delayed type application.
+ 	Rethink algorithm to be clearer too?
+ - join typing environments with (+)
+ - make sure packing an alternative cannot obey multiple alternatives
+ simultaneously? is this important? such alternative cannot
+ (logically) occur!
 
-//FAIL Invalid delete
-//FAIL HOW TO TESTS THIS??
+TODO:
 
-open <t,x> = new 0 in
-	let f = fun( _ : [] :: rw t int ).
-		( delete x; delete x; 0 )
-		// FIXME second delete should not be allowed!!
-	in
-		f {}
-	end
-end
+# Notes on typing algorithm:
+ - try to stack all "touched" capabilities at the end of a function.
+ - check that OPEN does not produce a resulting environment/type that
+ depends on scoped types.
+ - packing up to subtyping, instead of equals?
+ list example would be made slightly simpler, maybe?
+
+# ensure location variables cannot be hidden, or renamed.
+	If the variable is hidden it may cause leaks, rename is always possible
+	anyway...
+
+# IDIOT YOU ARE USING RECURSION WHEN WHILE IS ENOUGH
+
+# clean up Environment code, it's currently messy.
+
+# rethink collisions, specially with capabilities.
+
+# stacking alternatives:
+ - other alternatives must be invalid, or there could be duplication of caps.
+ - improve mergin so that differences are grouped in *-type and then (+). This
+ 	will then allow merging environments with different caps.
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+PEDNING FIXES:
+
+1. Capability visibility bug (?).
+	The enclosing capability may become visible after the assumed capability is
+	consumed.
+	Not sure if this is actually unsound (need to look at proof and see wahy 
+	such assumption was needed), or if it can be left there since it just
+	creates a type that consumes a capability making it impossible to call such
+	function (since the unique capability is no longer available).
+	To show unsoundness test should typecheck but runtime abort due to deleting
+	the same location twice (... is this even possible?).
+
+	Attempt to write test case:
+		open <t,x> = new 0 in
+			let f = fun( _ : [] :: rw t int ).
+				( delete x; delete x; 0 )
+				// FIXME second delete should not be allowed?!
+			in
+				f {} // hmmm cannot call since capability was consumed by 'f'
+			end
+		end
 	
+2. Non-syntax directed alternative open.
+	Currently the typechecker requires a "@p E" to know precisely where an
+	alternative should be broken down into its separate bits. However, this is
+	just a simplification since the typechecker could employ a search algorithm
+	to check all possible different alternatives until finding one that checks
+	such code. (this is decidable since there is a finite number of expressions
+	and the alternatives also list a finite number of elements)
 
+3. Define convenient parsing priorities (to recude use of parenthesis).
+	This is needed, but boring, since it is not all that clear which changes
+	will potentially cause conflicts in the grammar making this a try-fail
+	change...
+	Grammar should probably allow:
+ 		fun( x : ... ) . e := 2
+ 	to work directly? What are some convenient priorities?
 
-// note unfolds on use.
-
---- is it possible to delete twice if at multiple levels??
-
---- clean up typing environment code.
---- how to handle collisions? specially with capabilities?
---- merging environments with different caps
---- stacking alternatives.
-	3. Add alternatives, will require multiple typing environments. Perhaps
-	even multiple return types for each of the different alternatives.
-	4. Find a better way to merge environment and types, so as to allow
-	alternatives.
+4. Syntax sugar for multi-open?
+	open < a, < b, < c , < d , x > > > > = x in ... end
 	
-5. Add rely and guarantee types. Including focus, defocus, sharing and
-framing of the defocus-guarantee.
-6. Add a conevienet way to type check a stdlib. This means that we need to
-allow types to be created outside the scope of the function below. Probably
-the type constructors should be used directly by the library.
-
-=========================================
+===============================================================================
 
 REMEMBER:
  	- to disable chrome's cache
  	- launch 'static' on trunk/
- 	
- 	FIXME: recursive types on subtyping, equals and unAll may be infinite...
- 	- IDIOT YOU ARE USING RECURSION WHEN WHILE IS ENOUGH...
- 	
-TODO:
-	-- packing up to subtyping, instead of equals? list-adt example would
-	be made slightly simpler, I guess.
-	-- multi-open and multi-pack syntax sugar? use arrays of stuff
-	open <a,b,c,d,x> = <p,q,X, ... >
-	
-=========================================
-
-- location variables cannot be hidden, or renamed
-- try to stack all "touched" capabilities at the end of a method.
-
-- Typing algorithm:
-	- name collisions should not be allowed, no crap about hidding.
-(if the variable is hidden it may cause leaks)... renaming is
-always possible anyway.
-
-- check that OPEN does not produce a resulting environment/type that
-depends on scoped types.
-	
-=========================================
-
-LOW PRIORITY:
- - define better parsing priorities to reduce use of parenthesis.
- 	"fun( x ) . e := 2" should work directly, maybe?
- 	might be messy to do with the share construct.
 
 CODE STYLE:
  	--- ALWAYS USE IDENTITY === and !==

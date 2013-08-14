@@ -251,6 +251,28 @@ var TypeChecker = (function(AST,assertF){
 		};
 	}();
 	
+	var RelyType = function(){
+		var type = addType('RelyType');
+		
+		return function(rely,guarantee){
+			inherit( this, type );
+
+			this.rely = function(){ return rely; }
+			this.guarantee = function(){ return guarantee; }
+		};
+	}();
+	
+	var GuaranteeType = function(){
+		var type = addType('GuaranteeType');
+		
+		return function(guarantee,rely){
+			inherit( this, type );
+			
+			this.rely = function(){ return rely; }
+			this.guarantee = function(){ return guarantee; }
+		};
+	}();
+	
 	// this is a "fake" type that is just convenient
 	var DelayedApp = function(){
 		var type = addType('DelayedApp');
@@ -283,6 +305,8 @@ var TypeChecker = (function(AST,assertF){
 		TypeVariable : TypeVariable,
 		PrimitiveType : PrimitiveType,
 		RecursiveType : RecursiveType,
+		RelyType : RelyType,
+		GuaranteeType : GuaranteeType,
 		DelayedApp : DelayedApp
 	};
 
@@ -306,6 +330,12 @@ var TypeChecker = (function(AST,assertF){
 					isFresh( t.body(), loc );
 			case types.BangType:
 				return isFresh( t.inner(), loc );
+			case types.RelyType: {
+				return isFresh(t.rely()) && isFresh(t.guarantee());
+			}
+			case types.GuaranteeType: {
+				return isFresh(t.guarantee()) && isFresh(t.rely());
+			}
 			case types.SumType:{
 				var tags = t.tags();
 				for( var i in tags ){
@@ -378,6 +408,12 @@ var TypeChecker = (function(AST,assertF){
 					inner.type() === types.StackedType )
 					return "!("+toString(t.inner())+")";
 				return "!"+toString(t.inner());
+			}
+			case types.RelyType: {
+				return toString(t.rely())+' => '+toString(t.guarantee());
+			}
+			case types.GuaranteeType: {
+				return toString(t.guarantee())+' ; '+toString(t.rely());
 			}
 			case types.SumType:{
 				var tags = t.tags();
@@ -470,6 +506,12 @@ var TypeChecker = (function(AST,assertF){
 				return new FunctionType( rec(t.argument()), rec(t.body()) );
 			case types.BangType:
 				return new BangType( rec(t.inner()) );
+			case types.RelyType: {
+				return new RelyType( rec(t.rely()), rec(t.guarantee()) );
+			}
+			case types.GuaranteeType: {
+				return new GuaranteeType( rec(t.guarantee()), rec(t.rely()) );
+			}
 			case types.SumType:{
 				var sum = new SumType();
 				var tags = t.tags();
@@ -555,9 +597,12 @@ var TypeChecker = (function(AST,assertF){
 					r.add( rec(fs[i]) );
 				return r;
 			}
-			case types.PrimitiveType:
+			// these remain UNCHANGED
+			// note that Location/Type Variable is teste ABOVE, not here
 			case types.LocationVariable:
 			case types.TypeVariable:
+			case types.PrimitiveType:
+			case types.NoneType:
 				return t;
 			case types.DelayedApp: {
 				var inner = rec(t.inner());
@@ -598,6 +643,7 @@ var TypeChecker = (function(AST,assertF){
 	 * @return {Boolean} if the types are equal up to renaming.
 	 */
 	var equals = function(a,b){
+
 		// recursion table so as to remember those pairs of types that were
 		// already seen in order to avoid unending executions.
 		var visited = [];
@@ -616,6 +662,8 @@ var TypeChecker = (function(AST,assertF){
 		// and also uses temporary environments to remember type variables, etc.
 		var equalsTo = function( t1, m1, t2, m2 ){
 			//console.log( t1+' ?? '+t2 );
+//console.debug( t1 +' \n\t ' +t2 );
+//console.debug( t1.type() +' \n\t ' +t2.type() );
 			
 			if( t1 === t2 ) {// exactly the same
 				//console.log( t1+' same '+t2 );
@@ -650,36 +698,12 @@ var TypeChecker = (function(AST,assertF){
 				return equalsTo( t1, m1, t2, m2 );
 			}
 			
-			/*FIXME
-			var del1 = t1.type() === types.DelayedApp;
-			var del2 = t2.type() === types.DelayedApp;
-			if( del1 ^ del2 ){
-				
-				//push( t1, del2 ); // assume they are the same
-				// if this is wrong, then it must be cause their internals
-				// are different. Therefore, it will fail elsewhere and it is
-				// OK to assume they are equal in here.
-
-				if( del1 ){
-					m1 = m1.newScope();
-					m1.set( t1.id().name(), t1 );
-					t1 = t1.inner();
-				}
-				if( rec2 ){
-					m2 = m2.newScope();
-					m2.set( t2.id().name(), t2 );
-					t2 = t2.inner();
-				}
-				
-				return equalsTo( t1, m1, t2, m2 );
-			}*/
-			
 			var var1 = t1.type() === types.TypeVariable;
 			var var2 = t2.type() === types.TypeVariable;
 			if( var1 ^ var2 ){
 				
 				// in here?? the next line makes no sense...
-				//push( t1, t2 ); // assume they are the same
+				// push( t1, t2 ); // assume they are the same
 
 				if( var1 ){
 					t1 = m1.get( t1.name() );
@@ -696,6 +720,62 @@ var TypeChecker = (function(AST,assertF){
 				
 				return equalsTo( t1, m1, t2, m2 );
 			}
+			
+			var del1 = t1.type() === types.DelayedApp;
+			var del2 = t2.type() === types.DelayedApp;
+			if( del1 ^ del2 ){
+				
+				//push( t1, t2 );
+
+				if( del1 ){
+					// special (ad-hoc?) lookahead
+					if( t1.inner().type() === types.RecursiveType &&
+						t1.inner().inner().type() === types.ForallType ){				
+						var v = t1.id();
+						var rec = t1.inner();
+						var forall = rec.inner();
+						
+						// recursive type
+						m1 = m1.newScope();
+						m1.set( rec.id().name(), rec );
+						
+						// forall
+						m1 = m1.newScope();
+						m1.set( forall.id().name(), v );
+	
+						t1 = forall.inner();
+
+						return equalsTo( t1, m1, t2, m2 );
+					}
+				}
+				
+				if( del2 ){
+					// special (ad-hoc?) lookahead
+					if( t2.inner().type() === types.RecursiveType &&
+						t2.inner().inner().type() === types.ForallType ){				
+console.debug( t1 +' \n\tVS ' +t2 );
+						var v = t2.id();
+						var rec = t2.inner();
+						var forall = rec.inner();
+						
+						// recursive type
+						m2 = m2.newScope();
+						m2.set( rec.id().name(), rec );
+						
+						// forall
+						m2 = m2.newScope();
+						m2.set( forall.id().name(), v );
+						// what if it is a type variable?
+	
+						t2 = forall.inner();
+console.debug( visited );
+						var x = equalsTo( t1, m1, t2, m2 );
+console.debug( x ); // FIXME?
+						return x;
+					}
+				}
+			}
+			
 			// ----
 			
 			if( t1.type() !== t2.type() ){
@@ -710,6 +790,14 @@ var TypeChecker = (function(AST,assertF){
 						equalsTo( t1.body(), m1, t2.body(), m2 );
 				case types.BangType:
 					return equalsTo( t1.inner(), m1, t2.inner(), m2 );
+				case types.RelyType: {
+					return equalsTo( t1.rely(), m1, t2.rely(), m2 ) &&
+						equalsTo( t1.guarantee(), m1, t2.guarantee(), m2 );
+				}
+				case types.GuaranteeType: {
+					return equalsTo( t1.guarantee(), m1, t2.guarantee(), m2 ) &&
+						equalsTo( t1.rely(), m1, t2.rely(), m2 );
+				}
 				case types.SumType: {
 					var t1s = t1.tags();
 					var t2s = t2.tags();
@@ -805,13 +893,27 @@ var TypeChecker = (function(AST,assertF){
 				case types.LocationVariable:
 					var a1 = m1.get( t1.name() );
 					var a2 = m2.get( t2.name() );
-					
+
+console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
+//console.debug( !a2 || m2.get( a2.name() ));
+
 					// note it also returns 'undefined' when name not bound
 					// thus, if the variable is unknown (i.e. declared in the
 					// context and not in the type) we can only compare its name
 					if( a1 === undefined && a2 === undefined )
 						return t1.name() === t2.name();
 					
+					/*
+					if( a1 === undefined ){
+						return equalsTo( t1, m1, a2, m2 );
+					}
+					if( a2 === undefined )
+						return equalsTo( a1, m1, t2, m2 );
+					*/
+					if( a1 === undefined ^ a2 === undefined ){
+						return false; // FIXME buggy...
+					}
+
 					return equalsTo( a1, m1, a2, m2 );
 				case types.DelayedApp:{
 					return equalsTo( t1.inner(), m1, t2.inner(), m2 ) &&
@@ -823,6 +925,7 @@ var TypeChecker = (function(AST,assertF){
 				}
 		}
 
+//console.log( a +' \n\tVS ' +b );
 		return equalsTo( a, new Environment(null), b, new Environment(null) );
 	};
 	
@@ -939,6 +1042,14 @@ var TypeChecker = (function(AST,assertF){
 					return subtype( t1.inner(), m1, t2.inner(), m2 );
 				case types.ReferenceType:
 					return subtype( t1.location(), m1, t2.location(), m2 );
+				case types.RelyType: {
+					return subtype( t1.rely(), m1, t2.rely(), m2 ) &&
+						subtype( t1.guarantee(), m1, t2.guarantee(), m2 );
+				}
+				case types.GuaranteeType: {
+					return subtype( t1.guarantee(), m1, t2.guarantee(), m2 ) &&
+						subtype( t1.rely(), m1, t2.rely(), m2 );
+				}
 				case types.FunctionType:
 					return subtype( t2.argument(), m2, t1.argument(), m1 )
 						&& subtype( t1.body(), m1, t2.body(), m2 );
@@ -1885,6 +1996,8 @@ var TypeChecker = (function(AST,assertF){
 				var exp = check(ast.exp, env);
 				var packed = check(ast.id, env);
 
+//console.debug( exp +' \n\t<< '+ packed );
+
 				// CAREFUL 'ast.label' is left as null when unspecified which is
 				// used on the constructors below to pick a fresh name.
 				var label = ast.label;
@@ -2223,7 +2336,52 @@ var TypeChecker = (function(AST,assertF){
 				return rec;
 			}
 			
+			case AST.kinds.SHARE: {
+				var locs = ast.locs;
+				var left = check( ast.a, env );
+				var right = check( ast.b, env );
+				/* TODO:
+				 *  - protocol conformance, go through all possible
+				 * interleavings in composed type and ensure all alternatives
+				 * are allowed.
+				 */
+				assert(false,'NOT DONE',ast); // FIXME
+			} 
+			
+			case AST.kinds.FOCUS: {
+				var locs = ast.locs;
+				// locations to search for in the env
+				/* TODO:
+				 *  - fetch shared type, access rely, frame possible 
+				 * interferences behind guarantee. 
+				 */
+				assert(false,'NOT DONE',ast); // FIXME
+			} 
+			
+			case AST.kinds.DEFOCUS: {
+				// no inner expression
+				/* TODO:
+				 *  - unframe accessible guarantee. 
+				 */
+				assert(false,'NOT DONE',ast); // FIXME
+			} 
+			
 			// TYPES
+			case AST.kinds.RELY_TYPE: {
+				var rely = check( ast.left, env );
+				var guarantee = check( ast.right, env );
+				if( guarantee.type() !== types.GuaranteeType ){
+					guarantee = new GuaranteeType( guarantee, NoneType );
+				}
+				return new RelyType( rely, guarantee );
+			}
+			
+			case AST.kinds.GUARANTEE_TYPE: {
+				var guarantee = check( ast.left, env );
+				var rely = check( ast.right, env );
+				return new GuaranteeType( guarantee, rely );
+			}
+			
 			case AST.kinds.REF_TYPE: {
 				var id = ast.text;
 				var loc = env.getType( id );
@@ -2462,7 +2620,7 @@ var TypeChecker = (function(AST,assertF){
 	var type_info;
 	var unique_counter;
 	var typedefs;
-
+	
 	exports.check = function(ast,typeinfo,loader){
 		// stats gathering
 		var start = new Date().getTime();
@@ -2495,6 +2653,7 @@ var TypeChecker = (function(AST,assertF){
 						'Duplicated typedef: '+type.id, type )
 					// map of type names to typechecker types.
 					typedefs[type.id] = check( type.type, env );
+console.debug( typedefs[type.id].toString() );
 				}
 			}
 			

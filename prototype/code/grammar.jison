@@ -86,15 +86,19 @@ type_root :
 	;
 
 type_fun :
-	  type_cap
-	| type_fun '-o' type_cap
+	  type_rg
+	| type_fun '-o' type_rg
 		{ $$ = AST.makeFunType($1,$3,@$); }
-	| type_fun '=>' type_cap
-		{ $$ = AST.makeRelyType($1,$3,@$); }
-	| type_fun ';' type_cap
-		{ $$ = AST.makeGuaranteeType($1,$3,@$); }
 	| type_fun '[' type_root ']'
 		{ $$ = AST.makeDelayableTypeApp($1,$3,@$); }
+	;
+
+type_rg :
+	  type_cap
+	| type_cap '=>' type_rg
+		{ $$ = AST.makeRelyType($1,$3,@$); }
+	| type_cap ';' type_rg
+		{ $$ = AST.makeGuaranteeType($1,$3,@$); }
 	;
 
 type_cap :
