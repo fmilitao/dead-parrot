@@ -363,8 +363,8 @@ var toHTML = function (t){
 			var inners = t.inner();
 			var res = [];
 			for( var i=0; i<inners.length; ++i )
-				res.push( _toHTML( inners[i] ) ); 
-			return res.join(' &#8853; ');
+				res.push( wq( _toHTML( inners[i] ) ) ); 
+			return wq( res.join( wQ(' &#8853; ') ) );
 		}
 		case types.RecursiveType:
 			return '<b>rec</b> '+

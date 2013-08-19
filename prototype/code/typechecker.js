@@ -35,6 +35,27 @@ var TypeChecker = (function(AST,assertF){
 		obj.toString = function() { return toString(obj); }
 	}
 
+	// types factory
+	var fct = {};
+	var newType = function( type, constructor ){
+		assert( !types.hasOwnProperty(type) && !fct.hasOwnProperty(type),
+			'Error duplicated type: '+type );
+		
+		var wrp = function(){
+			// add common methods by wrapping constructor
+			this.type = function(){ return type; }
+			this.toString = function() { return toString(this); }
+			// now call constructor with the supplied arguments
+			constructor.apply(this,arguments);
+		};
+
+		// later it may be useful to change away from strings, but for now
+		// they are very useful when debugging problems.
+		types[type] = type;
+		fct[type] = wrp;
+		return wrp;
+	};
+
 	var FunctionType = function() {
 		var type = addType('FunctionType');
 	
@@ -44,6 +65,14 @@ var TypeChecker = (function(AST,assertF){
 			this.body = function(){ return body; }
 		};
 	}();
+	
+	/*
+	newType('FunctionType',
+		function( argument, body ) {
+			this.argument = function(){ return argument; }
+			this.body = function(){ return body; }
+		} );
+	*/
 	
 	var BangType = function(){
 		var type = addType('BangType');
@@ -151,10 +180,8 @@ var TypeChecker = (function(AST,assertF){
 			}
 		};
 	}();
-
-	var UnitType = new BangType(new RecordType());
 	
-	var NoneType = new function(){
+	var NoneType = new function(){ // FIXME how to do singleton with new style?
 		var type = addType('NoneType');
 		
 		inherit( this, type );
@@ -295,7 +322,6 @@ var TypeChecker = (function(AST,assertF){
 		ForallType : ForallType,
 		ExistsType : ExistsType,
 		RecordType : RecordType,
-		UnitType : UnitType,
 		NoneType : NoneType,
 		TupleType : TupleType,
 		ReferenceType : ReferenceType,
@@ -314,32 +340,31 @@ var TypeChecker = (function(AST,assertF){
 	// VISITORS
 	//
 	
-//TODO	 * Should this be named 'isFree'?
 	/**
-	 * Searchs types 't' for location variable 'loc'. isFresh if NOT present.
+	 * Searchs types 't' for location variable 'loc'. isFree if NOT present.
 	 * @param {Type} t that is to be traversed
 	 * @param {LocationVariable,TypeVariable} loc that is to be found
 	 * @return {Boolean} true if location variableis NOT in type.
 	 * Note that all variable names collide so that checking for 
 	 * LocationVariable versus TypeVariable is not necessary.
 	 */
-	var isFresh = function (t,loc){
+	var isFree = function (t,loc){
 		switch ( t.type() ){
 			case types.FunctionType:
-				return isFresh( t.argument(), loc ) &&
-					isFresh( t.body(), loc );
+				return isFree( t.argument(), loc ) &&
+					isFree( t.body(), loc );
 			case types.BangType:
-				return isFresh( t.inner(), loc );
+				return isFree( t.inner(), loc );
 			case types.RelyType: {
-				return isFresh(t.rely()) && isFresh(t.guarantee());
+				return isFree(t.rely()) && isFree(t.guarantee());
 			}
 			case types.GuaranteeType: {
-				return isFresh(t.guarantee()) && isFresh(t.rely());
+				return isFree(t.guarantee()) && isFree(t.rely());
 			}
 			case types.SumType:{
 				var tags = t.tags();
 				for( var i in tags ){
-					if( !isFresh(t.inner(tags[i]),loc) )
+					if( !isFree(t.inner(tags[i]),loc) )
 						return false; 
 				}	
 				return true;
@@ -351,17 +376,17 @@ var TypeChecker = (function(AST,assertF){
 					// the name is already bounded, so loc must be fresh
 					// because it does not occur free inside t.inner()
 					return true;
-				return isFresh(t.id(),loc) && isFresh(t.inner(),loc);
+				return isFree(t.id(),loc) && isFree(t.inner(),loc);
 			case types.ReferenceType:
-				return isFresh( t.location(), loc );
+				return isFree( t.location(), loc );
 			case types.StackedType:
-				return isFresh( t.left(), loc ) && isFresh( t.right(), loc );
+				return isFree( t.left(), loc ) && isFree( t.right(), loc );
 			case types.CapabilityType:
-				return isFresh( t.location(), loc ) && isFresh( t.value(), loc );
+				return isFree( t.location(), loc ) && isFree( t.value(), loc );
 			case types.RecordType: {
 				var fs = t.getFields();
 				for( var i in fs ){
-					if( !isFresh(fs[i],loc) )
+					if( !isFree(fs[i],loc) )
 						return false;
 				}
 				return true;
@@ -370,14 +395,14 @@ var TypeChecker = (function(AST,assertF){
 			case types.StarType:{
 				var inners = t.inner();
 				for( var i=0; i<inners.length; ++i )
-					if( !isFresh(inners[i],loc) )
+					if( !isFree(inners[i],loc) )
 						return false;
 				return true;
 			}
 			case types.TupleType: {
 				var vs = t.getValues();
 				for( var i in vs ){
-					if( !isFresh(vs[i],loc) )
+					if( !isFree(vs[i],loc) )
 						return false;
 				}
 				return true;
@@ -389,7 +414,7 @@ var TypeChecker = (function(AST,assertF){
 			case types.PrimitiveType:
 				return true;
 			case types.DelayedApp:
-				return isFresh(t.inner(),loc) && isFresh(t.id(),loc);
+				return isFree(t.inner(),loc) && isFree(t.id(),loc);
 			default:
 				assert( false, "Assertion error on " +t.type() );
 				break;
@@ -657,53 +682,41 @@ var TypeChecker = (function(AST,assertF){
 		var push = function(a,b){
 			visited.push( [a,b] );
 		}
+		var transitivity = function(a,b,left){
+			var tmp = [];
+			for(var i=0;i<visited.length;++i){
+				if( left ){ // on left
+					if( visited[i][1] === a ){
+						tmp.push( [ visited[i][0], b ] );
+					}
+				}else{ // on right
+					if( visited[i][0] === a ){
+						tmp.push( [ b, visited[i][1] ] );
+					}
+				}
+			}						
+			visited = visited.concat(tmp);
+		}
 		
 		// auxiliary function that is bound to the previous 'visited' table
 		// and also uses temporary environments to remember type variables, etc.
 		var equalsTo = function( t1, m1, t2, m2 ){
-			//console.log( t1+' ?? '+t2 );
-//console.debug( t1 +' \n\t ' +t2 );
-//console.debug( t1.type() +' \n\t ' +t2.type() );
+//console.debug( t1+' == '+t2 );
 			
 			if( t1 === t2 ) {// exactly the same
-				//console.log( t1+' same '+t2 );
 				return true;
 			}
 				
 			if( seen( t1, t2 ) )
 				return true;
 			
-			// recursive types must be handled before hand
-			// handle asymmetric comparision of recursive types
-			var rec1 = t1.type() === types.RecursiveType;
-			var rec2 = t2.type() === types.RecursiveType;
-			if( rec1 ^ rec2 ){
-				
-				push( t1, t2 ); // assume they are the same
-				// if this is wrong, then it must be cause their internals
-				// are different. Therefore, it will fail elsewhere and it is
-				// OK to assume they are equal in here.
-
-				if( rec1 ){
-					m1 = m1.newScope();
-					m1.set( t1.id().name(), t1 );
-					t1 = t1.inner();
-				}
-				if( rec2 ){
-					m2 = m2.newScope();
-					m2.set( t2.id().name(), t2 );
-					t2 = t2.inner();
-				}
-				
-				return equalsTo( t1, m1, t2, m2 );
-			}
 			
 			var var1 = t1.type() === types.TypeVariable;
 			var var2 = t2.type() === types.TypeVariable;
 			if( var1 ^ var2 ){
 				
 				// in here?? the next line makes no sense...
-				// push( t1, t2 ); // assume they are the same
+				push( t1, t2 ); // assume they are the same
 
 				if( var1 ){
 					t1 = m1.get( t1.name() );
@@ -718,6 +731,31 @@ var TypeChecker = (function(AST,assertF){
 						return false;
 				}
 				
+				return equalsTo( t1, m1, t2, m2 );
+			}
+			
+			// recursive types must be handled before hand
+			// handle asymmetric comparision of recursive types
+			var rec1 = t1.type() === types.RecursiveType;
+			var rec2 = t2.type() === types.RecursiveType;
+			if( rec1 ^ rec2 ){
+
+//				push( t1, t2 ); // assume they are the same
+				// if this is wrong, then it must be cause their internals
+				// are different. Therefore, it will fail elsewhere and it is
+				// OK to assume they are equal in here.
+
+				if( rec1 ){
+					m1 = m1.newScope();
+					m1.set( t1.id().name(), t1 );
+					t1 = t1.inner();
+				}
+				if( rec2 ){
+					m2 = m2.newScope();
+					m2.set( t2.id().name(), t2 );
+					t2 = t2.inner();
+				}
+//console.debug( t1+' ?? ' +t2 )				
 				return equalsTo( t1, m1, t2, m2 );
 			}
 			
@@ -739,9 +777,8 @@ var TypeChecker = (function(AST,assertF){
 						m1 = m1.newScope();
 						m1.set( rec.id().name(), rec );
 						
-						// forall
-						m1 = m1.newScope();
-						m1.set( forall.id().name(), v );
+						// TRANSITIVITY: must ensure is considered same as other
+						transitivity( v.name(), forall.id().name(), false );
 	
 						t1 = forall.inner();
 
@@ -753,7 +790,7 @@ var TypeChecker = (function(AST,assertF){
 					// special (ad-hoc?) lookahead
 					if( t2.inner().type() === types.RecursiveType &&
 						t2.inner().inner().type() === types.ForallType ){				
-console.debug( t1 +' \n\tVS ' +t2 );
+//console.debug( t1 +' \n\tVS ' +t2 );
 						var v = t2.id();
 						var rec = t2.inner();
 						var forall = rec.inner();
@@ -762,16 +799,27 @@ console.debug( t1 +' \n\tVS ' +t2 );
 						m2 = m2.newScope();
 						m2.set( rec.id().name(), rec );
 						
-						// forall
-						m2 = m2.newScope();
-						m2.set( forall.id().name(), v );
+						// forall this is actually not necessary
+						// m2 = m2.newScope();
+						// m2.set( forall.id().name(), v );
 						// what if it is a type variable?
+						
+						// TRANSITIVITY: must ensure is considered same as other
+						transitivity( v.name(), forall.id().name(), true );
 	
 						t2 = forall.inner();
-console.debug( visited );
-						var x = equalsTo( t1, m1, t2, m2 );
-console.debug( x ); // FIXME?
+/*
+console.debug('???' + v.name() + ' + ' + tmp);
+console.debug('visited:\t\t '+ visited );
+console.debug('?:\t\t '+ t1 );
+console.debug('?:\t\t '+ t2 );
+*/
+						return equalsTo( t1, m1, t2, m2 );
+/*
+console.debug('res:\t\t ' + x );
+console.debug('visited:\t\t '+ visited );
 						return x;
+*/
 					}
 				}
 			}
@@ -785,6 +833,37 @@ console.debug( x ); // FIXME?
 			
 			// assuming both same type
 			switch ( t1.type() ){
+				case types.ForallType:		
+				case types.ExistsType:
+				case types.RecursiveType: {
+//console.debug( '??'+ t1.id().name()+' '+t2.id().name() );
+					if( t1.id().type() !== t2.id().type() )
+						return false;
+
+					// assume they are the same
+					push( t1.id().name(), t2.id().name() );
+//console.debug( '>>' +visited );
+					if( t1.type() === types.RecursiveType ){
+						// environment used to store the type for the case
+						// unfolding is necessary on the recursive types
+						m1 = m1.newScope();
+						m2 = m2.newScope();
+						
+						m1.set( t1.id().name(), t1 );
+						m2.set( t2.id().name(), t2 );
+						
+						push( t1, t2 );
+					}
+					
+					
+					return equalsTo( t1.inner(), m1, t2.inner(), m2 );
+				}
+				case types.TypeVariable:
+				case types.LocationVariable: {
+					return  t1.name() === t2.name() ||
+						seen( t1.name(), t2.name() );
+				}
+				// =============================================================
 				case types.FunctionType:
 					return equalsTo( t1.argument(), m1, t2.argument(), m2 ) &&
 						equalsTo( t1.body(), m1, t2.body(), m2 );
@@ -874,47 +953,6 @@ console.debug( x ); // FIXME?
 					}
 					return true;
 				}
-				case types.RecursiveType:
-				case types.ForallType:		
-				case types.ExistsType: {
-					// uses environment to know the relation between the two names
-					// instead of having to renamed the type to ensure matching
-					// labels on their inner types.
-					var n1 = m1.newScope();
-					var n2 = m2.newScope();
-					n1.set( t1.id().name(), t1 );
-					n2.set( t2.id().name(), t2 );
-					
-					push( t1.id(), t2.id() ); // assume they are the same
-					
-					return equalsTo( t1.inner(), n1, t2.inner(), n2 );
-				}
-				case types.TypeVariable:
-				case types.LocationVariable:
-					var a1 = m1.get( t1.name() );
-					var a2 = m2.get( t2.name() );
-
-console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
-//console.debug( !a2 || m2.get( a2.name() ));
-
-					// note it also returns 'undefined' when name not bound
-					// thus, if the variable is unknown (i.e. declared in the
-					// context and not in the type) we can only compare its name
-					if( a1 === undefined && a2 === undefined )
-						return t1.name() === t2.name();
-					
-					/*
-					if( a1 === undefined ){
-						return equalsTo( t1, m1, a2, m2 );
-					}
-					if( a2 === undefined )
-						return equalsTo( a1, m1, t2, m2 );
-					*/
-					if( a1 === undefined ^ a2 === undefined ){
-						return false; // FIXME buggy...
-					}
-
-					return equalsTo( a1, m1, a2, m2 );
 				case types.DelayedApp:{
 					return equalsTo( t1.inner(), m1, t2.inner(), m2 ) &&
 						equalsTo( t1.id(), m1, t2.id(), m2 ) ;
@@ -1256,8 +1294,7 @@ console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
 				keys = keys.concat( parent.__allElements__() );
 			return keys;
 		}
-		this.__caps__ = function(){ return caps; }
-		// FIXME should join not just check if equals
+		this.__caps__ = function(){ return caps; }// why function??
 		this.isEqual = function(other){
 			if( this.size() !== other.size() )
 				return false;
@@ -1272,19 +1309,25 @@ console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
 					return false;
 			}
 			
-			var m_caps = this.__caps__;
-			var t_caps = other.__caps__;
+			var m_caps = this.__caps__();
+			var t_caps = other.__caps__();
+		// FIXME should join not just check if equals
+		// join CAPABILITIES
+		// TODO: those that are equal (unsorted) just add
+		// TODO: others must be stacked in a *-type and then (+)
 			if( m_caps.length !== t_caps.length )
 				return false;
 			// for now requiring same order should be enough?
+			var seen = [];
 			for( var i=0;i<m_caps.length;++i){
 				var found = false;
 				for( var j=0;j<t_caps.length;++j ){
-					if( equals( m_caps[i], t_caps[j] ) ){
+					if( equals( m_caps[i], t_caps[j] ) && 
+						seen.indexOf(j) === -1 ){
+						seen.push(j);
 						found = true;
 						break;
 					}
-					
 				}
 				if( !found )
 					return false;
@@ -1304,22 +1347,6 @@ console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
 			}
 			if( all && parent !== null )
 				parent.visit(all,f);
-		}
-		
-		this.apply = function(other){
-			// HACK: parent is an assignable so just point to the
-			// target one... lots of aliasing in this data-structure...
-			parent = other.endScope();
-			map = {};
-			caps = [];
-			other.visit(false, // only for this level
-				function(id,val,isCap,isType){
-					if( isCap ){
-						caps.push(val);
-						return;
-					}
-					map[id] = val;
-			});
 		}
 				
 		// CAUTION: the following functions/methods ASSUME there is a separation
@@ -1375,38 +1402,7 @@ console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
 				return undefined; // not found
 			return parent.removeCap(id);
 		}
-		
-		// join typing environments TODO
-		var join = function(a,b){
-			if( a === null && b === null )
-				return null;
-			if( a === null ^ b === null )
-				return undefined;
-			
-			var top;
-			if( a.__parent__ === b.__parent__ ){
-				// they should be equal anyway.
-				top = a.__parent__ ;
-			} else {
-				top = join(a.__parent__,b.__parent__);
-				if( top === undefined ) // failed to join parent
-					return undefined;
-			}
-			var env = new Environment( top );
-			// join IDENTIFIERS / VARIABLES
-			for( var i in a.__map__ ){
-				// missing property
-				if( !b.__map__.hasOwnProperty(i) )
-					return undefined;
-				// not of equal types
-				if( !isEquals(a.__map__[i],b.__map__[i]) )
-					return undefined;
-				env.__map__[i] = a.__map__[i];
-			}
-			// join CAPABILITIES
-			// TODO: those that are equal (unsorted) just add
-			// TODO: others must be stacked in a *-type and then (+)
-		}
+
 	};
 	
 	// TypeVariables must be upper cased.
@@ -1536,7 +1532,7 @@ console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
 				// if we may be unfolding an unending recursive type
 				// counting is the easiest, the second is the most likely to
 				// catch such pointless loops earlier.
-				assert( (++visited) < 100 , 'Failed to unfold: '+tt +', max unfolds reached');
+				assert( (++visited) < 100 , 'Failed to unfold: '+tt +', max unfolds reached', ast);
 				assert( see.indexOf( t ) === -1, 'Fix-point reached after '+visited+' unfolds' , ast);
 				see.push( t );
 
@@ -1724,35 +1720,42 @@ console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
 					return t;
 				} else {
 					assert( t===null, 'Error @autoStack ', a );
+					// note that, by its name, it must be a TypeVariable
 					var cap = assert( e.removeCap( p_loc ),
 						'Missing capability '+p_loc, a );
 					return cap;
 				}
+			}
+			case types.AlternativeType:{
+				assert( t == null , 'Error @autoStack ', a);
+				var alts = p.inner();
+				for( var i=0; i<alts.length; ++i ){
+					var j = alts[i];
+					switch( j.type() ){
+						case types.CapabilityType:{
+							var cap = e.removeCap( j.location().name() );
+							// one of the alternatives is valid
+							if( cap !== undefined && subtypeOf( cap, j ) )
+								return p;
+							break;
+						}
+						case types.TypeVariable: {
+							if( e.removeCap( j.name() ) !== undefined )
+								return p;
+							break;
+						}
+						default:
+							assert( false, 'Error @autoStack '+j.type(), a );
+					}
+				}
+				// we must have one of the alternatives in order to stack (+)
+				assert( false, 'Failed to stack any of the alternatives', a);
 			}
 			case types.NoneType:
 				// always valid to stack a NoneType
 				assert( t === null || t.type() === types.NoneType,
 					'Error @autoStack ', a );
 				return NoneType;
-			case types.AlternativeType:{
-				assert( t == null , 'Not allowed for now', a);
-				var alts = p.inner();
-				for( var i=0; i<alts.length; ++i ){
-					var j = alts[i];
-					assert( j.type() === types.CapabilityType, 'TMP', a);
-					
-					var cap = e.removeCap( j.location().name() );
-					if( cap !== undefined ){
-						// FIXME missing subtyping to make sure it works?
-						// success
-						return p;
-					}	
-				}
-				// we must have *at least* one alternative for stacking (+)
-				// FIXME how to fetch these?? what if multiple available? removes just 1?
-				// or maybe ensure that there are no more?
-				assert( false, 'Failed to stack any of the alternatives', a);
-			}
 			default: // other types just fall through, 
 					 // leave the given type in.
 		}
@@ -1819,13 +1822,13 @@ console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
 
 			switch( el.type() ){
 				case types.LocationVariable:
-					if( !isFresh(res,el) ){
+					if( !isFree(res,el) ){
 						var loc = new LocationVariable(null);
 						res = new ExistsType( loc, substitution( res, el, loc ) );
 					}
 					break;
 				case types.TypeVariable:
-					if( !isFresh(res,el) ){
+					if( !isFree(res,el) ){
 						var loc = new TypeVariable(null);
 						res = new ExistsType( loc, substitution( res, el, loc ) );
 					}
@@ -2035,7 +2038,7 @@ console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
 				// may be given, thus committing ourselves to some label
 				// from which we may not be able to move without 
 				// breaking programmer's expectations.
-				assert( isFresh(exp,variable),
+				assert( isFree(exp,variable),
 					'Label "'+variable.name()+'" is not free in '+exp, ast );
 
 				exp = substitution( exp , packed, variable );
@@ -2082,8 +2085,6 @@ console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
 							"Incompatible effects on alternatives", ast.exp);
 					}
 				}
-				// make changes visible as if nothing bad happened
-				//env.apply( end_env );
 				return result;
 			}
 			
@@ -2177,7 +2178,7 @@ console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
 				if( old.type() === types.BangType )
 					residual = old;
 				else
-					residual = UnitType;
+					residual = new BangType(new RecordType());
 				
 				cap = new CapabilityType( cap.location(), residual );
 				assert( env.setCap( loc, cap ), 'Failed to re-add cap', ast );
@@ -2274,6 +2275,9 @@ console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
 			}
 			
 			case AST.kinds.DELAY_TYPE_APP: {
+				// a delayed type application is a minor trick to simplify the
+				// notation on recursive type definitions so that they can
+				// abstract their locations without much trouble.
 				var exp = check( ast.exp, env );
 				exp = unAll(exp,ast.exp);
 				var packed = check(ast.id, env); // the type to apply
@@ -2282,11 +2286,15 @@ console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
 					// can be applied immediately
 					return substitution( exp.inner(), exp.id(), packed );
 				}
+				assert( packed.type() === types.TypeVariable ||
+					packed.type() === types.LocationVariable, 
+					'Expecting variable, got: '+packed, ast.id );
+
 				// application cannot occur right now, but delayed applications
 				// are only allowed on (bounded) type variables 
 				assert( exp.type() === types.TypeVariable ||
 					exp.type() === types.DelayedApp, // for nested delays 
-					'Not a TypeVariable '+exp, ast.exp );
+					'Expecting TypeVariable, got: '+exp, ast.exp );
 				
 				return new DelayedApp(exp,packed);
 			}
@@ -2653,7 +2661,7 @@ console.debug( t1.name()+' '+a1 +' || ' + t2.name()+' '+a2);
 						'Duplicated typedef: '+type.id, type )
 					// map of type names to typechecker types.
 					typedefs[type.id] = check( type.type, env );
-console.debug( typedefs[type.id].toString() );
+//console.debug( typedefs[type.id].toString() );
 				}
 			}
 			

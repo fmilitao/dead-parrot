@@ -5,7 +5,7 @@
 // between different ways in which they could be stacked.
 
 typedef EMPT = forall p.( rw p !(E#[]) )
-typedef ELEM = forall T.rec X.forall p.( rw p (N#[T,exists q.( ref q :: (EMPT[q] (+) X[q]) )] ))
+typedef ELEM = forall T.rec X.forall p.( rw p (N#[T,exists q.( (!ref q) :: (EMPT[q] (+) X[q]) )] ))
 
 let newStack = <T>fun( _ : [] ).
 	open <h,head> = new E#{} in
@@ -21,22 +21,12 @@ let newStack = <T>fun( _ : [] ).
 					// but we can always stack with more alternatives
 					// than we have, since that just weakens the type
 					head := N#{ e , <n,next::(EMPT[n] (+) ELEM[T][n])> }
-				end
-				// FIXME matching error when types are at different stages of unfold
-			/*	,
-
-			pop = fun( _ : [] :: ( ELEM[T][h] ) ).
-				case !head of
-					N#a ->
-						let [e,n] = a in
-							open <t,ptr> = n in
-								(@t head := !ptr);
-								delete ptr;
-								e
-							end
-						end
 				end,
 
+
+			del = fun( _ : [] :: (EMPT[h]) ).
+				( delete head ; {} ),
+			
 			isEmpty = fun( _ : [] :: ( EMPT[h] (+) ELEM[T][h] ) ).
 				@h // opens alternative
 				case !head of
@@ -47,12 +37,22 @@ let newStack = <T>fun( _ : [] ).
 						head := N#n;
 						NonEmpty#({}::(ELEM[T][h]))
 				end,
-
-			del = fun( _ : [] :: (EMPT[h]) ).
-				delete head
-				*/
+				
+			pop = fun( _ : [] :: ( ELEM[T][h] ) ).
+				case !head of
+					N#a ->
+						let [e,n] = a in
+							open <t,ptr> = n in
+								(@t head := !ptr);
+								delete ptr;
+								e
+							end
+						end
+				end
+			
 		} :: rw h !(E#[]) >>
 	end
 	in
-	"TODO: client code."
+	newStack
+	//"TODO: client code."
 end

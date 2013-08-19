@@ -1,9 +1,12 @@
 
 // NOTE READY, just parser test.
 
-typedef H = forall p.rec X.( ( rw p (Empty#[]) => rw p (Empty#[]) ; (X[p]) ) (+)
+// head node
+typedef H = rec X.forall p.( ( rw p (Empty#[]) => rw p (Empty#[]) ; (X[p]) ) (+)
 			( rw p (Closed#[]) => none ) (+) 
-			( rw p (Node#(exists q.(X[q]))) => none ) )
+			( rw p (Node#[int,exists q.(X[q])]) => none ) )
+
+// tail node
 typedef T = forall p.( rw p (Empty#[]) =>
 	( (rw p (Closed#[])) (+) (rw p (Node#(exists q.H[q]))) ) )
 
