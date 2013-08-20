@@ -41,3 +41,4 @@ test-behavioral.txt
 test-behavioral-ind.txt
 test-behavioral-typestate.txt
 test-simple-list.txt
+test-stack-type.txt

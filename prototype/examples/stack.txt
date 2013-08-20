@@ -1,4 +1,3 @@
-// FIXME dependent on equals function fix due to delayed type application.
 
 // Stack example
 // The example requires explicit stacking of capabilities to disambiguate
@@ -15,31 +14,14 @@ let newStack = <T>fun( _ : [] ).
 		
 			push = fun( e : T :: ( EMPT[h] (+) ELEM[T][h] ) ).
 				@h // open alternative for location 'h'
-				// by reading the contents of head, it will make require
+				// by reading the contents of head, it will require
 				// to break down the alternative into its sub-cases 
 				open <n,next> = new !head in
 					// but we can always stack with more alternatives
 					// than we have, since that just weakens the type
 					head := N#{ e , <n,next::(EMPT[n] (+) ELEM[T][n])> }
-				end
-				
-				,
-
-
-			del = fun( _ : [] :: (EMPT[h]) ).
-				( delete head ; {} ),
-			
-			isEmpty = fun( _ : [] :: ( EMPT[h] (+) ELEM[T][h] ) ).
-				@h // opens alternative
-				case !head of
-					E#v ->
-						head := E#v;
-						Empty#({}::(EMPT[h]))
-				|	N#n ->
-						head := N#n;
-						NonEmpty#({}::(ELEM[T][h]))
 				end,
-				
+
 			pop = fun( _ : [] :: ( ELEM[T][h] ) ).
 				case !head of
 					N#a ->
@@ -52,11 +34,36 @@ let newStack = <T>fun( _ : [] ).
 								e
 							end
 						end
-				end
+				end,
+			
+			isEmpty = fun( _ : [] :: ( EMPT[h] (+) ELEM[T][h] ) ).
+				@h // opens alternative
+				case !head of
+					E#v ->
+						head := E#v;
+						Empty#({}::(EMPT[h]))
+				|	N#n ->
+						head := N#n;
+						NonEmpty#({}::(ELEM[T][h]))
+				end,
+				
+			del = fun( _ : [] :: (EMPT[h]) ).
+				( delete head ; {} )
 			
 		} :: rw h !(E#[]) >>
 	end
 	in
-	newStack
-	//"TODO: client code."
+	// client code
+	let s1 = newStack[int] {} in
+		open <Empty,s2> = s1 in
+		open <NonEmpty,stack> = s2 in
+			/* FIXME
+			stack.push(123);
+			(@Empty FIXME: this alternative open is messed up!
+			stack.pop({});)
+			*/
+			stack.del({})
+		end
+		end
+	end
 end
