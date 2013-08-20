@@ -11,8 +11,9 @@ let newStack = <T>
 					N#a ->
 						let [e,n] = a in
 							open <t,ptr> = n in
-								(@t head := !ptr);
-								delete ptr;
+								@t
+								(head := !ptr;
+								delete ptr);
 								e
 							end
 						end

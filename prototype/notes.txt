@@ -88,3 +88,4 @@ CODE STYLE:
 	- console.debug for debug messages
 	- console.error for error messages, it prints stack trace!
 	- https://developers.google.com/chrome-developer-tools/docs/console
+	- convention: "fake" protected/private fields using __NAME__

@@ -21,7 +21,9 @@ let newStack = <T>fun( _ : [] ).
 					// but we can always stack with more alternatives
 					// than we have, since that just weakens the type
 					head := N#{ e , <n,next::(EMPT[n] (+) ELEM[T][n])> }
-				end,
+				end
+				
+				,
 
 
 			del = fun( _ : [] :: (EMPT[h]) ).
@@ -43,8 +45,10 @@ let newStack = <T>fun( _ : [] ).
 					N#a ->
 						let [e,n] = a in
 							open <t,ptr> = n in
-								(@t head := !ptr);
-								delete ptr;
+								@t (
+									head := !ptr;
+									delete ptr
+								);
 								e
 							end
 						end

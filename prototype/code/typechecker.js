@@ -1288,52 +1288,139 @@ console.debug('visited:\t\t '+ visited );
 		
 		// FIXME this does not preserve spaghetti structure!
 		// this should not be visible outside the environment object
+		/*
 		this.__allElements__ = function(){
 			var keys = Object.keys(map);
 			if( parent !== null )
 				keys = keys.concat( parent.__allElements__() );
 			return keys;
-		}
-		this.__caps__ = function(){ return caps; }// why function??
-		this.isEqual = function(other){
-			if( this.size() !== other.size() )
+		} */
+		this.__caps__ = caps;
+		this.__parent__ = parent;
+		
+		var comps = function(a,b,merge_caps){
+			// compare nulls due to parents
+			if( a === null && b === null )
+				return true;
+			if( a === null ^ b === null )
 				return false;
-				
-			var mine = this.__allElements__();
-			var theirs = other.__allElements__();
-			for( var id in mine ){
-				if( !theirs.hasOwnProperty(id) )
+			if( a.size() !== b.size() )
+				return false;
+			// 1st: just check above, never merging
+			if( !comps(a.__parent__,b.__parent__,false) )
+				return false
+			
+			// 2nd: check keys
+			var a_map = a.__map__;
+			var b_map = b.__map__;
+			for( var id in a_map ){
+				if( !b_map.hasOwnProperty(id) )
 					return false;
 
-				if( !equals( this.get(mine[id]), other.get(theirs[id]) ) )
+				if( !equals( a_map[id], b_map[id] ) )
 					return false;
 			}
 			
-			var m_caps = this.__caps__();
-			var t_caps = other.__caps__();
-		// FIXME should join not just check if equals
-		// join CAPABILITIES
-		// TODO: those that are equal (unsorted) just add
-		// TODO: others must be stacked in a *-type and then (+)
-			if( m_caps.length !== t_caps.length )
-				return false;
-			// for now requiring same order should be enough?
-			var seen = [];
-			for( var i=0;i<m_caps.length;++i){
-				var found = false;
-				for( var j=0;j<t_caps.length;++j ){
-					if( equals( m_caps[i], t_caps[j] ) && 
-						seen.indexOf(j) === -1 ){
-						seen.push(j);
-						found = true;
-						break;
+			var a_caps = a.__caps__;
+			var b_caps = b.__caps__;
+			
+			// 3rd: merge caps
+			if( merge_caps ){
+				// this will merge b with a's caps
+				// TODO
+				
+				// find those that are common
+				var diff_a = [];
+				var diff_b = [];
+				var common = [];
+				var seen = [];
+				
+				for( var i=0;i<a_caps.length;++i){
+					var found = false;
+					for( var j=0;j<b_caps.length;++j ){
+						if( equals( a_caps[i], b_caps[j] ) && 
+							seen.indexOf(j) === -1 ){
+							found = true;
+							seen.push(j);
+							common.push( a_caps[i] );
+							break;
+						}
+					}
+					if( !found ){
+						diff_a.push( a_caps[i] );
 					}
 				}
-				if( !found )
-					return false;
+				for( var i=0;i<b_caps.length;++i ){
+					if( seen.indexOf(i) === -1 ){
+						diff_b.push(b_caps[i]);
+					}
+				}
+				// empty the array
+			var  s=a_caps.length;
+			while( s-- > 0 ){
+				a_caps.pop();
+			}				
+			s = common.length;
+			while( s-- > 0 ){
+				a_caps.push( common[s] );
 			}
-			
-			return true;
+
+				if( diff_a.length > 0 || diff_b.length > 0 ){
+					// if there is a difference in the two environments
+					var at = NoneType;
+					if( diff_a.length > 0 ){
+						if( diff_a.length > 1 ){
+							at = new StarType();
+							for( var i = 0 ; i < diff_a.length; ++i ){
+								at.add( diff_a[i] );
+							}
+						}else{
+							at = diff_a[0];
+						}
+					}
+					var bt = NoneType;
+					if( diff_b.length > 0 ){
+						if( diff_b.length > 1 ){
+							bt = new StarType();
+							for( var i = 0 ; i < diff_b.length; ++i ){
+								bt.add( diff_b[i] );
+							}
+						}else{
+							bt = diff_b[0];
+						}
+					}
+					var alter = new AlternativeType();
+					alter.add( at );
+					alter.add( bt );
+					a_caps.push( alter );
+				}
+				return true;
+				
+			} else { // just check if equal
+				if( a_caps.length !== b_caps.length )
+					return false;
+				
+				// may be with any order
+				var seen = [];
+				for( var i=0;i<a_caps.length;++i){
+					var found = false;
+					for( var j=0;j<b_caps.length;++j ){
+						if( equals( a_caps[i], b_caps[j] ) && 
+							seen.indexOf(j) === -1 ){
+							seen.push(j);
+							found = true;
+							break;
+						}
+					}
+					if( !found )
+						return false;
+				}
+				return true;
+			}
+		}
+		
+		this.isEqual = function(other){
+			return comps(this,other,true);
 		}
 		
 		// no order is guaranteed!
@@ -1379,21 +1466,23 @@ console.debug('visited:\t\t '+ visited );
 					assert(false,'Error @capContains: '+val);
 			}
 		}
-		this.searchCap = function(id){ // FIXME should be private
+		this.__searchCap__ = function(id){
 			for(var i=0;i<caps.length;++i){
 				if( capContains(id,caps[i]) )
 					return i;
 			}
 			return -1;
 		}
-		this.setCap = function(id,value){ // FIXME this 'id' is a bit silly
-			if( this.searchCap(id) !== -1 )
+		
+		// TODO: is this 'id' relevant? is collision detection important?
+		this.setCap = function(id,value){
+			if( this.__searchCap__(id) !== -1 )
 				return undefined; // already there
 			caps.push(value); // add new capability
 			return null;
 		}
 		this.removeCap = function(id){
-			var i = this.searchCap(id);
+			var i = this.__searchCap__(id);
 			if( i !== -1 ){
 				// removes and returns element
 				return caps.splice(i,1)[0]; 
@@ -1401,6 +1490,17 @@ console.debug('visited:\t\t '+ visited );
 			if( parent === null )
 				return undefined; // not found
 			return parent.removeCap(id);
+		}
+		
+		this.checkCap = function(id){
+			var i = this.__searchCap__(id);
+			if( i !== -1 ){
+				// removes and returns element
+				return caps[i]; 
+			}
+			if( parent === null )
+				return undefined; // not found
+			return parent.checkCap(id);
 		}
 
 	};
@@ -1733,10 +1833,14 @@ console.debug('visited:\t\t '+ visited );
 					var j = alts[i];
 					switch( j.type() ){
 						case types.CapabilityType:{
-							var cap = e.removeCap( j.location().name() );
+							var cap = e.checkCap( j.location().name() );
 							// one of the alternatives is valid
-							if( cap !== undefined && subtypeOf( cap, j ) )
+//console.debug( cap + ' <: ' + j );
+//console.debug( subtypeOf( cap, j ) );
+							if( cap !== undefined && subtypeOf( cap, j ) ){
+								e.removeCap( j.location().name() );
 								return p;
+							}
 							break;
 						}
 						case types.TypeVariable: {
@@ -2169,7 +2273,7 @@ console.debug('visited:\t\t '+ visited );
 				assert( cap, "No capability to '"+loc+"'", ast );
 				
 				assert( cap.type() === types.CapabilityType,
-					loc+" is not a capability", ast );
+					loc+" is not a capability, "+cap.type(), ast );
 				
 				var old = cap.value();
 				
@@ -2195,7 +2299,7 @@ console.debug('visited:\t\t '+ visited );
 					assert( cap, "No capability to '"+loc+"'", ast );
 					
 					assert( cap.type() === types.CapabilityType,
-						loc +" is not a capability", ast );
+						loc +" is not a capability, "+cap.type(), ast );
 
 					// just return the old contents of 'cap'
 					return cap.value();
