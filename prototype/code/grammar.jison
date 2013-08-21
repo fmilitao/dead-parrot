@@ -278,7 +278,7 @@ expression :
 		{ $$ = $2; }
 	| IDENTIFIER '#' expression
 		{ $$ = AST.makeTagged($1,$3,@$); }
-	| CASE expression OF branches END
+	| CASE nonsequence OF branches END
 		{ $$ = AST.makeCase($2,$4,@$); }
 	| '{' tuple '}'
 		{ $$ = AST.makeTuple($2,@$); }

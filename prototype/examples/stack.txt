@@ -1,10 +1,15 @@
+// Stack example.
+// This prototype implementation uses some additional annotations to
+// open alternatives and to manually stack capabilities.
 
-// Stack example
-// The example requires explicit stacking of capabilities to disambiguate
-// between different ways in which they could be stacked.
+import "stdlib" // for println
 
 typedef EMPT = forall p.( rw p !(E#[]) )
 typedef ELEM = forall T.rec X.forall p.( rw p (N#[T,exists q.( (!ref q) :: (EMPT[q] (+) X[q]) )] ))
+
+typedef AUX = forall E.forall NE.![
+	pop : [] :: NE -o int :: ( E (+) NE ),
+	isEmpty : [] :: ( NE (+) E ) -o Empty#([]::E) + NonEmpty#([]::NE) ]
 
 let newStack = <T>fun( _ : [] ).
 	open <h,head> = new E#{} in
@@ -28,9 +33,8 @@ let newStack = <T>fun( _ : [] ).
 						let [e,n] = a in
 							open <t,ptr> = n in
 								@t (
-									head := !ptr;
-									delete ptr
-								);
+								head := !ptr;
+								delete ptr );
 								e
 							end
 						end
@@ -55,15 +59,31 @@ let newStack = <T>fun( _ : [] ).
 	in
 	// client code
 	let s1 = newStack[int] {} in
-		open <Empty,s2> = s1 in
-		open <NonEmpty,stack> = s2 in
-			/* FIXME
-			stack.push(123);
-			(@Empty FIXME: this alternative open is messed up!
-			stack.pop({});)
-			*/
-			stack.del({})
-		end
+		open <E,s2> = s1 in
+		open <NE,stack> = s2 in
+			let remAll = fun Rec( s : (AUX[E][NE]) :: ( NE (+) E ) ) : ( [] :: E ).
+				case s.isEmpty({}) of
+					Empty#n -> {}
+				| NonEmpty#n ->
+						Lib.println[int](s.pop({}));
+						Rec( s )
+				end
+				in
+				stack.push(12);
+				stack.push(34);
+				stack.push(56);
+				// intentionally drop '56'
+				stack.pop({});
+				// uncertain state E (+) NE
+				// case analysis of stack's state
+				case stack.isEmpty({}) of
+					Empty#n -> {} // if it were empty
+				| NonEmpty#n -> remAll( stack )
+				end;
+				stack.del({});
+				"all done."
+			end
+			end
 		end
 	end
 end

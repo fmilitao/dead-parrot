@@ -1,5 +1,6 @@
 FIXME:
 
+ - isEquals on environments must be cleaned
  - parenthesis on toString leave too much ambiguities...
 	may affect testing.
  - equals is broken due to delayed type application.

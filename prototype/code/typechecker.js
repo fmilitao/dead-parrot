@@ -1543,6 +1543,13 @@ console.debug('visited:\t\t '+ visited );
 			if( b2 ) t2 = t2.inner();
 		}
 		
+		var s1 = t1.type() === types.StackedType;
+		var s2 = t2.type() === types.StackedType;
+		
+		if( s1 ^ s2 ){
+			if( !s1 ) t1 = new StackedType(t1,NoneType);
+			if( !s2 ) t2 = new StackedType(t2,NoneType);
+		}
 		
 		if( t1.type() !== t2.type () )
 			return undefined;
@@ -2157,6 +2164,9 @@ console.debug('visited:\t\t '+ visited );
 				
 				var cap = env.removeCap( type.name() );
 				
+				assert( cap,
+					'Missing cap: '+cap, ast.type );
+					
 				assert( cap.type() === types.AlternativeType,
 					'Not AlternativeType '+cap, ast.type );
 				
