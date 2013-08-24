@@ -293,9 +293,10 @@ var Interpreter = (function( AST, assertF ){
 			var libs = ast.imports;
 			for( var i=0; i<libs.length; ++i ){
 				// remove initial and ending quotes of the import string
-				var lib = libs[i].substring(1,libs[i].length-1);
-				assert( loader( lib, heap, exports ),
-					"Invalid import: "+lib, ast );
+				var lib = libs[i];
+				var value = loader( lib, exports );
+				assert( value, "Invalid import: "+lib, ast );
+				heap.set( lib, value );
 			}
 		}
 		return run( ast.exp, heap );

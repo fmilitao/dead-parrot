@@ -3,65 +3,63 @@
 //
 
 // for now it just supports 'add' and 'println'
-var libLoader = function( file, e, ctx ){
+var libLoader = function( file, ctx ){
 	var v = ctx.factory;
 
-	if( file === 'stdlib' ){
-		var rec = new v.Record();
-		
-		// println: forall T.( T -o T )
+	// println: forall T.( T -o T )
+	if( file === 'println' ){
 		var println = new v.Function();
 		println.call = function(msg){
 			send('println',msg.toString());
 			return msg;
 		};
-		rec.add('println',println);
-		
-		// add: int -o int -o !int
+		return println;
+	}
+	
+	// add: int -o int -o !int
+	if( file === 'add' ){	
 		var add = new v.Function();
 		add.call = function(msg){
 			var tmp = new v.Function();
 			tmp.call = function(arg){ return msg+arg; }
 			return tmp;
 		};
-		rec.add('add',add);
-		
-		// binds 'Lib' variable
-		e.set('Lib',rec);
-		
-		return null;
+		return add;
 	}
+	
 	// others are unknown
 	return undefined;
 };
 
-var libTyper = function( file, e, ctx ){
+var libTyper = function( file, ctx ){
 	var v = ctx.factory;
 
-	if( file === 'stdlib' ){
-		var rec = new v.RecordType();
-		
-		// println: forall T.( T -o T )
-		var println = new v.ForallType(
-			new v.TypeVariable('T'),
-			new v.FunctionType(
+	// println: !(forall T.( T -o T ))
+	if( file === 'println' ){
+		return new v.BangType(
+			new v.ForallType(
 				new v.TypeVariable('T'),
-				new v.TypeVariable('T') ) );
-		rec.add('println',println);
+				new v.FunctionType(
+					new v.TypeVariable('T'),
+					new v.TypeVariable('T') 
+					)
+			) 
+		);
+	}
 		
-		// add: int -o int -o !int
-		var add = new v.FunctionType(
-			new v.PrimitiveType('int'),
+	// add: !(int -o int -o !int)
+	if( file === 'add' ){
+		return new v.BangType(
 			new v.FunctionType(
 				new v.PrimitiveType('int'),
-				new v.BangType(new v.PrimitiveType('int')) ) );
-		rec.add('add',add);
-		
-		// binds 'Lib' variable
-		e.set( 'Lib', new v.BangType(rec) );
-		
-		return null;
+				new v.FunctionType(
+					new v.PrimitiveType('int'),
+					new v.BangType(new v.PrimitiveType('int'))
+					) 
+			)
+		);
 	}
+	
 	// others are unknown
 	return undefined;
 };

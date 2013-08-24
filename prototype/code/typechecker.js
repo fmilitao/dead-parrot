@@ -2761,10 +2761,11 @@ console.debug('visited:\t\t '+ visited );
 				assert( loader !== undefined, 'Error @check missing import loader', ast );
 				var libs = ast.imports;
 				for( var i=0; i<libs.length; ++i ){
-					// remove initial and ending quotes of the import string
-					var lib = libs[i].substring(1,libs[i].length-1);
-					assert( loader( lib, env, exports ),
-						"Invalid import: "+lib, ast );
+					var lib = libs[i];
+					var import_type = loader( lib, exports );
+					assert( import_type, "Invalid import: "+lib, ast );
+					assert( env.set( lib, import_type ),
+						'Identifier '+ lib +' already in scope', ast );
 				}
 			}
 				
@@ -2775,7 +2776,6 @@ console.debug('visited:\t\t '+ visited );
 						'Duplicated typedef: '+type.id, type )
 					// map of type names to typechecker types.
 					typedefs[type.id] = check( type.type, env );
-//console.debug( typedefs[type.id].toString() );
 				}
 			}
 			

@@ -206,7 +206,7 @@ imports :
 	;
 
 import :
-	IMPORT STRING
+	IMPORT IDENTIFIER
 		{ $$ = $2; }
 	;
 

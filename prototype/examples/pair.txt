@@ -4,7 +4,7 @@
 // The 'typestate' version of this example abstracts the capability
 // type, thus creating a proper typestate.
 
-import "stdlib"
+import add
 
 let newPair = fun( _ : [] ).
 	open <pl,l> = new {} in
@@ -14,7 +14,7 @@ let newPair = fun( _ : [] ).
 			{
 			initL = fun( i : int :: rw pl [] ).( l := i ),
 			initR = fun( i : int :: rw pr [] ).( r := i ),
-			sum = fun( _ : [] :: ( rw pl int * rw pr int ) ).(Lib.add !l !r),
+			sum = fun( _ : [] :: ( rw pl int * rw pr int ) ).(add !l !r),
 			destroy = fun ( _ : [] :: ( rw pl int * rw pr int ) ).( delete l; delete r ) 
 			}::( rw pr [] * rw pl [] )
 			// we must explicitly stacks caps to ensure they are placed inside the packed value

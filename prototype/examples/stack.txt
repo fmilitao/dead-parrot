@@ -2,7 +2,7 @@
 // This prototype implementation uses some additional annotations to
 // open alternatives and to manually stack capabilities.
 
-import "stdlib" // for println
+import println
 
 typedef EMPT = forall p.( rw p !(E#[]) )
 typedef ELEM = forall T.rec X.forall p.( rw p (N#[T,exists q.( (!ref q) :: (EMPT[q] (+) X[q]) )] ))
@@ -65,7 +65,7 @@ let newStack = <T>fun( _ : [] ).
 				case s.isEmpty({}) of
 					Empty#n -> {}
 				| NonEmpty#n ->
-						Lib.println[int](s.pop({}));
+						println[int](s.pop({}));
 						Rec( s )
 				end
 				in

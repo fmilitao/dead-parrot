@@ -12,10 +12,11 @@
   - examples files are fetched dynamically (AJAX), may be slow.
 */
 
-import "stdlib"
+import println
+import add
 
 let x = { a = 2, b = "Hello World!", c = false } in
-	Lib.println[!int] (Lib.add 40 2);
+	println[!int] (add 40 2);
 	// functional value and application
 	fun( _ : [] ).(x.b) {}
 end

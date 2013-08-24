@@ -3,12 +3,12 @@ FIXME:
  - isEquals on environments must be cleaned
  - parenthesis on toString leave too much ambiguities...
 	may affect testing.
- - equals is broken due to delayed type application.
- 	Rethink algorithm to be clearer too?
- - join typing environments with (+)
+ - join multiple typing environments with (+)
  - make sure packing an alternative cannot obey multiple alternatives
  simultaneously? is this important? such alternative cannot
  (logically) occur!
+ 
+ - firefox issue with scrollbars (getScrollbarWidth function).
 
 TODO:
 
