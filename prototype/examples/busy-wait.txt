@@ -2,8 +2,8 @@
 // NOTE READY, just parser test.
 
 typedef Retry = forall p.rec X.( ( rw p (Held#[]) => rw p (Held#[]) ; X )
-	(+) ( rw p (Released#[]) => none ) )
-	
+	(+) ( rw p (Released#int) => none ) )
+
 typedef OneUse = forall p.( rw p (Held#[]) => rw p (Released#int) )
 
 open <t,x> = new Held#{} in

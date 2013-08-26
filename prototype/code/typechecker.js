@@ -1461,6 +1461,10 @@ console.debug('visited:\t\t '+ visited );
 					}
 					return false;
 				}
+				case types.RelyType:{
+					return val.rely().location().name() === id;
+					// FIXME not clean!
+				}
 				default:
 					// another types disallowed, for now
 					assert(false,'Error @capContains: '+val);
@@ -2460,6 +2464,11 @@ console.debug('visited:\t\t '+ visited );
 			
 			case AST.kinds.SHARE: {
 				var locs = ast.locs;
+				// FIXME assuming just one
+				var cap = env.removeCap( locs[0] );
+				
+				assert( cap, "No capability to '"+locs[0]+"'", ast );
+				
 				var left = check( ast.a, env );
 				var right = check( ast.b, env );
 				/* TODO:
@@ -2467,7 +2476,109 @@ console.debug('visited:\t\t '+ visited );
 				 * interleavings in composed type and ensure all alternatives
 				 * are allowed.
 				 */
-				assert(false,'NOT DONE',ast); // FIXME
+var checkProtocolConformance = function( s, a, b ){
+	var visited = [];
+	var max_visited = 100;
+	
+	var contains = function(s,a,b){
+		for( var i=0; i<visited.length; ++i ){
+			var tmp = visited[i];
+			if( equals(s,tmp[0]) && equals(a,tmp[1]) && equals(b,tmp[2]) )
+				return true;
+		}
+		return false;
+	}
+	
+	var sim = function(s,p){
+		p = unAll(p); // unfold recursive type
+		
+		// first protocol
+		if( p.type() === types.NoneType )
+			return { s : s , p : p };
+
+		// now state
+		if( s.type() === types.AlternativeType ){
+			var tmp_s = null;
+			var tmp_p = null;
+			var alts = s.inner();
+			for( var i=0;i<alts.length; ++i ){
+				var tmp = sim(alts[i],p);
+				if( tmp_s === null ){
+					tmp_s = tmp.s;
+					tmp_p = tmp.p;
+				}else{
+					assert( equal( tmp_s, tmp.s ) && equal( tmp_p, tmp.p ),
+						'[Protocol Conformance] Alternatives mimatch.\n'+
+						'(1)\tstate:\t'+tmp_s+'\n\tstep:\t'+tmp_p+'\n'+
+						'(2)\tstate:\t'+tmp.s+'\n\tstep:\t'+tmp.p+'\n', ast );
+				}
+			}
+			return { s : tmp_s , p : tmp_p };
+		}
+		
+		if( p.type() === types.AlternativeType ){
+			var alts = p.inner();
+			for( var i=0; i<alts.length; ++i ){
+				try{
+console.debug('attempt:: '+alts[i] +' s::'+s);
+					return sim(s,alts[i]);
+				}catch(e){
+					// assume it is an assertion error, continue to try with
+					// some other alternative
+					continue;
+				}
+			}
+			assert( false, '[Protocol Conformance] No matching alternative.\n'+
+				'state:\t'+s+'\n'+
+				'step:\t'+p, ast );
+		}
+		
+		var pp = unAll( p );
+		
+		assert( pp.type() === types.RelyType,
+			'Expecting RelyType, got: '+pp.type(), ast);
+		
+		assert( subtypeOf( s, pp.rely() ),
+			'Invalid Step: '+s+' VS '+pp.rely(), ast );
+		
+		var next = pp.guarantee();
+		assert( next.type() === types.GuaranteeType,
+			'Expecting GuaranteeType, got: '+next.type(), ast);
+		
+		return { s : next.guarantee() , p : next.rely() };		
+	}
+	
+	var work = [];
+	work.push( [s,a,b] );
+
+	while( work.length > 0 ){
+		var state = work.pop();
+		var _s = state[0];
+		var _a = state[1];
+		var _b = state[2];
+		
+		// already done
+		if( contains(_s,_a,_b) )
+			continue;
+console.debug( 's:: '+_s+' p:: '+_a+' q:: '+_b);
+
+		visited.push( [_s,_a,_b] );
+		
+		var l = sim(_s,_a);
+		work.push( [l.s,l.p,_b] );
+			
+		var r = sim(_s,_b);
+		work.push( [r.s,_a,r.p] );
+		
+		assert( max_visited-- > 0 ,'ERROR: MAX VISITED', ast);
+	}
+};
+				checkProtocolConformance(cap, left, right);
+				
+				env.setCap( null, unAll(left) );
+				env.setCap( null, unAll(right) );
+				// returns unit
+				return new BangType(new RecordType());
 			} 
 			
 			case AST.kinds.FOCUS: {

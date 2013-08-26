@@ -1,12 +1,14 @@
 
 // NOTE READY, just parser test.
 
+import add
+
 typedef Alias = forall t.( ( rw t (Held#[]) => rw t (Released#int) ) 
 	(+) ( rw t (Released#int) => none ) )
 
 open <t,x> = new Held#{} in
 	share t as (Alias[t]) || (Alias[t]);
-	// ... SOMETHING THAT CONSUMES ONE ALIAS
+	// TOO: ADD SOMETHING THAT CONSUMES ONE ALIAS
 	focus t;
 	case !x of
 		Held#n ->
@@ -14,7 +16,7 @@ open <t,x> = new Held#{} in
 			defocus // returns unit
 	| Released#n ->
 			defocus;
-			x := n; //FIXME needs ADDITION +1;
+			x := (add n 1);
 			// ...
 			delete x
 	end

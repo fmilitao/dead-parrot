@@ -1,3 +1,12 @@
+FOCUS / DEFOCUS
+
+ - ensure no defocus guarantee on functions and forall abstraction
+	DEFOCUS |> env
+ - is duplication allowed?
+ for caps it makes dereference messy since there are multiple to pick...
+ but how to forbid it in a clean way?
+
+
 FIXME:
 
  - isEquals on environments must be cleaned
@@ -9,6 +18,7 @@ FIXME:
  (logically) occur!
  
  - firefox issue with scrollbars (getScrollbarWidth function).
+ - timer on execution for webworker?
 
 TODO:
 

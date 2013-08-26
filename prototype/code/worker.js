@@ -415,8 +415,13 @@ var toHTML = function (t){
 			return '<b>none</b>';
 		case types.DelayedApp:
 			return wq( wq( _toHTML(t.inner()) )+wQ('[')+ wq( toHTML(t.id()) )+wQ(']') );
+		case types.RelyType:
+			return wq( wq( _toHTML(t.rely()) )+wQ(' &#8658; ') + wq(_toHTML(t.guarantee())) );
+		case types.GuaranteeType:
+			return wq( wq( _toHTML(t.guarantee()) )+wQ(' ; ') + wq(_toHTML(t.rely())) );
+//			return wq( wq( _toHTML(t.inner()) )+wQ('[')+ wq( toHTML(t.id()) )+wQ(']') );
 		default:
-			console.error( "Assertion error on " +t.type() );
+			console.error( "Error @toHTML: " +t.type() );
 			return null;
 		}
 };
