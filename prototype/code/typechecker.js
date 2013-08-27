@@ -658,31 +658,26 @@ var TypeChecker = (function(AST,assertF){
 		return rec(type);
 	};
 	
-	/**
-	 * Tests if types 'a' and 'b' are the same.
-	 * Up to renaming of bounded variables, so that it renames existentials
-	 * and foralls. Thus, returns true when they are structurally equal, even
-	 * if their labels in existentials are of different strings values.
-	 * @param {Type} a
-	 * @param {Type} b
-	 * @return {Boolean} if the types are equal up to renaming.
+	/*
+	 * 
 	 */
-	var equals = function(a,b){
-
-		// recursion table so as to remember those pairs of types that were
-		// already seen in order to avoid unending executions.
+	
+	var Table = function(){
 		var visited = [];
-		var seen = function(a,b){
+		
+		this.seen = function(a,b){
 			for(var i=0;i<visited.length;++i){
 				if( visited[i][0] === a && visited[i][1] === b )
 					return true;
 			}
 			return false;
-		}
-		var push = function(a,b){
+		};
+		
+		this.push = function(a,b){
 			visited.push( [a,b] );
-		}
-		var transitivity = function(a,b,left){
+		};
+		
+		this.transitivity = function(a,b,left){
 			var tmp = [];
 			for(var i=0;i<visited.length;++i){
 				if( left ){ // on left
@@ -697,26 +692,40 @@ var TypeChecker = (function(AST,assertF){
 			}						
 			visited = visited.concat(tmp);
 		}
+	}
+	
+	/**
+	 * Tests if types 'a' and 'b' are the same.
+	 * Up to renaming of bounded variables, so that it renames existentials
+	 * and foralls. Thus, returns true when they are structurally equal, even
+	 * if their labels in existentials are of different strings values.
+	 * @param {Type} a
+	 * @param {Type} b
+	 * @return {Boolean} if the types are equal up to renaming.
+	 */
+	var equals = function(a,b){
+
+		// recursion table so as to remember those pairs of types that were
+		// already seen in order to avoid unending executions.
+		var table = new Table();
 		
 		// auxiliary function that is bound to the previous 'visited' table
 		// and also uses temporary environments to remember type variables, etc.
 		var equalsTo = function( t1, m1, t2, m2 ){
-//console.debug( t1+' == '+t2 );
 			
-			if( t1 === t2 ) {// exactly the same
+			// exactly the same
+			if( t1 === t2 )
 				return true;
-			}
 				
-			if( seen( t1, t2 ) )
+			if( table.seen( t1, t2 ) )
 				return true;
-			
 			
 			var var1 = t1.type() === types.TypeVariable;
 			var var2 = t2.type() === types.TypeVariable;
 			if( var1 ^ var2 ){
 				
 				// in here?? the next line makes no sense...
-				push( t1, t2 ); // assume they are the same
+				table.push( t1, t2 ); // assume they are the same
 
 				if( var1 ){
 					t1 = m1.get( t1.name() );
@@ -740,7 +749,6 @@ var TypeChecker = (function(AST,assertF){
 			var rec2 = t2.type() === types.RecursiveType;
 			if( rec1 ^ rec2 ){
 
-//				push( t1, t2 ); // assume they are the same
 				// if this is wrong, then it must be cause their internals
 				// are different. Therefore, it will fail elsewhere and it is
 				// OK to assume they are equal in here.
@@ -755,7 +763,7 @@ var TypeChecker = (function(AST,assertF){
 					m2.set( t2.id().name(), t2 );
 					t2 = t2.inner();
 				}
-//console.debug( t1+' ?? ' +t2 )				
+			
 				return equalsTo( t1, m1, t2, m2 );
 			}
 			
@@ -763,8 +771,6 @@ var TypeChecker = (function(AST,assertF){
 			var del2 = t2.type() === types.DelayedApp;
 			if( del1 ^ del2 ){
 				
-				//push( t1, t2 );
-
 				if( del1 ){
 					// special (ad-hoc?) lookahead
 					if( t1.inner().type() === types.RecursiveType &&
@@ -778,7 +784,7 @@ var TypeChecker = (function(AST,assertF){
 						m1.set( rec.id().name(), rec );
 						
 						// TRANSITIVITY: must ensure is considered same as other
-						transitivity( v.name(), forall.id().name(), false );
+						table.transitivity( v.name(), forall.id().name(), false );
 	
 						t1 = forall.inner();
 
@@ -790,7 +796,7 @@ var TypeChecker = (function(AST,assertF){
 					// special (ad-hoc?) lookahead
 					if( t2.inner().type() === types.RecursiveType &&
 						t2.inner().inner().type() === types.ForallType ){				
-//console.debug( t1 +' \n\tVS ' +t2 );
+
 						var v = t2.id();
 						var rec = t2.inner();
 						var forall = rec.inner();
@@ -799,50 +805,32 @@ var TypeChecker = (function(AST,assertF){
 						m2 = m2.newScope();
 						m2.set( rec.id().name(), rec );
 						
-						// forall this is actually not necessary
-						// m2 = m2.newScope();
-						// m2.set( forall.id().name(), v );
-						// what if it is a type variable?
-						
 						// TRANSITIVITY: must ensure is considered same as other
-						transitivity( v.name(), forall.id().name(), true );
+						table.transitivity( v.name(), forall.id().name(), true );
 	
 						t2 = forall.inner();
-/*
-console.debug('???' + v.name() + ' + ' + tmp);
-console.debug('visited:\t\t '+ visited );
-console.debug('?:\t\t '+ t1 );
-console.debug('?:\t\t '+ t2 );
-*/
+
 						return equalsTo( t1, m1, t2, m2 );
-/*
-console.debug('res:\t\t ' + x );
-console.debug('visited:\t\t '+ visited );
-						return x;
-*/
 					}
 				}
 			}
 			
 			// ----
 			
-			if( t1.type() !== t2.type() ){
-				//console.log( t1 + ' vs ' + t2 );
+			if( t1.type() !== t2.type() )
 				return false;
-			}
 			
 			// assuming both same type
 			switch ( t1.type() ){
 				case types.ForallType:		
 				case types.ExistsType:
 				case types.RecursiveType: {
-//console.debug( '??'+ t1.id().name()+' '+t2.id().name() );
 					if( t1.id().type() !== t2.id().type() )
 						return false;
 
 					// assume they are the same
-					push( t1.id().name(), t2.id().name() );
-//console.debug( '>>' +visited );
+					table.push( t1.id().name(), t2.id().name() );
+
 					if( t1.type() === types.RecursiveType ){
 						// environment used to store the type for the case
 						// unfolding is necessary on the recursive types
@@ -852,7 +840,7 @@ console.debug('visited:\t\t '+ visited );
 						m1.set( t1.id().name(), t1 );
 						m2.set( t2.id().name(), t2 );
 						
-						push( t1, t2 );
+						table.push( t1, t2 );
 					}
 					
 					
@@ -860,8 +848,8 @@ console.debug('visited:\t\t '+ visited );
 				}
 				case types.TypeVariable:
 				case types.LocationVariable: {
-					return  t1.name() === t2.name() ||
-						seen( t1.name(), t2.name() );
+					return  t1.name() === t2.name() || // FIXME: same name??
+						table.seen( t1.name(), t2.name() );
 				}
 				// =============================================================
 				case types.FunctionType:
@@ -884,11 +872,6 @@ console.debug('visited:\t\t '+ visited );
 					if( t1s.length !== t2s.length )
 						return false;
 					for( var i=0; i<t1s.length; ++i ){
-						//console.log('---'+ t1s );
-						//console.log('---'+ t2s );
-						//console.log( i );
-						//console.log( t2s.hasOwnProperty(i) );
-						//console.log( t2.inner(t2s[i]) );
 						if( t2s.indexOf(t1s[i])===-1 ||
 							!equalsTo( t1.inner(t1s[i]), m1, t2.inner(t1s[i]), m2 ) )
 							return false;
@@ -975,30 +958,35 @@ console.debug('visited:\t\t '+ visited );
 	 * @return {Boolean} true if t1 <: t2 (if t1 can be used as t2).
 	 */
 	var subtypeOf = function( t1 , t2 ){
-		//console.log( ' ==== ' );
-		
-		// same as equals
-		var visited = [];
-		var seen = function(a,b){
-			for(var i=0;i<visited.length;++i){
-				if( visited[i][0] === a && visited[i][1] === b )
-					return true;
-			}
-			return false;
-		}
-		var push = function(a,b){
-			visited.push( [a,b] );
-		}
-	
+// FIXME this algorithm is crap
+		var table = new Table();
+
 		var subtype = function( t1, m1, t2, m2 ){
 	
-					//console.log(t1 +' <: '+t2 );
-	
-			if( t1 === t2 ) // if exactly the same thing
+			if( t1 === t2 || equals(t1,t2) ) // if exactly the same thing
 				return true;
 				
-			if( seen( t1, t2 ) )
+			if( table.seen( t1, t2 ) )
 				return true;
+			
+			var var1 = t1.type() === types.TypeVariable;
+			var var2 = t2.type() === types.TypeVariable;
+			if( var1 ^ var2 ){
+				if( var1 ){
+					t1 = m1.get( t1.name() );
+					// some problem on getting the variable's definition
+					// assume it is not equal.
+					if( t1 === undefined )
+						return false;
+				}
+				if( var2 ){
+					t2 = m2.get( t2.name() );
+					if( t2 === undefined )
+						return false;
+				}
+				
+				return subtype( t1, m1, t2, m2 );
+			}
 			
 			// recursive types must be handled before hand
 			// handle asymmetric comparision of recursive types
@@ -1006,7 +994,7 @@ console.debug('visited:\t\t '+ visited );
 			var rec2 = t2.type() === types.RecursiveType;
 			if( rec1 ^ rec2 ){
 				
-				push( t1, t2 ); // assume they are the same
+				table.push( t1, t2 ); // assume they are the same
 				// if this is wrong, then it must be cause their internals
 				// are different. Therefore, it will fail elsewhere and it is
 				// OK to assume they are equal in here.
@@ -1025,28 +1013,56 @@ console.debug('visited:\t\t '+ visited );
 				return subtype( t1, m1, t2, m2 );
 			}
 			
-			var var1 = t1.type() === types.TypeVariable;
-			var var2 = t2.type() === types.TypeVariable;
-			if( var1 ^ var2 ){
-				
-				// in here?? the next line makes no sense...
-				//push( t1, t2 ); // assume they are the same
+			var del1 = t1.type() === types.DelayedApp;
+			var del2 = t2.type() === types.DelayedApp;
+			if( del1 ^ del2 ){
+				//debugger;
+				//push( t1, t2 );
 
-				if( var1 ){
-					t1 = m1.get( t1.name() );
-					// some problem on getting the variable's definition
-					// assume it is not equal.
-					if( t1 === undefined )
-						return false;
-				}
-				if( var2 ){
-					t2 = m2.get( t2.name() );
-					if( t2 === undefined )
-						return false;
+				if( del1 ){
+					// special (ad-hoc?) lookahead
+					if( t1.inner().type() === types.RecursiveType &&
+						t1.inner().inner().type() === types.ForallType ){				
+						var v = t1.id();
+						var rec = t1.inner();
+						var forall = rec.inner();
+						
+						// recursive type
+						m1 = m1.newScope();
+						m1.set( rec.id().name(), rec );
+						
+						// TRANSITIVITY: must ensure is considered same as other
+						table.transitivity( v.name(), forall.id().name(), false );
+	
+						t1 = forall.inner();
+
+						return subtype( t1, m1, t2, m2 );
+					}
 				}
 				
-				return subtype( t1, m1, t2, m2 );
+				if( del2 ){
+					// special (ad-hoc?) lookahead
+					if( t2.inner().type() === types.RecursiveType &&
+						t2.inner().inner().type() === types.ForallType ){				
+//console.debug( t1 +' \n\tVS ' +t2 );
+						var v = t2.id();
+						var rec = t2.inner();
+						var forall = rec.inner();
+						
+						// recursive type
+						m2 = m2.newScope();
+						m2.set( rec.id().name(), rec );
+												
+						// TRANSITIVITY: must ensure is considered same as other
+						table.transitivity( v.name(), forall.id().name(), true );
+	
+						t2 = forall.inner();
+
+						return subtype( t1, m1, t2, m2 );
+					}
+				}
 			}
+			
 			// ----
 	
 			// types that can be "banged"
@@ -1150,7 +1166,7 @@ console.debug('visited:\t\t '+ visited );
 					var i2s = t2.tags();
 					for( var i in i1s ){
 						var j = t2.inner(i1s[i]);
-						if( j === undefined || // missing tag
+						if( j === undefined || // if tag is missing, or
 							!subtype( t1.inner(i1s[i]), m1, j, m2 ) )
 							return false;
 					}
@@ -1171,7 +1187,7 @@ console.debug('visited:\t\t '+ visited );
 					n1.set( t1.id().name(), t1 );
 					n2.set( t2.id().name(), t2 );
 					
-					push( t1.id(), t2.id() ); // assume they are subtypes
+					table.push( t1.id(), t2.id() ); // assume they are subtypes
 
 					return subtype( t1.inner(), n1, t2.inner(), n2 );
 				}
@@ -2481,7 +2497,6 @@ console.debug('visited:\t\t '+ visited );
 			}
 			
 			case AST.kinds.SHARE: {
-				//debugger;
 				var locs = ast.locs;
 				// FIXME assuming just one
 				var cap = env.removeCap( locs[0] );
@@ -2510,7 +2525,6 @@ var checkProtocolConformance = function( s, a, b ){
 	
 	var sim = function(s,p){
 		p = unAll(p); // FIXME this also removes bangs!! unfold recursive type
-		
 		// first protocol
 		if( p.type() === types.NoneType )
 			return { s : s , p : p };
@@ -2521,6 +2535,7 @@ var checkProtocolConformance = function( s, a, b ){
 			var tmp_p = null;
 			var alts = s.inner();
 			for( var i=0;i<alts.length; ++i ){
+				//debugger;
 				var tmp = sim(alts[i],p);
 				if( tmp_s === null ){
 					tmp_s = tmp.s;
@@ -2539,7 +2554,7 @@ var checkProtocolConformance = function( s, a, b ){
 			var alts = p.inner();
 			for( var i=0; i<alts.length; ++i ){
 				try{
-console.debug('attempt:: '+alts[i] +' s::'+s);
+//console.debug('attempt:: '+alts[i] +' s::'+s);
 					return sim(s,alts[i]);
 				}catch(e){
 					// assume it is an assertion error, continue to try with
@@ -2579,7 +2594,7 @@ console.debug('attempt:: '+alts[i] +' s::'+s);
 		// already done
 		if( contains(_s,_a,_b) )
 			continue;
-console.debug( 's:: '+_s+' p:: '+_a+' q:: '+_b);
+//console.debug( 's:: '+_s+' p:: '+_a+' q:: '+_b);
 
 		visited.push( [_s,_a,_b] );
 		

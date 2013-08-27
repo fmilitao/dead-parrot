@@ -1,6 +1,5 @@
 
 // NOTE READY, just parser test.
-// FIXME: ARGH bug in deplayed type app with protocol conform.
 
 // head node
 typedef H = rec X.forall p.( ( rw p (Empty#[]) => rw p (Empty#[]) ; (X[p]) ) (+)
@@ -10,18 +9,6 @@ typedef H = rec X.forall p.( ( rw p (Empty#[]) => rw p (Empty#[]) ; (X[p]) ) (+)
 // tail node
 typedef T = forall p.( rw p (Empty#[]) =>
 	( (rw p (Closed#[])) (+) (rw p (Node#[int,exists q.(H[q])]))) )
-
-/*
- // ... but the one below works.
-// head node
-typedef H = rec X.forall p.( ( rw p (Empty#[]) => rw p (Empty#[]) ; (X[p]) ) (+)
-			( rw p (Closed#[]) => none ) (+) 
-			( rw p (Node#[int,int]) => none ) )
-
-// tail node
-typedef T = forall p.( rw p (Empty#[]) =>
-	( (rw p (Closed#[])) (+) (rw p (Node#[int,int]))) )
-*/
 
 let newPipe = fun( _ : [] ).
 	// initial node to be shared:
