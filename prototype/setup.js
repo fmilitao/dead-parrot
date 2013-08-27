@@ -57,8 +57,9 @@ function getScrollbarWidth() { // FIXME: to fix firefox scrollbar problem with b
 
 $(document).ready(function() {
 	
-	
-	$.ajaxSetup({ cache: false }); // FIXME debug
+	// FIXME debug
+	$.ajaxSetup({ cache: false });
+	var DEBUG_MSG = true;
 	
 	//
 	// window layout setup
@@ -146,6 +147,8 @@ $(document).ready(function() {
     editor.setShowPrintMargin(false);
     editor.getSession().setTabSize(3);
 	
+	var worker_enabled = true;
+	
 	(function(){ // Examples buttons.
 		var setEditor = function(text){
 			// disable event handlers while updating content
@@ -196,21 +199,26 @@ $(document).ready(function() {
 	    //load examples given as parameters
 	    var parameters = document.URL.split('?');
 	    if( parameters.length > 1 ){
-	    	//console.log(document.URL);
-	    	parameters = parameters[1].split('=');
-	    	if( parameters.length > 1 ){
-	    		var option = parameters[0];
-	    		var value = parameters[1];
-	    		switch( option ){
-	    			case 'file': // load file
-		    			$.get( value , function(data) {
-							setEditor(data);
-							//console.log(data);
-						});
-	    				break;
-	    			default: // not other options for now.
-	    				break;
-	    		}
+	    	parameters = parameters[1].split('&');
+	    	for( var i=0;i<parameters.length;++i ){
+		    	var tmp = parameters[i].split('=');
+		    	if( tmp.length > 1 ){
+		    		var option = tmp[0];
+		    		var value = tmp[1];
+		    		switch( option ){
+		    			case 'file': // load file
+			    			$.get( value , function(data) {
+								setEditor(data);
+								//console.log(data);
+							});
+		    				break;
+		    			case 'worker':
+		    				worker_enabled = (value.toLowerCase() === 'true');
+		    				break;
+		    			default: // not other options for now.
+		    				break;
+		    		}
+		    	}
 	    	}
 	    }else{ // no parameters given, load default
 	    	$.get( 'examples/welcome.txt' , function(data) {
@@ -301,10 +309,14 @@ $(document).ready(function() {
 	(function(){ // reset worker button.
 		var button = $(_RESET_);
 		
-		button.click( function(event){
-			comm.reset();
-			editor.focus();
+		if( !worker_enabled ) {
+			button.html("N/A");
+		} else {
+			button.click( function(event){
+				comm.reset();
+				editor.focus();
 		});
+		}
 	})();
 	
 	//
@@ -336,46 +348,6 @@ $(document).ready(function() {
 		);		
 	};
 	
-	//
-	// Worker Setup
-	//
-	
-	var worker;
-	var send;
-	
-	var resetWorker = function(){
-		worker = new Worker('code/worker.js');
-		worker.addEventListener('message', function(e) {
-			var m = e.data;
-			try{
-				receive[m.kind](m.data);
-			}catch(e){
-				console.error(e);
-			}
-		}, false);
-		send = function(k,msg){
-			worker.postMessage({ kind: k, data: msg });
-		};
-	};
-	resetWorker();
-
-	var comm = {
-		eval : function(){
-			send('EVAL', editor.getSession().getValue());		
-		},
-		checker : function(p){
-			send('CHECKER' , p);		
-		},
-		autorun : function(v){
-			send('AUTO', v);
-		},
-		reset : function(){
-			worker.terminate();
-			resetWorker();
-			comm.eval();
-		}
-	};
-
     //
     // Editor & Listeners Setup
     //
@@ -421,9 +393,11 @@ $(document).ready(function() {
     	
     };
     
-    var DEBUG_MSG = true;
-	
-	var receive = {
+    //
+    // Handler of (Received) Events
+    //
+    
+	var handle = {
 		
 		//
 		// debug
@@ -488,7 +462,7 @@ $(document).ready(function() {
 			}
             out.printError( msg );
 
-			receive.updateAnnotations( { reason : msg, line : line } );
+			handle.updateAnnotations( { reason : msg, line : line } );
 		},
 		
     	updateAnnotations : function(res){
@@ -506,6 +480,91 @@ $(document).ready(function() {
 	        }
         }
 	};
+	
+	//
+	// Worker Setup
+	//
+	
+	var worker;
+	var send;
+	var receive = handle;
+		
+	if( worker_enabled ){
+		
+		// launch worker
+		var resetWorker = function(){
+			worker = new Worker('code/worker.js');
+			worker.addEventListener('message', function(e) {
+				var m = e.data;
+				try{
+					receive[m.kind](m.data);
+				}catch(e){
+					console.error(e);
+				}
+			}, false);
+			send = function(k,msg){
+				worker.postMessage({ kind: k, data: msg });
+			};
+		};
+		
+		resetWorker();
+		
+	}else{
+		/*
+		 * This runs the typechecker, etc. locally.
+		 * It is really just meant for debugging since some of the Chrome Dev
+		 * Tools do not work properly when they are triggered from inside a
+		 * Web Worker... WARNING: unpleasant code.
+		 */
+		
+		var importScript = function(file){
+			$.ajax({ type : 'GET',
+				async : false,
+				url : file,
+				dataType:'script',
+				success : function(data) {}
+				});
+		};
+console.log('importing scripts for running locally...');
+		importScript('lib/jison.js');
+		importScript('code/parser.js');
+		importScript('code/interpreter.js');
+		importScript('code/typechecker.js');
+console.log('done.');
+console.log('importing worker code...');
+
+		// make handle function available to worker THIS IS A GLOBAL VAR
+		GLOBAL_HANDLER = handle;
+		importScript('code/worker.js');
+		
+		var send_here = function(kind,data) {
+			try{
+				WORKER_HANDLER[kind](data);
+			}catch(e){
+				console.error(e);
+			}
+		};
+		
+	}
+	
+	var comm = (function(send){
+		return { // communication object
+			eval : function(){
+				send('EVAL', editor.getSession().getValue());		
+			},
+			checker : function(p){
+				send('CHECKER' , p);		
+			},
+			autorun : function(v){
+				send('AUTO', v);
+			},
+			reset : function(){
+				worker.terminate();
+				resetWorker();
+				comm.eval();
+			} 
+		};
+	})( worker_enabled ? send : send_here );
 
 	var cursor_elem = $(_CURSOR_);
 	

@@ -1,4 +1,136 @@
 //
+// Worker thread
+//
+
+var isThread = typeof(window) === 'undefined';
+
+// only loads the following if it is a standalone thread
+if( isThread ){
+
+	// convenient debug stuff
+	var console = function(){
+		var aux = function(k,arg){
+			var tmp =[];
+			for( var i in arg )
+				tmp.push(arg[i].toString());
+			self.postMessage({kind: k, data: tmp.join(' ') });
+		}
+		
+		return {
+			log : function(){ aux('log',arguments) },
+			error : function(){ aux('error',arguments) },
+			debug  : function(){ aux('debug',arguments) }
+		};
+	}();
+
+	// libs
+	importScripts('../lib/jison.js');
+	importScripts('parser.js','interpreter.js','typechecker.js');
+
+}
+
+var parser = Parser( (isThread?'':'code/') + 'grammar.jison' );
+var interpreter = function(ast){ return Interpreter.run(ast,libLoader); };
+var types = TypeChecker.types;
+var checker = TypeChecker.check;
+
+// to avoid reparsing, the 'ast' is made available
+// to the other listener functions through this var.
+
+var ast = null;
+var typeinfo = null;
+var autorun = true;
+
+var handleError = function(e){
+	if( e.stack )
+		console.error( e.stack.toString() );
+	send('errorHandler', JSON.stringify(e));
+}
+
+var send;
+if( isThread ){
+	send = function(k,msg){
+		self.postMessage({kind: k, data: msg });
+	};
+	
+	self.addEventListener('message', function(e) {
+		var m = e.data;
+		try{
+			receive[m.kind](m.data);
+		}catch(e){
+			console.error(e);
+		}
+	}, false);
+}else{
+	// Just for local debugging, GLOBAL_HANDLER is global var
+	send = function(kind,data) {
+		try{
+			GLOBAL_HANDLER[kind](data);
+		} catch(e) {
+			console.error(e);
+		}
+	};
+}
+
+var receive = {
+	EVAL : function(data){
+		try{
+			ast = null;
+			typeinfo = {};
+			send('clearAll',null);
+	
+			ast = parser( data );
+
+			send('println', '<b>Type</b>: '+
+				toHTML( checker( ast , typeinfo, libTyper ) ) );
+			
+			if( autorun ){
+				send('println', '<b>Result</b>: '+
+					interpreter( ast,
+						function(msg){ send('println',msg.toString()) } ) );
+			}
+			
+			// no errors!
+			send('updateAnnotations', null);
+		}catch(e){
+			handleError(e);
+		}
+	},
+	AUTO : function(auto){
+		try{
+			autorun = auto;
+			if( autorun && ast !== null ){
+				send('println', "<b>FORCED RUN - Result:</b> "+
+					interpreter( ast,
+						function(msg){ send('println',msg.toString()) } ) );
+			}
+		}catch(e){
+			handleError(e);
+		}
+	},
+	CHECKER: function(data){
+		try{
+			var pos = data;
+			// only if parsed correctly
+		   	if( ast === null || typeinfo === null )
+		   		return;
+		   	else{
+		   		// resets typing output
+		   		send('clearTyping',null);
+		   	}
+		    
+			send('printTyping',info(typeinfo,pos).toString());
+		}catch(e){
+			handleError(e);
+		}
+	}
+};
+
+if( !isThread ){
+	var WORKER_HANDLER = receive;
+}
+
+//
 // Quick and Dirty Standard Lib for basic arithm.
 //
 
@@ -63,119 +195,6 @@ var libTyper = function( file, ctx ){
 	// others are unknown
 	return undefined;
 };
-
-//
-// Worker thread
-//
-
-// convenient debug stuff
-var console = function(){
-	var aux = function(k,arg){
-		var tmp =[];
-		for( var i in arg )
-			tmp.push(arg[i].toString());
-		self.postMessage({kind: k, data: tmp.join(' ') });
-	}
-	
-	return {
-		log : function(){ aux('log',arguments) },
-		error : function(){ aux('error',arguments) },
-		debug  : function(){ aux('debug',arguments) }
-	};
-}();
-
-var g = '../lib/jison.js';
-// leave the next comment for the deploy script
-//__DEV__g = 'grammar.js';
-importScripts(g);
-
-importScripts('parser.js','interpreter.js','typechecker.js');
-
-var parser = Parser('grammar.jison');
-var interpreter = function(ast){ return Interpreter.run(ast,libLoader); };
-var types = TypeChecker.types;
-var checker = TypeChecker.check;
-
-// to avoid reparsing, the 'ast' is made available
-// to the other listener functions through this var.
-
-var ast = null;
-var typeinfo = null;
-var autorun = true;
-
-var handleError = function(e){
-	if( e.stack )
-		console.error( e.stack.toString() );
-	send('errorHandler', JSON.stringify(e));
-}
-
-var send = function(k,msg){
-	self.postMessage({kind: k, data: msg });
-};
-
-self.addEventListener('message', function(e) {
-	var m = e.data;
-	try{
-		receive[m.kind](m.data);
-	}catch(e){
-		console.error(e);
-	}
-}, false);
-
-var receive = {
-	EVAL : function(data){
-		try{
-			ast = null;
-			typeinfo = {};
-			send('clearAll',null);
-	
-			ast = parser( data );
-
-			send('println', '<b>Type</b>: '+
-				toHTML( checker( ast , typeinfo, libTyper ) ) );
-			
-			if( autorun ){
-				send('println', '<b>Result</b>: '+
-					interpreter( ast,
-						function(msg){ send('println',msg.toString()) } ) );
-			}
-			
-			// no errors!
-			send('updateAnnotations', null);
-		}catch(e){
-			handleError(e);
-		}
-	},
-	AUTO : function(auto){
-		try{
-			autorun = auto;
-			if( autorun && ast !== null ){
-				send('println', "<b>FORCED RUN - Result:</b> "+
-					interpreter( ast,
-						function(msg){ send('println',msg.toString()) } ) );
-			}
-		}catch(e){
-			handleError(e);
-		}
-	},
-	CHECKER: function(data){
-		try{
-			var pos = data;
-			// only if parsed correctly
-		   	if( ast === null || typeinfo === null )
-		   		return;
-		   	else{
-		   		// resets typing output
-		   		send('clearTyping',null);
-		   	}
-		    
-			send('printTyping',info(typeinfo,pos).toString());
-		}catch(e){
-			handleError(e);
-		}
-	}
-};
-
 
 //
 // Printing Type Information

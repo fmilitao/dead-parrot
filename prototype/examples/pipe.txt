@@ -9,7 +9,19 @@ typedef H = rec X.forall p.( ( rw p (Empty#[]) => rw p (Empty#[]) ; (X[p]) ) (+)
 
 // tail node
 typedef T = forall p.( rw p (Empty#[]) =>
-	( (rw p (Closed#[])) (+) (rw p (Node#[int,exists q.H[q]]))) )
+	( (rw p (Closed#[])) (+) (rw p (Node#[int,exists q.(H[q])]))) )
+
+/*
+ // ... but the one below works.
+// head node
+typedef H = rec X.forall p.( ( rw p (Empty#[]) => rw p (Empty#[]) ; (X[p]) ) (+)
+			( rw p (Closed#[]) => none ) (+) 
+			( rw p (Node#[int,int]) => none ) )
+
+// tail node
+typedef T = forall p.( rw p (Empty#[]) =>
+	( (rw p (Closed#[])) (+) (rw p (Node#[int,int]))) )
+*/
 
 let newPipe = fun( _ : [] ).
 	// initial node to be shared:
@@ -18,7 +30,7 @@ let newPipe = fun( _ : [] ).
 	open <hloc,head> = new <nloc,node> in
 	open <tloc,tail> = new <nloc,node> in
 		{
-		put = fun( e : int :: rw tloc (exists p.( ref p :: T[p] )) ).
+		put = fun( e : int :: rw tloc (exists p.( ref p :: (T[p]) )) ).
 			open <l1,last> = new Empty#{} in
 				open <l2,oldlast> = !tail in
 					focus l2;
@@ -29,7 +41,7 @@ let newPipe = fun( _ : [] ).
 				end
 			end,
 	
-		close = fun( _ : [] :: rw tloc (exists p.(ref p :: T[p])) ).
+		close = fun( _ : [] :: rw tloc (exists p.(ref p :: (T[p]) )) ).
 			open <l1,last> = !tail in
 				delete tail;
 				focus l1;
@@ -37,7 +49,7 @@ let newPipe = fun( _ : [] ).
 				defocus
 			end,
 
-		tryTake = fun( _ : [] :: rw hloc (exists p.(ref p :: H[p])) ).
+		tryTake = fun( _ : [] :: rw hloc (exists p.(ref p :: (H[p]) )) ).
 			open <f1,first> = !head in
 				focus f1;
 				case !first of

@@ -948,8 +948,9 @@ console.debug('visited:\t\t '+ visited );
 							}
 						}
 						// if not found, then must be different
-						if( !found )
+						if( !found ){
 							return false;
+						}
 					}
 					return true;
 				}
@@ -1651,6 +1652,22 @@ console.debug('visited:\t\t '+ visited );
 				t = substitution(t.inner(),t.id(),t);
 				continue;
 			}
+			
+			if( t.type() === types.DelayedApp ){
+				if( t.inner().type() === types.RecursiveType && 
+					t.inner().inner().type() === types.ForallType ){
+					var v = t.id();
+					var rec = t.inner();
+					
+					// expand inner recursion
+					t = substitution(rec.inner(),rec.id(),rec);
+					// do type application
+					t = substitution(t.inner(),t.id(),v);
+					continue;
+				}
+				
+			}
+			
 			break;
 		}
 		return t;
@@ -1743,6 +1760,7 @@ console.debug('visited:\t\t '+ visited );
 		case types.NoneType:
 			break; // nothing to do
 		case types.AlternativeType:
+		case types.RelyType:
 			assert( d.setCap( null , t ) ,
 			 'Duplicated capability '+ t, ast );
 			break;
@@ -2463,6 +2481,7 @@ console.debug('visited:\t\t '+ visited );
 			}
 			
 			case AST.kinds.SHARE: {
+				//debugger;
 				var locs = ast.locs;
 				// FIXME assuming just one
 				var cap = env.removeCap( locs[0] );
@@ -2490,7 +2509,7 @@ var checkProtocolConformance = function( s, a, b ){
 	}
 	
 	var sim = function(s,p){
-		p = unAll(p); // unfold recursive type
+		p = unAll(p); // FIXME this also removes bangs!! unfold recursive type
 		
 		// first protocol
 		if( p.type() === types.NoneType )
@@ -2507,7 +2526,7 @@ var checkProtocolConformance = function( s, a, b ){
 					tmp_s = tmp.s;
 					tmp_p = tmp.p;
 				}else{
-					assert( equal( tmp_s, tmp.s ) && equal( tmp_p, tmp.p ),
+					assert( equals( tmp_s, tmp.s ) && equals( tmp_p, tmp.p ),
 						'[Protocol Conformance] Alternatives mimatch.\n'+
 						'(1)\tstate:\t'+tmp_s+'\n\tstep:\t'+tmp_p+'\n'+
 						'(2)\tstate:\t'+tmp.s+'\n\tstep:\t'+tmp.p+'\n', ast );
@@ -2536,7 +2555,7 @@ console.debug('attempt:: '+alts[i] +' s::'+s);
 		var pp = unAll( p );
 		
 		assert( pp.type() === types.RelyType,
-			'Expecting RelyType, got: '+pp.type(), ast);
+			'Expecting RelyType, got: '+pp.type()+'\n'+pp, ast);
 		
 		assert( subtypeOf( s, pp.rely() ),
 			'Invalid Step: '+s+' VS '+pp.rely(), ast );
@@ -2901,3 +2920,4 @@ console.debug( 's:: '+_s+' p:: '+_a+' q:: '+_b);
 	};
 	return exports;
 })(AST,assertF); // required globals
+
