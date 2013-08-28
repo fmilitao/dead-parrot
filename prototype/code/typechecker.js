@@ -20,25 +20,8 @@ var TypeChecker = (function(AST,assertF){
 	// TYPES
 	//
 	
-	// types enumeration, useful for case analysis
-	var types = {};
-	// types factory
-	var fct = {};
-
-// ------	
-	var addType = function(label){
-		assert( !types.hasOwnProperty(label), 'Duplicated label: '+label );
-		types[label] = label;
-		// later it may be useful to change away from strings, but for now
-		// they are very useful when debugging problems.
-		return label;
-	}
-	
-	var inherit = function(obj,type){
-		obj.type = function(){ return type; }
-		obj.toString = function() { return toString(obj); }
-	}
-// ------
+	var types = {}; // types enumeration, useful for case analysis
+	var fct = {}; // types factory
 
 	var newType = function( type, constructor ){
 		assert( !types.hasOwnProperty(type) && !fct.hasOwnProperty(type),
@@ -59,18 +42,6 @@ var TypeChecker = (function(AST,assertF){
 		fct[type] = wrp;
 		return wrp;
 	};
-
-	/*
-	var FunctionType = function() {
-		var type = addType('FunctionType');
-	
-		return function( argument, body ) {
-			inherit( this, type );
-			this.argument = function(){ return argument; }
-			this.body = function(){ return body; }
-		};
-	}();
-	*/
 	
 	var FunctionType = newType('FunctionType',
 		function( argument, body ) {
@@ -85,23 +56,8 @@ var TypeChecker = (function(AST,assertF){
 		}
 	);
 	
-	/*
-	var BangType = function(){
-		var type = addType('BangType');
-		
-		return function( inner ) {
-			inherit( this, type );
-			this.inner = function(){ return inner; }
-		};
-	}();
-	*/
-
-	var SumType = function(){
-		var type = addType('SumType');
-		
-		return function() {
-			inherit( this, type );
-			
+	var SumType = newType('SumType',
+		function( ) {
 			var tags = {};
 			this.add = function( tag, inner ){
 				if ( tags.hasOwnProperty(tag) )
@@ -111,65 +67,48 @@ var TypeChecker = (function(AST,assertF){
 			}
 			this.tags = function(){ return Object.keys(tags); }
 			this.inner = function(tag){ return tags[tag]; }
-		};
-	}();
+		}
+	);
 	
-	var StarType = function(){
-		var type = addType('StarType');
-		
-		return function() {
-			inherit( this, type );
-			
+	var StarType = newType('StarType',
+		function( ) {
 			var types = [];
 			this.add = function( inner ){
 				types.push(inner);
 				return null;
 			}
 			this.inner = function(){ return types; }
-		};
-	}();
+		}
+	);
 	
-	var AlternativeType = function(){
-		var type = addType('AlternativeType');
-		
-		return function() {
-			inherit( this, type );
-			
+	var AlternativeType = newType('AlternativeType',
+		function( ) {
 			var types = [];
 			this.add = function( inner ){
 				types.push(inner);
 				return null;
 			}
 			this.inner = function(){ return types; }
-		};
-	}();
+		}
+	);
 	
-	var ForallType = function(){
-		var type = addType('ForallType');
-		
-		return function(id, inner) {
-			inherit( this, type );
+	
+	var ForallType = newType('ForallType',
+		function(id, inner) {
 			this.id = function(){ return id; }
 			this.inner = function(){ return inner; }
-		};
-	}();
+		}
+	);
 	
-	var ExistsType = function(){
-		var type = addType('ExistsType');
-		
-		return function(id,inner){
-			inherit( this, type );
+	var ExistsType = newType('ExistsType',
+		function(id, inner) {
 			this.id = function(){ return id; }
 			this.inner = function(){ return inner; }
-		};
-	}();
-
-	var RecordType = function(){
-		var type = addType('RecordType');
-		
-		return function(){
-			inherit( this, type );
-
+		}
+	);
+	
+	var RecordType = newType('RecordType',
+		function(){
 			var fields = {};
 			this.add = function(id, type) {
 				if ( fields.hasOwnProperty(id) ){
@@ -191,21 +130,19 @@ var TypeChecker = (function(AST,assertF){
 			this.getFields = function(){
 				return fields;
 			}
-		};
-	}();
+		}
+	);
 	
-	var NoneType = new function(){ // FIXME how to do singleton with new style?
-		var type = addType('NoneType');
-		
-		inherit( this, type );
-	}(); // calls function immediately, so there is a singleton value.
+	var NoneType = newType('NoneType',
+		function(){
+			// intentionally empty	
+		}
+	);
+	// single value for this type.
+	NoneType = new NoneType();
 	
-	var TupleType = function(){
-		var type = addType('TupleType');
-		
-		return function(){
-			inherit( this, type );
-
+	var TupleType = newType('TupleType',
+		function(){
 			var values = [];
 			this.add = function(type) {
 				values.push(type);
@@ -214,141 +151,82 @@ var TypeChecker = (function(AST,assertF){
 			this.getValues = function(){
 				return values;
 			}
-		};
-	}();
+		}
+	);
 
-	var ReferenceType = function(){
-		var type = addType('ReferenceType');
-		
-		return function(location){
-			inherit( this, type );
+	var ReferenceType = newType('ReferenceType',
+		function(location){
 			this.location = function(){ return location; } // : LocationVariable
-		};
-	}();
+		}
+	);
 	
-	var StackedType = function(){
-		var type = addType('StackedType');
-		
-		return function(left,right){
-			inherit( this, type );
+	var StackedType = newType('StackedType',
+		function(left,right){
 			this.left = function(){ return left; }
 			this.right = function(){ return right; }
-		};
-	}();
+		}
+	);
 	
-	var CapabilityType = function(){
-		var type = addType('CapabilityType');
-		
-		return function(loc,val){
-			inherit( this, type );
-			
+	var CapabilityType = newType('CapabilityType',
+		function(loc,val){
 			this.location = function(){ return loc; } // : LocationVariable
 			this.value = function(){ return val; }
-		};
-	}();
+		}
+	);
 	
-	var LocationVariable = function(){
-		var type = addType('LocationVariable');
-		
-		return function(name){
-			inherit( this, type );
-			
+	var LocationVariable = newType('LocationVariable',
+		function(name){
 			var n = name===null ? 't<sub>'+(unique_counter++)+'</sub>' : name;
 			
 			this.name = function(){ return n; }
-		};
-	}();
+		}
+	);
 	
-	var TypeVariable = function(){
-		var type = addType('TypeVariable');
-		
-		return function(name){
-			inherit( this, type );
-			
+	var TypeVariable = newType('TypeVariable',
+		function(name){
 			var n = name===null ? 'T<sub>'+(unique_counter++)+'</sub>' : name;
 			
 			this.name = function(){ return n; }
-		};
-	}();
+		}
+	);
 	
-	var PrimitiveType = function(){
-		var type = addType('PrimitiveType');
-		
-		return function(name){
-			inherit( this, type );
+	var PrimitiveType = newType('PrimitiveType',
+		function(name){
 			this.name = function(){ return name; }
-		};
-	}();
+		}
+	);
 	
-	var RecursiveType = function(){
-		var type = addType('RecursiveType');
-		
-		return function(id,inner){
-			inherit( this, type );
-
+	var RecursiveType = newType('RecursiveType',
+		function(id,inner){
 			this.id = function(){ return id; }
 			this.inner = function(){ return inner; }
-		};
-	}();
+		}
+	);
 	
-	var RelyType = function(){
-		var type = addType('RelyType');
-		
-		return function(rely,guarantee){
-			inherit( this, type );
-
+	var RelyType = newType('RelyType',
+		function(rely,guarantee){
 			this.rely = function(){ return rely; }
 			this.guarantee = function(){ return guarantee; }
-		};
-	}();
+		}
+	);
 	
-	var GuaranteeType = function(){
-		var type = addType('GuaranteeType');
-		
-		return function(guarantee,rely){
-			inherit( this, type );
-			
+	var GuaranteeType = newType('GuaranteeType',
+		function(guarantee,rely){
 			this.rely = function(){ return rely; }
 			this.guarantee = function(){ return guarantee; }
-		};
-	}();
+		}
+	);
 	
 	// this is a "fake" type that is just convenient
-	var DelayedApp = function(){
-		var type = addType('DelayedApp');
-		
-		return function(delayed_type,app_type){
-			inherit( this, type );
-
+	var DelayedApp = newType('DelayedApp',
+		function(delayed_type,app_type){
 			this.inner = function(){ return delayed_type; }
 			this.id = function(){ return app_type; }
-		};
-	}();
+		}
+	);
 	
 	exports.types = types;
-	//exports.factory = fct;
-	exports.factory = { // FIXME this looks dumb...
-		FunctionType : FunctionType, 
-		BangType : BangType,
-		SumType : SumType,
-		StarType : StarType,
-		AlternativeType : AlternativeType,
-		ForallType : ForallType,
-		ExistsType : ExistsType,
-		RecordType : RecordType,
-		NoneType : NoneType,
-		TupleType : TupleType,
-		ReferenceType : ReferenceType,
-		StackedType : StackedType,
-		CapabilityType : CapabilityType,
-		LocationVariable : LocationVariable,
-		TypeVariable : TypeVariable,
-		PrimitiveType : PrimitiveType,
-		RecursiveType : RecursiveType,
-		RelyType : RelyType,
-		GuaranteeType : GuaranteeType,
-		DelayedApp : DelayedApp
-	};
+	exports.factory = fct;
 
 	//
 	// VISITORS
