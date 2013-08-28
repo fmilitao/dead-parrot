@@ -1,4 +1,6 @@
 
+import add
+
 typedef addType = forall T.forall t.( [addBoth : [] :: rw t [] -o int :: T] )
 typedef initRType = forall T.forall t.( [initRight: int :: rw t [] -o [] :: rw t (addType[T][t])] )
 typedef initLType = forall T.forall t.( [initLeft: int :: rw t [] -o [] :: rw t (initRType[T][t])] )
@@ -15,7 +17,7 @@ let newPair = fun( _ : [] ).
 		{
 			initL = fun( i : int :: rw pl [] ).( l := i ),
 			initR = fun( i : int :: rw pr [] ).( r := i ),
-			sum = fun( _ : [] :: ( rw pl int * rw pr int ) ). !l, // FIXME needs basic addition, WAS !l+!r
+			sum = fun( _ : [] :: ( rw pl int * rw pr int ) ). (add !l !r),
 			destroy = fun ( _ : [] :: ( rw pl int * rw pr int ) ).( delete l; delete r ) 
 		}:: ( rw pl [] * rw pr [] )
 		>>>>

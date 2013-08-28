@@ -198,6 +198,7 @@ $(document).ready(function() {
 	    
 	    //load examples given as parameters
 	    var parameters = document.URL.split('?');
+	    var filegiven = false;
 	    if( parameters.length > 1 ){
 	    	parameters = parameters[1].split('&');
 	    	for( var i=0;i<parameters.length;++i ){
@@ -207,6 +208,7 @@ $(document).ready(function() {
 		    		var value = tmp[1];
 		    		switch( option ){
 		    			case 'file': // load file
+		    				filegiven = true;
 			    			$.get( value , function(data) {
 								setEditor(data);
 								//console.log(data);
@@ -220,7 +222,8 @@ $(document).ready(function() {
 		    		}
 		    	}
 	    	}
-	    }else{ // no parameters given, load default
+	    }
+		if( !filegiven ){ // no parameters given, load default
 	    	$.get( 'examples/welcome.txt' , function(data) {
 				setEditor(data);
 			});

@@ -222,17 +222,17 @@ var printEnvironment = function(env,ast,pos){
 		
 		if( isType ){
 			// is a type/location variable
-			if( val.type() === types.LocationVariable ){
+			if( val.type === types.LocationVariable ){
 				gamma.push('<span class="type_location">'+val.name()+'</span>: <b>loc</b>');
 				return;
 			}
-			if( val.type() === types.TypeVariable ){
+			if( val.type === types.TypeVariable ){
 				gamma.push('<span class="type_variable">'+val.name()+'</span>: <b>type</b>');
 				return;
 			}
 		}
 		
-		if( val.type() === types.BangType ){
+		if( val.type === types.BangType ){
 			gamma.push('<span class="type_name">'+id+'</span>'+": "+toHTML(val.inner()));
 			return;
 		}			
@@ -332,12 +332,12 @@ var info = function(tp,pos){
 
 // defines which types get wrapping parenthesis
 var _toHTML = function(t){
-	if( t.type() === types.ReferenceType ||
-		t.type() === types.FunctionType ||
-		t.type() === types.StackedType ||
-		t.type() === types.StarType || 
-		t.type() === types.AlternativeType ||
-		t.type() === types.SumType ){
+	if( t.type === types.ReferenceType ||
+		t.type === types.FunctionType ||
+		t.type === types.StackedType ||
+		t.type === types.StarType || 
+		t.type === types.AlternativeType ||
+		t.type === types.SumType ){
 			return '('+toHTML(t)+')';
 		}
 	return toHTML(t);
@@ -347,7 +347,7 @@ var wq = function(t){ return '<span class="q">'+t+'</span>'; } // changer
 var wQ = function(t){ return '<span class="Q">'+t+'</span>'; } // trigger
 
 var toHTML = function (t){
-	switch ( t.type() ){
+	switch ( t.type ){
 		case types.FunctionType:
 			return wq( 
 				wq( _toHTML(t.argument()) ) +
@@ -385,19 +385,19 @@ var toHTML = function (t){
 		}
 		case types.RecursiveType:
 			return '<b>rec</b> '+
-			( t.id().type() === types.LocationVariable ?
+			( t.id().type === types.LocationVariable ?
 				'<span class="type_location">' :
 				'<span class="type_variable">')
 			+t.id().name()+'</span>.'+_toHTML(t.inner());
 		case types.ExistsType:
 			return '&#8707;'+
-			( t.id().type() === types.LocationVariable ?
+			( t.id().type === types.LocationVariable ?
 				'<span class="type_location">' :
 				'<span class="type_variable">')
 			+t.id().name()+'</span>.'+_toHTML(t.inner());
 		case types.ForallType:
 			return '&#8704;'+
-			( t.id().type() === types.LocationVariable ?
+			( t.id().type === types.LocationVariable ?
 				'<span class="type_location">' :
 				'<span class="type_variable">')
 			+t.id().name()+'</span>.'+_toHTML(t.inner());
@@ -440,7 +440,7 @@ var toHTML = function (t){
 			return wq( wq( _toHTML(t.guarantee()) )+wQ(' ; ') + wq(_toHTML(t.rely())) );
 //			return wq( wq( _toHTML(t.inner()) )+wQ('[')+ wq( toHTML(t.id()) )+wQ(']') );
 		default:
-			console.error( "Error @toHTML: " +t.type() );
+			console.error( "Error @toHTML: " +t.type );
 			return null;
 		}
 };
