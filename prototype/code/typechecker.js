@@ -22,6 +22,10 @@ var TypeChecker = (function(AST,assertF){
 	
 	// types enumeration, useful for case analysis
 	var types = {};
+	// types factory
+	var fct = {};
+
+// ------	
 	var addType = function(label){
 		assert( !types.hasOwnProperty(label), 'Duplicated label: '+label );
 		types[label] = label;
@@ -34,15 +38,15 @@ var TypeChecker = (function(AST,assertF){
 		obj.type = function(){ return type; }
 		obj.toString = function() { return toString(obj); }
 	}
+// ------
 
-	// types factory
-	var fct = {};
 	var newType = function( type, constructor ){
 		assert( !types.hasOwnProperty(type) && !fct.hasOwnProperty(type),
-			'Error duplicated type: '+type );
+			'Error @newType, already exists: '+type );
 		
 		var wrp = function(){
 			// add common methods by wrapping constructor
+			// FIXME type is just a String to make it easier to debug
 			this.type = function(){ return type; }
 			this.toString = function() { return toString(this); }
 			// now call constructor with the supplied arguments
@@ -56,6 +60,7 @@ var TypeChecker = (function(AST,assertF){
 		return wrp;
 	};
 
+	/*
 	var FunctionType = function() {
 		var type = addType('FunctionType');
 	
@@ -65,15 +70,22 @@ var TypeChecker = (function(AST,assertF){
 			this.body = function(){ return body; }
 		};
 	}();
+	*/
 	
-	/*
-	newType('FunctionType',
+	var FunctionType = newType('FunctionType',
 		function( argument, body ) {
 			this.argument = function(){ return argument; }
 			this.body = function(){ return body; }
-		} );
-	*/
+		}
+	);
 	
+	var BangType = newType('BangType',
+		function( inner ) {
+			this.inner = function(){ return inner; }
+		}
+	);
+	
+	/*
 	var BangType = function(){
 		var type = addType('BangType');
 		
@@ -82,6 +94,7 @@ var TypeChecker = (function(AST,assertF){
 			this.inner = function(){ return inner; }
 		};
 	}();
+	*/
 
 	var SumType = function(){
 		var type = addType('SumType');
@@ -313,7 +326,8 @@ var TypeChecker = (function(AST,assertF){
 	}();
 	
 	exports.types = types;
-	exports.factory = { // this looks dumb... how to improve?
+	//exports.factory = fct;
+	exports.factory = { // FIXME this looks dumb...
 		FunctionType : FunctionType, 
 		BangType : BangType,
 		SumType : SumType,
@@ -356,10 +370,12 @@ var TypeChecker = (function(AST,assertF){
 			case types.BangType:
 				return isFree( t.inner(), loc );
 			case types.RelyType: {
-				return isFree(t.rely()) && isFree(t.guarantee());
+				return isFree( t.rely(), loc ) &&
+					isFree( t.guarantee(), loc );
 			}
 			case types.GuaranteeType: {
-				return isFree(t.guarantee()) && isFree(t.rely());
+				return isFree( t.guarantee(), loc ) &&
+					isFree( t.rely(), loc );
 			}
 			case types.SumType:{
 				var tags = t.tags();
@@ -947,7 +963,6 @@ var TypeChecker = (function(AST,assertF){
 				}
 		}
 
-//console.log( a +' \n\tVS ' +b );
 		return equalsTo( a, new Environment(null), b, new Environment(null) );
 	};
 	
@@ -1241,6 +1256,10 @@ var TypeChecker = (function(AST,assertF){
 		var map = {};
 		var caps = [];
 		
+		// meant to be like @protected fields
+		this.__caps__ = caps;
+		this.__parent__ = parent;
+		
 		// operations over IDENTIFIERS
 		this.set = function(id,value){
 			if ( map.hasOwnProperty(id) )
@@ -1295,7 +1314,7 @@ var TypeChecker = (function(AST,assertF){
 
 			for( var i in map ){
 				// assuming it is OK to alias content (i.e. immutable stuff)
-				env.set( i, map[i] );	
+				env.set( i, map[i] );
 			}
 			for( var i=0; i<caps.length;++i ){
 				env.setCap( null, caps[i] ); // null is a trick for no id
@@ -1303,17 +1322,6 @@ var TypeChecker = (function(AST,assertF){
 			return env;
 		}
 		
-		// FIXME this does not preserve spaghetti structure!
-		// this should not be visible outside the environment object
-		/*
-		this.__allElements__ = function(){
-			var keys = Object.keys(map);
-			if( parent !== null )
-				keys = keys.concat( parent.__allElements__() );
-			return keys;
-		} */
-		this.__caps__ = caps;
-		this.__parent__ = parent;
 		
 		var comps = function(a,b,merge_caps){
 			// compare nulls due to parents
@@ -1436,6 +1444,7 @@ var TypeChecker = (function(AST,assertF){
 			}
 		}
 		
+		// FIXME: more of a merge
 		this.isEqual = function(other){
 			return comps(this,other,true);
 		}
@@ -1880,8 +1889,6 @@ var TypeChecker = (function(AST,assertF){
 						case types.CapabilityType:{
 							var cap = e.checkCap( j.location().name() );
 							// one of the alternatives is valid
-//console.debug( cap + ' <: ' + j );
-//console.debug( subtypeOf( cap, j ) );
 							if( cap !== undefined && subtypeOf( cap, j ) ){
 								e.removeCap( j.location().name() );
 								return p;
@@ -1892,6 +1899,13 @@ var TypeChecker = (function(AST,assertF){
 							if( e.removeCap( j.name() ) !== undefined )
 								return p;
 							break;
+						}
+						// FIXME: also above?
+						case types.RelyType: {
+							var cap_loc = j.rely().location().name();
+							var cap = assert( e.removeCap( cap_loc ),
+									'Missing capability '+cap_loc, a );
+							return cap;
 						}
 						default:
 							assert( false, 'Error @autoStack '+j.type(), a );
@@ -1905,6 +1919,15 @@ var TypeChecker = (function(AST,assertF){
 				assert( t === null || t.type() === types.NoneType,
 					'Error @autoStack ', a );
 				return NoneType;
+			case types.RelyType: {
+				var cap_loc = p.rely().location().name();
+				var cap = assert( e.removeCap( cap_loc ),
+						'Missing capability '+cap_loc, a );
+				return cap;
+			}
+			case types.GuaranteeType:
+				assert( false, 'Error @autoStack, Guarantee...', a );
+				break;
 			default: // other types just fall through, 
 					 // leave the given type in.
 		}
@@ -2733,6 +2756,7 @@ var checkProtocolConformance = function( s, a, b ){
 			}
 			
 			case AST.kinds.CAP_STACK: {
+//debugger;
 				var exp = check( ast.exp, env );
 				var cap = check( ast.type, env );
 				var c = autoStack ( null, cap, env, ast.type );

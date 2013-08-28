@@ -8,16 +8,29 @@ typedef Alias = forall t.( ( rw t (Held#[]) => rw t (Released#int) )
 
 open <t,x> = new Held#{} in
 	share t as (Alias[t]) || (Alias[t]);
-	// TOO: ADD SOMETHING THAT CONSUMES ONE ALIAS
-	focus t;
-	case !x of
-		Held#n ->
-			x := Released#42;
-			defocus // returns unit
-	| Released#n ->
-			defocus;
-			x := (add n 1);
-			// ...
-			delete x
+	
+	// one alias can move to some other context
+	// for instance, masking the other alias' type
+	open <Unknown,_> =
+		let outside = fun( _ : [] :: (Alias[t])).
+			(<(Alias[t]):U,{}::(Alias[t])>) in
+				outside({})
+		end
+		in
+	
+	// so that the relation between location is
+	// no longer statically known.
+		focus t;
+		case !x of
+			Held#n ->
+				x := Released#42;
+				defocus // returns unit
+		| Released#n ->
+				defocus;
+				x := (add n 1);
+				// ...
+				delete x
+		end
+
 	end
 end

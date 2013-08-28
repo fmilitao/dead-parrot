@@ -1,6 +1,6 @@
 /**
  * Notes:
- * 	- ignores all location and type abstractions (i.e. as if erased)
+ * 	- ignores all location/type abstractions (i.e. as if erased)
  * 
  * REQUIRED Global variables (all declared in parser.js):
  * 	- AST.kinds, for all AST case analysis needs.
@@ -13,98 +13,101 @@ var Interpreter = (function( AST, assertF ){
 	var exports = {};
 	
 	//
-	// Values
+	// Values Factory
 	//
 	
-	var Function = function( body, variable, parent ) {
-		this.call = function( argument ) {
-			var env = new Heap( parent );
-			env.set( variable, argument );
-			return run( body, env );
-		}
-		this.toString = function() {
-			return "Function Value";
-		}
-	}
+	var fct = {
+		Function :
+			function( body, variable, parent ) {
+				this.call = function( argument ) {
+					var env = new Heap( parent );
+					env.set( variable, argument );
+					return run( body, env );
+				}
+				this.toString = function() {
+					return "Function Value";
+				}
+			},
 
-	var Record = function() {
-		var fields = {};
-
-		this.add = function( id, value ) {
-			if ( fields.hasOwnProperty(id) ){
-				return undefined;
-			}
-			fields[id] = value;
-			return null;
-		}
-		this.select = function( id ) {
-			if (fields.hasOwnProperty(id)) {
-				return fields[id];
-			} else {
-				return undefined;
-			}
-		}
-		this.toString = function() {
-			var res = [];
-			for( var i in fields )
-				res.push(i+"="+fields[i].toString());
-			return "{"+res.join()+"}";
-		}
-	}
+		Record :
+			function() {
+				var fields = {};
+		
+				this.add = function( id, value ) {
+					if ( fields.hasOwnProperty(id) ){
+						return undefined;
+					}
+					fields[id] = value;
+					return null;
+				}
+				this.select = function( id ) {
+					if (fields.hasOwnProperty(id)) {
+						return fields[id];
+					} else {
+						return undefined;
+					}
+				}
+				this.toString = function() {
+					var res = [];
+					for( var i in fields )
+						res.push(i+"="+fields[i].toString());
+					return "{"+res.join()+"}";
+				}
+			},
 	
-	var Tuple = function( vals ){
-		this.values = function(){
-			return vals;
-		}
-		this.toString = function() {
-			return '{'+vals.join()+'}';
-		}
-	}
+		Tuple :
+			function( vals ){
+				this.values = function(){
+					return vals;
+				}
+				this.toString = function() {
+					return '{'+vals.join()+'}';
+				}
+			},
 	
-	var Tagged = function( t, v ) {
-		this.tag = function(){
-			return t;
-		}
-		this.value = function(){
-			return v;
-		}
-		this.toString = function() {
-			return t+"#"+v.toString();
-		}
-	}
+		Tagged : 
+			function( t, v ) {
+				this.tag = function(){
+					return t;
+				}
+				this.value = function(){
+					return v;
+				}
+				this.toString = function() {
+					return t+"#"+v.toString();
+				}
+			},
 
-	var Reference = function( i ) {
-		var cell = i;
-
-		this.set = function( value ) {
-			var old = cell;
-			cell = value;
-			return old;
-		}
-		this.get = function() {
-			return cell;
-		}
-		this.free = function() {
-			var old = cell;
-			cell = undefined;
-			this.set = undefined;
-			this.get = undefined;
-			this.toString = function() {
-				return "Dead Cell";
+		Reference : 
+			function( i ) {
+				var cell = i;
+		
+				this.set = function( value ) {
+					var old = cell;
+					cell = value;
+					return old;
+				}
+				this.get = function() {
+					return cell;
+				}
+				this.free = function() {
+					var old = cell;
+					cell = undefined;
+					this.set = undefined;
+					this.get = undefined;
+					this.toString = function() {
+						return "Dead Cell";
+					}
+					return old;
+				}
+				this.toString = function() {
+					return "Reference Cell";
+				}
 			}
-			return old;
-		}
-		this.toString = function() {
-			return "Reference Cell";
-		}
-	}
 
-	exports.factory = {
-		Function: Function, 
-		Record: Record,
-		Tuple: Tuple,
-		Tagged: Tagged
-		};
+	};
+	
+	exports.factory = fct;
 
 	//
 	// Utils
@@ -113,8 +116,12 @@ var Interpreter = (function( AST, assertF ){
 	var Heap = function( parent ) {
 		var map = {};
 		
-		this.newScope = function(){ return new Heap(this); }
-		this.endScope = function(){ return parent; }
+		this.newScope = function(){
+			return new Heap(this);
+		}
+		this.endScope = function(){
+			return parent;
+		}
 		this.set = function( id, value ){
 			map[id] = value;
 		}
@@ -163,7 +170,7 @@ var Interpreter = (function( AST, assertF ){
 			}
 			case AST.kinds.NEW: {
 				var exp = run(ast.exp, env);
-				return new Reference(exp);
+				return new fct.Reference(exp);
 			}
 			case AST.kinds.ASSIGN: {
 				var lvalue = run(ast.lvalue, env);
@@ -180,7 +187,7 @@ var Interpreter = (function( AST, assertF ){
 			}
 			case AST.kinds.TAGGED: {
 				var exp = run(ast.exp, env);
-				return new Tagged(ast.tag,exp);
+				return new fct.Tagged(ast.tag,exp);
 			}
 			case AST.kinds.CASE: {
 				var val = run(ast.exp, env);
@@ -202,11 +209,11 @@ var Interpreter = (function( AST, assertF ){
 			case AST.kinds.FUN: {
 				if( ast.rec !== null ){ //recursion function
 					var newEnv = env.newScope();
-					var rec = new Function(ast.exp, ast.parms.id,newEnv);
+					var rec = new fct.Function(ast.exp, ast.parms.id,newEnv);
 					newEnv.set(ast.rec,rec);
 					return rec;
 				}
-				return new Function(ast.exp, ast.parms.id,env);
+				return new fct.Function(ast.exp, ast.parms.id,env);
 			}
 			case AST.kinds.CALL: {
 				var fun = run(ast.fun, env);
@@ -223,7 +230,7 @@ var Interpreter = (function( AST, assertF ){
 				}, "Invalid field \'" + id + "\' for record", ast);
 			}
 			case AST.kinds.RECORD: {
-				var rec = new Record();
+				var rec = new fct.Record();
 				for(var i=0; i < ast.exp.length; ++i) {
 					var field = ast.exp[i];
 					var id = field.id;
@@ -239,7 +246,7 @@ var Interpreter = (function( AST, assertF ){
   				for (var i=0; i < ast.exp.length; ++i) {
     				values.push( run(ast.exp[i], env) );
   				}
-  				return new Tuple(values);
+  				return new fct.Tuple(values);
 			}
 			case AST.kinds.LET_TUPLE: {
 				var vals = run(ast.val, env);
@@ -259,7 +266,7 @@ var Interpreter = (function( AST, assertF ){
 			case AST.kinds.FOCUS:
 			case AST.kinds.DEFOCUS:
 			case AST.kinds.SHARE: 
-				return new Record();
+				return new fct.Record();
 
 			case AST.kinds.CAP_STACK:
 			case AST.kinds.PACK:
@@ -275,21 +282,21 @@ var Interpreter = (function( AST, assertF ){
 			// primitive javascript types.
 				return eval(ast.text);
 			default:
-				assert(false,"Assertion Error "+ast.kind,ast);
+				assert(false,'Error @run, '+ast.kind,ast);
 				break;
 		}
 
 	}
 	
 	exports.run = function( ast, loader ){
-		assert( ast.kind === AST.kinds.PROGRAM, 'Error @run', ast );
+		assert( ast.kind === AST.kinds.PROGRAM, 'Error @run, '+ast.kind, ast );
 		
 		var heap = new Heap(null);
 		// only needs to look at imports, not typedefs.
 		
 		if( ast.imports !== null ){
 		 	// loader does not need to be provided, but all imports are errors	
-			assert( loader !== undefined, 'Error @run missing import loader', ast );
+			assert( loader !== undefined, 'Error @run, missing import loader', ast );
 			var libs = ast.imports;
 			for( var i=0; i<libs.length; ++i ){
 				// remove initial and ending quotes of the import string

@@ -9,6 +9,7 @@ FOCUS / DEFOCUS
 
 FIXME:
 
+ - equals and subtypeOf functions must be cleaned they are messy... buggy
  - isEquals on environments must be cleaned
  - parenthesis on toString leave too much ambiguities...
 	may affect testing.
@@ -17,6 +18,7 @@ FIXME:
  simultaneously? is this important? such alternative cannot
  (logically) occur!
  
+ - organize error messages.
  - firefox issue with scrollbars (getScrollbarWidth function).
  - timer on execution for webworker?
 

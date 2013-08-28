@@ -307,7 +307,7 @@ var info = function(tp,pos){
 		return '';
 
 	var msg = '<b title="click to hide">Type Information</b><br/>'+
-		'('+diff+'ms)';
+		'('+diff+'ms)'; // TODO &#9659;
 	
 	for(var i=0;i<indexes.length;++i){
 		var ptr = indexes[i];

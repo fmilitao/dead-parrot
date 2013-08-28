@@ -6,9 +6,14 @@ typedef Retry = forall p.rec X.( ( rw p (Held#[]) => rw p (Held#[]) ; X )
 
 typedef OneUse = forall p.( rw p (Held#[]) => rw p (Released#int) )
 
+open <u,meh> = new {} in
+
 open <t,x> = new Held#{} in
 	share t as (Retry[t]) || (OneUse[t]);
-	//FIXME outside( <t,x> ); // packs 'OneUse[t]'
+
+// FIXME: needs to be able to pick from multiple caps with same indexer...	
+	meh := <(OneUse[t]):What,{}::(OneUse[t])>;
+	
 	fun Y(_:[]):int.( // FIXME argument and result are PLACE HOLDERS
 		focus t;
 		case !x of
@@ -24,4 +29,6 @@ open <t,x> = new Held#{} in
 				//...
 				delete x
 		end) {}
+end
+
 end
