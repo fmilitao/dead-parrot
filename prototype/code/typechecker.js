@@ -1521,34 +1521,43 @@ var TypeChecker = (function(AST,assertF){
 		return undefined;
 	}
 
-	// removes all BangTypes
-	var unBang = function(t){
-		// by subtyping rule: !A <: A
-		while( t.type === types.BangType )
-			t = t.inner();
-		return t;
-	}
-	
-	var unAll = function(tt,ast){
+	/*
+	 * Normalizes type.
+	 * 
+	 * Unfolds recursion (and delayed type application), and removes banged
+	 * types, normalizes the type so that it can be directly used.
+	 * 
+	 * bang -- if it is to remove bang: !A <: A
+	 * rec -- if it is to unfold rec: rec X.A <: A[rec X.A/X]
+	 */
+	var unAll = function(tt,ast,bang,rec){
 		// the following are safeguards to bound execution
 		var see = [];
+		var seen = function(a){
+			//return see.indexOf( a ) !== -1;
+			for(var i=0;i<see.length;++i){
+				if(see[i] === a || equals(see[i],t) )
+					return true;
+			}
+			return false;
+		};
 		var visited = 0;
 		
 		var t = tt;
 		while( true ) {
 			// by subtyping rule: !A <: A
-			if( t.type === types.BangType ){
+			if( bang && t.type === types.BangType ){
 				t = t.inner();
 				continue;
 			}
 			// by unfold: rec X.A <: A[rec X.A/X]
-			if( t.type === types.RecursiveType ){
+			if( rec && t.type === types.RecursiveType ){
 				// these are not exactly perfect but two simple ways to check
 				// if we may be unfolding an unending recursive type
 				// counting is the easiest, the second is the most likely to
 				// catch such pointless loops earlier.
 				assert( (++visited) < 100 , 'Failed to unfold: '+tt +', max unfolds reached', ast);
-				assert( see.indexOf( t ) === -1, 'Fix-point reached after '+visited+' unfolds' , ast);
+				assert( !seen( t ), 'Fix-point reached after '+visited+' unfolds' , ast);
 				see.push( t );
 
 				// unfold
@@ -1556,7 +1565,7 @@ var TypeChecker = (function(AST,assertF){
 				continue;
 			}
 			
-			if( t.type === types.DelayedApp ){
+			if( rec && t.type === types.DelayedApp ){
 				if( t.inner().type === types.RecursiveType && 
 					t.inner().inner().type === types.ForallType ){
 					var v = t.id();
@@ -1575,45 +1584,8 @@ var TypeChecker = (function(AST,assertF){
 		}
 		return t;
 	}
-	
-	var unFold = function(tt,ast){
-		// the following are safeguards to bound execution
-		var see = [];
-		var visited = 0;
 		
-		var t = tt;
-		while( true ) {
-
-			if( t.type === types.DelayedApp ){
-				var inner = t.inner();
-				if( inner.type === types.RecursiveType )
-					inner = unFold(inner,ast);
-				// intentionally leave for next if case
-				if( inner.type === types.ForallType )
-					return substitution( inner.inner(), inner.id(), t.id() );
-					
-				assert( false, 'Cannot delay application any further', ast);
-			}
-			// by unfold: rec X.A <: A[rec X.A/X]
-			if( t.type === types.RecursiveType ){
-				// these are not exactly perfect but two simple ways to check
-				// if we may be unfolding an unending recursive type
-				// counting is the easiest, the second is the most likely to
-				// catch such pointless loops earlier.
-				assert( (++visited) < 100 , 'Failed to unfold: '+tt +', max unfolds reached');
-				assert( see.indexOf( t ) === -1, 'Fix-point reached after '+visited+' unfolds' , ast);
-				see.push( t );
-
-				// unfold
-				t = substitution(t.inner(),t.id(),t);
-				continue;
-			}
-			break;
-		}
-		return t;
-	}
-		
-	// attempts to convert type to bang
+	// attempts to convert type to bang, if A <: !A
 	var purify = function(t){
 		if( t.type !== types.BangType ){
 			var tmp = new BangType(t);
@@ -1938,7 +1910,7 @@ var TypeChecker = (function(AST,assertF){
 			
 			case AST.kinds.LET_TUPLE: {
 				var exp = check( ast.val, env );
-				exp = unAll(exp, ast.val);
+				exp = unAll(exp, ast.val, true, true);
 				assert( exp.type === types.TupleType,
 					"Type '" + exp + "' not tuple", ast.exp);
 				
@@ -1958,7 +1930,7 @@ var TypeChecker = (function(AST,assertF){
 			
 			case AST.kinds.OPEN: {
 				var value = check( ast.val, env );
-				value = unAll( value, ast.val );
+				value = unAll( value, ast.val, true, true );
 				
 				assert( value.type === types.ExistsType,
 					"Type '" + value + "' not existential", ast.exp);
@@ -1976,7 +1948,7 @@ var TypeChecker = (function(AST,assertF){
 
 				value = substitution( value.inner(), value.id(), locvar );
 				// unfold anything that became newly available
-				value = unFold( value, ast );
+				value = unAll( value, ast, false, true );
 				
 				// any unstack occurs in the inner expression
 				var e = env.newScope();
@@ -1994,7 +1966,7 @@ var TypeChecker = (function(AST,assertF){
 			}
 			
 			case AST.kinds.CASE: {
-				var val = unAll( check( ast.exp, env ), ast.exp );
+				var val = unAll( check( ast.exp, env ), ast.exp, true, true );
 				assert( val.type === types.SumType,
 					"'" + val.type + "' not a SumType", ast);
 				
@@ -2117,7 +2089,7 @@ var TypeChecker = (function(AST,assertF){
 				for( var i=0; i<alts.length; ++i ){
 					var tmp_env = end_env === null ? env : env_start.clone();
 					var alternative = alts[i];
-					alternative = unFold(alternative);
+					alternative = unAll(alternative, undefined, false, true);
 					unstackType( alternative, tmp_env, ast.type );
 
 					var res = check( ast.exp, tmp_env );
@@ -2211,7 +2183,7 @@ var TypeChecker = (function(AST,assertF){
 			}
 			
 			case AST.kinds.DEREF: {
-				var exp = unAll( check( ast.exp, env ), ast.exp );
+				var exp = unAll( check( ast.exp, env ), ast.exp, true, true );
 				
 				assert( exp.type === types.ReferenceType,
 					"Invalid dereference '"+exp+"'", ast );
@@ -2239,7 +2211,7 @@ var TypeChecker = (function(AST,assertF){
 			}
 			
 			case AST.kinds.DELETE: {
-				var exp = unAll( check( ast.exp, env ), ast.exp );
+				var exp = unAll( check( ast.exp, env ), ast.exp, true, true );
 				
 				if( exp.type === types.ReferenceType ){
 					var loc = exp.location().name();
@@ -2257,7 +2229,7 @@ var TypeChecker = (function(AST,assertF){
 					// Luis' delete rule...
 					var inner = exp.inner();
 					if( inner.type === types.StackedType ){
-						var ref = unBang( inner.left() );
+						var ref = unAll( inner.left(), ast, true, true );
 						var cap = inner.right();
 						assert( ref.type === types.ReferenceType, "Expecting reference '"+exp+"'",ast);
 						var loc = ref.location();
@@ -2273,7 +2245,7 @@ var TypeChecker = (function(AST,assertF){
 			}
 
 			case AST.kinds.ASSIGN: {
-				var lvalue = unAll( check( ast.lvalue, env ), ast.lvalue );
+				var lvalue = unAll( check( ast.lvalue, env ), ast.lvalue, true, true );
 				var value = check( ast.exp, env );
 				
 				assert( lvalue.type === types.ReferenceType,
@@ -2295,7 +2267,7 @@ var TypeChecker = (function(AST,assertF){
 			
 			case AST.kinds.SELECT: {
 				var id = ast.right;
-				var rec = unAll( check( ast.left, env ), ast.left );
+				var rec = unAll( check( ast.left, env ), ast.left, true, true );
 				
 				assert( rec.type === types.RecordType,
 					"Invalid field selection '"+id+"' for '"+rec+"'", ast );
@@ -2306,7 +2278,7 @@ var TypeChecker = (function(AST,assertF){
 			}
 			
 			case AST.kinds.CALL: {
-				var fun = unAll( check( ast.fun, env ), ast.fun );
+				var fun = unAll( check( ast.fun, env ), ast.fun, true, true );
 				
 				assert( fun.type === types.FunctionType,
 					'Type '+fun.toString()+' not a function', ast.fun );
@@ -2332,7 +2304,7 @@ var TypeChecker = (function(AST,assertF){
 				// notation on recursive type definitions so that they can
 				// abstract their locations without much trouble.
 				var exp = check( ast.exp, env );
-				exp = unAll(exp,ast.exp);
+				exp = unAll(exp,ast.exp, true, true);
 				var packed = check(ast.id, env); // the type to apply
 
 				if( exp.type === types.ForallType ){
@@ -2354,7 +2326,7 @@ var TypeChecker = (function(AST,assertF){
 			
 			case AST.kinds.TYPE_APP: {
 				var exp = check( ast.exp, env );
-				exp = unAll(exp,ast.exp);
+				exp = unAll(exp,ast.exp, true, true);
 				assert( exp.type === types.ForallType , 
 					'Not a Forall '+exp.toString(), ast.exp );
 				
@@ -2425,7 +2397,7 @@ var checkProtocolConformance = function( s, a, b ){
 	}
 	
 	var sim = function(s,p){
-		p = unAll(p); // FIXME this also removes bangs!! unfold recursive type
+		p = unAll(p,undefined,false,true);
 		// first protocol
 		if( p.type === types.NoneType )
 			return { s : s , p : p };
@@ -2468,7 +2440,7 @@ var checkProtocolConformance = function( s, a, b ){
 				'step:\t'+p, ast );
 		}
 		
-		var pp = unAll( p );
+		var pp = unAll( p, undefined, false, true );
 		
 		assert( pp.type === types.RelyType,
 			'Expecting RelyType, got: '+pp.type+'\n'+pp, ast);
@@ -2510,8 +2482,8 @@ var checkProtocolConformance = function( s, a, b ){
 };
 				checkProtocolConformance(cap, left, right);
 				
-				env.setCap( null, unAll(left) );
-				env.setCap( null, unAll(right) );
+				env.setCap( null, unAll(left, undefined, false, true) );
+				env.setCap( null, unAll(right, undefined, false, true) );
 				// returns unit
 				return new BangType(new RecordType());
 			} 

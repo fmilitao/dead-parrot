@@ -6,7 +6,6 @@ FOCUS / DEFOCUS
  for caps it makes dereference messy since there are multiple to pick...
  but how to forbid it in a clean way?
 
-
 FIXME:
 
  - equals and subtypeOf functions must be cleaned they are messy... buggy
@@ -18,7 +17,8 @@ FIXME:
  simultaneously? is this important? such alternative cannot
  (logically) occur!
  
- - organize error messages.
+ - organize error messages, as CONSTANTS?
+ - pass assert function instead of 'ast'?
  - firefox issue with scrollbars (getScrollbarWidth function).
  - timer on execution for webworker?
 
