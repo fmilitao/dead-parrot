@@ -1,5 +1,5 @@
 //OK 1
-//OK exists RR.(exists LL.(int :: RR * LL))
+//OK exists RR.exists LL.(int :: (RR * LL))
 
 typedef addType = forall T.forall t.( [addBoth : [] :: rw t [] -o int :: T] )
 typedef initRType = forall T.forall t.( [initRight: int :: rw t [] -o [] :: rw t (addType[T][t])] )

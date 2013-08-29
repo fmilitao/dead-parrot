@@ -1,5 +1,5 @@
 //OK {done,Label#0,Dead Cell}
-//OK [!string,!Label#!int,exists dead.(!(ref dead))]
+//OK [!string,!(Label#!int),exists dead.!(ref dead)]
 
 let f = fun( x : exists t.( ref t ) ).x in
 	let g = fun( y : exists g.ref g).(f y) in

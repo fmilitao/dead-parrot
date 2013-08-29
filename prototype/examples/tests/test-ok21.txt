@@ -1,5 +1,5 @@
 //OK Function Value
-//OK exists IN.(exists OK.(!(![] :: OK -o !int :: OK) :: IN))
+//OK exists IN.exists OK.(!((![] :: OK) -o (!int :: OK)) :: IN)
 
 typedef EMPT = forall p.( rw p ![] )
 typedef ELEM = rec X.forall p.( rw p (N#(exists q.( (!ref q) :: (X[q]) ) )) )

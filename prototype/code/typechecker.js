@@ -315,30 +315,38 @@ var TypeChecker = (function(AST,assertF){
 			}
 		};
 
+	// defines which types get wrapping parenthesis
+	var _toString = function(t){
+		if( t.type === types.ReferenceType ||
+			t.type === types.FunctionType ||
+			t.type === types.StackedType ||
+			t.type === types.StarType || 
+			t.type === types.AlternativeType ||
+			t.type === types.SumType ){
+				return '('+toString(t)+')';
+			}
+		return toString(t);
+	}
+	
 	// required also for testing
 	var toString = function (t){
 		switch ( t.type ){
 			case types.FunctionType:
-				return toString(t.argument())+" -o "+toString(t.body());
+				return _toString(t.argument())+" -o "+_toString(t.body());
 			case types.BangType: {
-				var inner = t.inner();
-				if( inner.type === types.ReferenceType ||
-					inner.type === types.FunctionType ||
-					inner.type === types.StackedType )
-					return "!("+toString(t.inner())+")";
-				return "!"+toString(t.inner());
+				return "!"+_toString(t.inner());
 			}
 			case types.RelyType: {
-				return toString(t.rely())+' => '+toString(t.guarantee());
+				return _toString(t.rely())+' => '+_toString(t.guarantee());
 			}
 			case types.GuaranteeType: {
-				return toString(t.guarantee())+' ; '+toString(t.rely());
+				return _toString(t.guarantee())+' ; '+_toString(t.rely());
 			}
 			case types.SumType:{
 				var tags = t.tags();
 				var res = [];
 				for( var i in tags ){
-					res.push( tags[i]+'#'+toString(t.inner(tags[i])) ); 
+					res.push( tags[i]+'#'+_toString(t.inner(tags[i])) ); 
 				}	
 				return res.join('+');
 			}
@@ -346,33 +354,33 @@ var TypeChecker = (function(AST,assertF){
 				var inners = t.inner();
 				var res = [];
 				for( var i=0; i<inners.length; ++i )
-					res.push( toString( inners[i] ) ); 
+					res.push( _toString( inners[i] ) ); 
 				return res.join(' * ');
 			}
 			case types.AlternativeType:{
 				var inners = t.inner();
 				var res = [];
 				for( var i=0; i<inners.length; ++i )
-					res.push( toString( inners[i] ) ); 
+					res.push( _toString( inners[i] ) ); 
 				return res.join(' (+) ');
 			}
 			case types.RecursiveType:
-				return 'rec '+t.id().name()+'.('+toString(t.inner())+')';
+				return 'rec '+t.id().name()+'.'+_toString(t.inner());
 			case types.ExistsType:
-				return 'exists '+t.id().name()+'.('+toString(t.inner())+')';
+				return 'exists '+t.id().name()+'.'+_toString(t.inner());
 			case types.ForallType:
-				return 'forall '+t.id().name()+'.('+toString(t.inner())+')';
+				return 'forall '+t.id().name()+'.('+_toString(t.inner());
 			case types.ReferenceType:
 				return "ref "+t.location().name();
 			case types.CapabilityType:
-				return 'rw '+t.location().name()+' '+toString(t.value());
+				return 'rw '+t.location().name()+' '+_toString(t.value());
 			case types.StackedType:
-				return toString(t.left())+' :: '+toString(t.right());
+				return _toString(t.left())+' :: '+_toString(t.right());
 			case types.RecordType: {
 				var res = [];
 				var fields = t.getFields();
 				for( var i in fields )
-					res.push(i+": "+toString(fields[i]));
+					res.push(i+": "+_toString(fields[i]));
 				return "["+res.join()+"]";
 			}
 			case types.TupleType:
@@ -384,7 +392,7 @@ var TypeChecker = (function(AST,assertF){
 			case types.NoneType:
 				return 'none';
 			case types.DelayedApp:
-				return toString(t.inner())+'['+toString(t.id())+']';
+				return _toString(t.inner())+'['+toString(t.id())+']';
 			default:
 				assert( false, "Assertion error on " +t.type );
 				break;
@@ -612,6 +620,9 @@ var TypeChecker = (function(AST,assertF){
 		}
 	}
 	
+// FIXME both subtype and equals are quite messy algorithms that need to be
+// rethought, specially where tabling should appear.
+
 	/**
 	 * Tests if types 'a' and 'b' are the same.
 	 * Up to renaming of bounded variables, so that it renames existentials
@@ -766,7 +777,9 @@ var TypeChecker = (function(AST,assertF){
 				}
 				case types.TypeVariable:
 				case types.LocationVariable: {
-					return  t1.name() === t2.name() || // FIXME: same name??
+					// note: same name for case of variables that are in scope
+					// but not declared in the type (i.e. already opened)
+					return  t1.name() === t2.name() ||
 						table.seen( t1.name(), t2.name() );
 				}
 				// =============================================================
@@ -875,7 +888,6 @@ var TypeChecker = (function(AST,assertF){
 	 * @return {Boolean} true if t1 <: t2 (if t1 can be used as t2).
 	 */
 	var subtypeOf = function( t1 , t2 ){
-// FIXME this algorithm is crap
 		var table = new Table();
 
 		var subtype = function( t1, m1, t2, m2 ){

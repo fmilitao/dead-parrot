@@ -1,28 +1,25 @@
-FOCUS / DEFOCUS
-
+TRIAGE:
  - ensure no defocus guarantee on functions and forall abstraction
 	DEFOCUS |> env
  - is duplication allowed?
  for caps it makes dereference messy since there are multiple to pick...
  but how to forbid it in a clean way?
-
-FIXME:
-
- - equals and subtypeOf functions must be cleaned they are messy... buggy
  - isEquals on environments must be cleaned
- - parenthesis on toString leave too much ambiguities...
-	may affect testing.
  - join multiple typing environments with (+)
  - make sure packing an alternative cannot obey multiple alternatives
  simultaneously? is this important? such alternative cannot
  (logically) occur!
- 
+# clean up Environment code, it's currently messy.
+# rethink collisions, specially with capabilities.
+
+
+LOWER PRIORITY: 
  - organize error messages, as CONSTANTS?
  - pass assert function instead of 'ast'?
  - firefox issue with scrollbars (getScrollbarWidth function).
- - timer on execution for webworker?
+ - equals and subtypeOf functions must be cleaned they are messy... and buggy?
 
-TODO:
+TODO?
 
 # Notes on typing algorithm:
  - try to stack all "touched" capabilities at the end of a function.
@@ -37,9 +34,6 @@ TODO:
 
 # IDIOT YOU ARE USING RECURSION WHEN WHILE IS ENOUGH
 
-# clean up Environment code, it's currently messy.
-# rethink collisions, specially with capabilities.
-
 # stacking alternatives:
  - other alternatives must be invalid, or there could be duplication of caps.
  - improve mergin so that differences are grouped in *-type and then (+). This
@@ -47,7 +41,7 @@ TODO:
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-PEDNING FIXES:
+PENDING FIXES:
 
 1. Capability visibility bug (?).
 	The enclosing capability may become visible after the assumed capability is

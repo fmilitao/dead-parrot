@@ -1,5 +1,5 @@
 //OK Reference Cell
-//OK exists a.(exists b.(!(ref b) :: rw b !int))
+//OK exists a.exists b.(!(ref b) :: rw b !int)
 
 open <tx,x> = new 0 in
     open <ty,y> = new 0 in

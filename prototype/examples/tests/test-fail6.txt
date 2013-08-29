@@ -1,5 +1,5 @@
 //OK Function Value
-//FAIL Incompatible branch results: !My#!int vs !int
+//FAIL Incompatible branch results: !(My#!int) vs !int
 
 fun( x : A#int + B#int ).(
 	case x of

@@ -1,5 +1,5 @@
 //OK Function Value
-//OK !forall T.(!([] -o exists E.(exists NE.(![push: !(T :: E (+) NE -o ![] :: NE),del: !([] :: E -o ![]),isEmpty: !([] :: E (+) NE -o Empty#![] :: E+NonEmpty#![] :: NE),pop: !([] :: NE -o T :: E (+) NE)] :: E))))
+//OK !forall T.(!([] -o exists E.exists NE.(![push: !((T :: (E (+) NE)) -o (![] :: NE)),del: !(([] :: E) -o ![]),isEmpty: !(([] :: (E (+) NE)) -o (Empty#(![] :: E)+NonEmpty#(![] :: NE))),pop: !(([] :: NE) -o (T :: (E (+) NE)))] :: E))
 
 typedef EMPT = forall p.( rw p !(E#[]) )
 typedef ELEM = forall T.rec X.forall p.( rw p (N#[T,exists q.( (!ref q) :: (EMPT[q] (+) X[q]) )] ))

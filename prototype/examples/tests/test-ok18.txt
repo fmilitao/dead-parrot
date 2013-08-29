@@ -1,5 +1,5 @@
 //OK {Function Value,Function Value,0,Function Value,0}
-//OK [!forall A.(!(int :: A -o !int :: A * none)),!forall p.(!forall X.(!(int :: X * rw p !int -o !int :: X * rw p !int))),exists P.(!P),exists TESTING.(!forall X.(!(!X -o !TESTING))),exists A.(exists a.(!A :: rw a !A))]
+//OK [!forall A.(!((int :: A) -o (!int :: (A * none))),!forall p.(!forall X.(!((int :: (X * rw p !int)) -o (!int :: (X * rw p !int))),exists P.!P,exists TESTING.!forall X.(!(!X -o !TESTING),exists A.exists a.(!A :: rw a !A)]
 
 { // using tuples to group several results into a single test
 // basic none

@@ -1,5 +1,5 @@
 //OK {123,Function Value}
-//OK ![!int,!forall p.(!(ref p :: rw p A#int -o !(ref p) :: rw p A#int+B#int))]
+//OK ![!int,!forall p.(!(((ref p) :: rw p (A#int)) -o (!(ref p) :: rw p (A#int+B#int)))]
 
 {
 	// 1st

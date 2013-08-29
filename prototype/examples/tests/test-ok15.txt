@@ -1,5 +1,5 @@
 //OK Function Value
-//OK exists testing.(!([] :: rw testing !int -o ![] :: rw testing !int) :: rw testing !int)
+//OK exists testing.(!(([] :: rw testing !int) -o (![] :: rw testing !int)) :: rw testing !int)
 
 open <t,x> = 
 		open <t,x> = new 0 in

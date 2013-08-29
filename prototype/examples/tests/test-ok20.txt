@@ -1,5 +1,5 @@
 //OK {Function Value,Function Value,Function Value}
-//OK ![!(rec A.(L#rec B.(L#B+Q#int)+Q#int) -o rec A.(L#A+Q#int)),!(int -o boolean -o !!int),!(rec A.(A) -o rec A.(rec B.(A)))]
+//OK ![!(rec A.(L#rec B.(L#B+Q#int)+Q#int) -o rec A.(L#A+Q#int)),!(int -o (boolean -o !!int)),!(rec A.A -o rec A.rec B.A)]
 
 {
 // this should work
