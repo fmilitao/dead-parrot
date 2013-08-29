@@ -621,7 +621,7 @@ var TypeChecker = (function(AST,assertF){
 	}
 	
 // FIXME both subtype and equals are quite messy algorithms that need to be
-// rethought, specially where tabling should appear.
+// rethought, specially where tabling should oe not appear.
 
 	/**
 	 * Tests if types 'a' and 'b' are the same.
@@ -1457,14 +1457,6 @@ var TypeChecker = (function(AST,assertF){
 	//
 	// TYPE CHECKER
 	//
-		
-	var findBranch = function(tag,ast){
-		for( var i=0; i<ast.branches.length; ++i ){
-			if( ast.branches[i].tag === tag )
-				return ast.branches[i];
-		}
-		return undefined;
-	}
 	
 	/**
 	 * Attempts to merge the two types given as argument.
@@ -2015,7 +2007,15 @@ var TypeChecker = (function(AST,assertF){
 				for( var t in tags ){
 					var tag = tags[t];
 					var value = val.inner(tag);
-					var branch = findBranch(tag,ast);
+					var branch = undefined;
+					// search from branch
+					for( var i=0; i<ast.branches.length; ++i ){
+						if( ast.branches[i].tag === tag ){
+							branch = ast.branches[i];
+							break;
+						}
+					}
+					// if still undefined
 					assert( branch, 'Missing branch for '+tag, ast);
 
 					var e = env;
@@ -2056,8 +2056,6 @@ var TypeChecker = (function(AST,assertF){
 			case AST.kinds.PACK: {
 				var exp = check(ast.exp, env);
 				var packed = check(ast.id, env);
-
-//console.debug( exp +' \n\t<< '+ packed );
 
 				// CAREFUL 'ast.label' is left as null when unspecified which is
 				// used on the constructors below to pick a fresh name.

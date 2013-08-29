@@ -1,3 +1,18 @@
+ENVIRONMENT OPERATIONS:
+ - capSearch( onEach ){
+ 		for ...
+ 			if( onEach(... ) ){
+ 				remove
+ 				done.
+ 			}
+ 	}
+ 	
+ 	capHide?
+ 
+ - must be able to filter all existing caps when focusing!
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 TRIAGE:
  - ensure no defocus guarantee on functions and forall abstraction
 	DEFOCUS |> env
@@ -26,6 +41,7 @@ TODO?
  - check that OPEN does not produce a resulting environment/type that
  depends on scoped types.
  - packing up to subtyping, instead of equals?
+ maybe allow manually to apply subtyping? (e : A)?
  list example would be made slightly simpler, maybe?
 
 # ensure location variables cannot be hidden, or renamed.
