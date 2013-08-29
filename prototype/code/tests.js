@@ -89,19 +89,28 @@ var parser = Parser('code/grammar.jison');
 var interpreter = Interpreter.run;
 var typechecker = TypeChecker.check;
 
-module('Parser');
+module('Cache Test Files');
 
-	test( "Parses Examples", function() {
+	test( "File Fetch", function() {
 		for( var i in examples ){
-			var test = fetchCode(examples_dir+examples[i]);
-			var ast = parser(test.data);
-		  	ok( ast != null , "'"+examples[i]+"' parsed.");
+			var f = fetchCode(examples_dir+examples[i]);
+		  	ok( f !== null && f !== undefined , "'"+examples[i]+"' fetched.");
 		}
 	});
 
-module('Interpreter Tests');
+module('Parser');
 
-	test( "Runs Examples", function() {
+	test( "Parses", function() {
+		for( var i in examples ){
+			var test = fetchCode(examples_dir+examples[i]);
+			var ast = parser(test.data);
+		  	ok( ast !== null , "'"+examples[i]+"' parsed.");
+		}
+	});
+
+module('Interpreter');
+
+	test( "Runs", function() {
 		for( var i in examples ){
 			var test = fetchCode(examples_dir+examples[i]);
 			var ast = parser(test.data);
@@ -122,9 +131,9 @@ module('Interpreter Tests');
 	
 
 
-module('Typechecker Tests');
+module('Typechecker');
 
-	test( "Typecheck Examples", function() {
+	test( "Checks", function() {
 		for( var i in examples ){
 			var test = fetchCode(examples_dir+examples[i]);
 			var ast = parser(test.data);

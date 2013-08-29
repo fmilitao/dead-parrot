@@ -588,6 +588,30 @@ var TypeChecker = (function(AST,assertF){
 		}
 	}
 	
+	var LMap = function(parent){
+		// this is similar to Environment, but it should be separate until
+		// Environment's code is completely fixed... only after that will it
+		// be clear if they are the same or not.
+		var map = {};
+				
+		this.newScope = function(){
+			return new LMap(this);
+		}
+		this.set = function(id,value){
+			if ( map.hasOwnProperty(id) )
+				return undefined; // already exists
+			map[id] = value;
+			return null; // ok
+		}
+		this.get = function(id){
+			if ( map.hasOwnProperty(id) )
+				return map[id];
+			if( parent === null )
+				return undefined;
+			return parent.get(id);
+		}
+	}
+	
 	/**
 	 * Tests if types 'a' and 'b' are the same.
 	 * Up to renaming of bounded variables, so that it renames existentials
@@ -841,7 +865,7 @@ var TypeChecker = (function(AST,assertF){
 				}
 		}
 
-		return equalsTo( a, new Environment(null), b, new Environment(null) );
+		return equalsTo( a, new LMap(null), b, new LMap(null) );
 	};
 	
 	/**
@@ -1110,8 +1134,8 @@ var TypeChecker = (function(AST,assertF){
 			}
 			
 		};
-		return subtype( t1, new Environment(null),
-						t2, new Environment(null)  );
+		return subtype( t1, new LMap(null),
+						t2, new LMap(null)  );
 	}
 	
 	//
