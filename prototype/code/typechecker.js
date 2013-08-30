@@ -1160,44 +1160,48 @@ var TypeChecker = (function(AST,assertF){
 	// 	undefined - new element collides with a previously existing one;
 	//  null/value - if all OK.
 	var Environment = function(parent){
+
+		// CAREFUL: '$' and '#' cannot be source-level identifiers
+		var TYPE_INDEX='$';
+		//var CAP_INDEX='#';
+		
+		// meant to be $protected fields
+		this.$map = {};
+		this.$caps = [];
+		this.$parent = parent;
 		
 		// scope methods		
-		this.newScope = function(){ return new Environment(this); }
-		this.endScope = function(){ return parent; }
-
-		// CAREFUL: '$' cannot be a source-level identifier
-		var TYPE_INDEX='$';
-		var map = {};
-		var caps = [];
-		
-		// meant to be like @protected fields
-		this.__caps__ = caps;
-		this.__parent__ = parent;
+		this.newScope = function(){
+			return new Environment(this);
+		}
+		this.endScope = function(){
+			return this.$parent;
+		}
 		
 		// operations over IDENTIFIERS
 		this.set = function(id,value){
-			if ( map.hasOwnProperty(id) )
+			if ( this.$map.hasOwnProperty(id) )
 				return undefined; // already exists
-			map[id] = value;
+			this.$map[id] = value;
 			return null; // ok
 		}
 		this.get = function(id){
-			if ( map.hasOwnProperty(id) )
-				return map[id];
-			if( parent === null )
+			if ( this.$map.hasOwnProperty(id) )
+				return this.$map[id];
+			if( this.$parent === null )
 				return undefined;
-			return parent.get(id);
+			return this.$parent.get(id);
 		}
 		this.remove = function(id){
-			if( map.hasOwnProperty(id) ){
-				var tmp = map[id];
+			if( this.$map.hasOwnProperty(id) ){
+				var tmp = this.$map[id];
 				 // ensures that it is no longer listed
-				delete map[id];
+				delete this.$map[id];
 				return tmp;
 			}
-			if( parent === null )
+			if( this.$parent === null )
 				return undefined; // not found
-			return parent.remove(id);
+			return this.$parent.remove(id);
 		}
 		
 		// operations over VARIABLES
@@ -1216,22 +1220,22 @@ var TypeChecker = (function(AST,assertF){
 		
 		// other...
 		this.size = function(){
-			return Object.keys(map).length+
-					caps.length+
-				( parent === null ? 0 : parent.size() );
+			return Object.keys(this.$map).length+
+					this.$caps.length+
+				( this.$parent === null ? 0 : this.$parent.size() );
 		}
 		
 		this.clone = function(){
-			var env = parent !== null ?
-				new Environment( parent.clone() ) :
+			var env = this.$parent !== null ?
+				new Environment( this.$parent.clone() ) :
 				new Environment( null );
 
-			for( var i in map ){
+			for( var i in this.$map ){
 				// assuming it is OK to alias content (i.e. immutable stuff)
-				env.set( i, map[i] );
+				env.set( i, this.$map[i] );
 			}
-			for( var i=0; i<caps.length;++i ){
-				env.setCap( null, caps[i] ); // null is a trick for no id
+			for( var i=0; i<this.$caps.length;++i ){
+				env.setCap( this.$caps[i] ); // null is a trick for no id
 			}
 			return env;
 		}
@@ -1246,12 +1250,12 @@ var TypeChecker = (function(AST,assertF){
 			if( a.size() !== b.size() )
 				return false;
 			// 1st: just check above, never merging
-			if( !comps(a.__parent__,b.__parent__,false) )
+			if( !comps(a.$parent,b.$parent,false) )
 				return false
 			
 			// 2nd: check keys
-			var a_map = a.__map__;
-			var b_map = b.__map__;
+			var a_map = a.$map;
+			var b_map = b.$map;
 			for( var id in a_map ){
 				if( !b_map.hasOwnProperty(id) )
 					return false;
@@ -1260,15 +1264,16 @@ var TypeChecker = (function(AST,assertF){
 					return false;
 			}
 			
-			var a_caps = a.__caps__;
-			var b_caps = b.__caps__;
+			var a_caps = a.$caps;
+			var b_caps = b.$caps;
 			
 			// 3rd: merge caps
 			if( merge_caps ){
 				// this will merge b with a's caps
 				// TODO
 				
-				// find those that are common
+				// find those caps that are common to both
+				// and those that will need to be merged with (+)
 				var diff_a = [];
 				var diff_b = [];
 				var common = [];
@@ -1294,16 +1299,10 @@ var TypeChecker = (function(AST,assertF){
 						diff_b.push(b_caps[i]);
 					}
 				}
-				// empty the array
-			var  s=a_caps.length;
-			while( s-- > 0 ){
-				a_caps.pop();
-			}				
-			s = common.length;
-			while( s-- > 0 ){
-				a_caps.push( common[s] );
-			}
-
+				
+				a.$caps = common;
+				a_caps = common;
+	
 				if( diff_a.length > 0 || diff_b.length > 0 ){
 					// if there is a difference in the two environments
 					var at = NoneType;
@@ -1365,89 +1364,105 @@ var TypeChecker = (function(AST,assertF){
 		
 		// no order is guaranteed!
 		this.visit = function(all,f){
-			for( var i in map ){
+			for( var i in this.$map ){
 				var isType = (i[0] === TYPE_INDEX);
-				f(i,map[i],false,isType);
+				f(i,this.$map[i],false,isType);
 			}
-			for( var i=0; i<caps.length;++i ){
-				f(null,caps[i],true,false);
+			for( var i=0; i<this.$caps.length;++i ){
+				f(null,this.$caps[i],true,false);
 			}
-			if( all && parent !== null )
-				parent.visit(all,f);
-		}
-				
-		// CAUTION: the following functions/methods ASSUME there is a separation
-		// in the domain of LocationVariables and TypeVariables so that just
-		// comparing strings is enough to know if some string is equal to some
-		// Loc/TypeVariable without needing to compare the types, just strings.
-		/**
-		 * @param {Type} val
-		 * @param {String} id
-		 * @return if there is a type/loc variable with name 'id' in type 'val'
-		 */
-		var capContains = function(id,val){
-			switch( val.type ){
-				case types.CapabilityType:
-					return val.location().name() === id;
-				case types.TypeVariable:
-					return val.name() === id;
-				// cap may be anywhere, linear search
-				case types.StarType:
-				case types.AlternativeType:{
-					var ins = val.inner();
-					for(var i=0;i<ins.length;++i){
-						if( capContains(id,ins[i]) )
-							return true;
-					}
-					return false;
-				}
-				case types.RelyType:{
-					return val.rely().location().name() === id;
-					// FIXME not clean!
-				}
-				default:
-					// another types disallowed, for now
-					assert(false,'Error @capContains: '+val);
-			}
-		}
-		this.__searchCap__ = function(id){
-			for(var i=0;i<caps.length;++i){
-				if( capContains(id,caps[i]) )
-					return i;
-			}
-			return -1;
+			if( all && this.$parent !== null )
+				this.$parent.visit(all,f);
 		}
 		
-		// TODO: is this 'id' relevant? is collision detection important?
-		this.setCap = function(id,value){
-			if( this.__searchCap__(id) !== -1 )
-				return undefined; // already there
-			caps.push(value); // add new capability
+		// -------
+		
+		this.removeCap = function( searchF ){
+			for( var i=0; i<this.$caps.length ; ++i ){
+				if( searchF( this.$caps[i] ) ){
+					// if found, remove it
+					var res = this.$caps[i];
+					this.$caps.splice(i,1)[0];
+					return res;
+				}
+			}
+			if( this.$parent === null )
+				return undefined; // not found
+			return this.$parent.removeCap(searchF);
+		}
+		this.removeRWCap = function( loc_name ){
+			return this.removeCap(
+				function( c ){
+					return c.type === types.CapabilityType &&
+						c.loc().name() === loc_name;
+				}
+			);
+		}
+		
+		// FIXME tmp function
+		this.removeNamedCap = function( name ){
+			return this.removeCap(
+				function( c ){
+					return capContains( name, c );
+				}
+			);
+		}
+		
+		this.setCap = function( c ){
+			assert( c.type !== types.LocationVariable &&
+				c.type !== types.GuaranteeType, 'Error @setCap');
+			
+			// ensure there is no other RW cap is that is the arg.
+			if( c.type === types.CapabilityType ){
+				for( var i=0; i<this.$caps.length ; ++i ){
+					var cc = this.$caps[i];
+					if( cc.type === types.CapabilityType &&
+						cc.location().name() === c.location().name() ){
+						// local repetition of RW caps is not allowed
+						return undefined;
+					}
+				}
+			}
+			// all rest ok.
+			this.$caps.push( c );
 			return null;
 		}
-		this.removeCap = function(id){
-			var i = this.__searchCap__(id);
-			if( i !== -1 ){
-				// removes and returns element
-				return caps.splice(i,1)[0]; 
-			}
-			if( parent === null )
-				return undefined; // not found
-			return parent.removeCap(id);
-		}
 		
-		this.checkCap = function(id){
-			var i = this.__searchCap__(id);
-			if( i !== -1 ){
-				// removes and returns element
-				return caps[i]; 
-			}
-			if( parent === null )
-				return undefined; // not found
-			return parent.checkCap(id);
-		}
-
 	};
+	
+	// CAUTION: the following functions/methods ASSUME there is a separation
+	// in the domain of LocationVariables and TypeVariables so that just
+	// comparing strings is enough to know if some string is equal to some
+	// Loc/TypeVariable without needing to compare the types, just strings.
+	/**
+	 * @param {Type} val
+	 * @param {String} id
+	 * @return if there is a type/loc variable with name 'id' in type 'val'
+	 */
+	var capContains = function( name, cap ){
+		switch( cap.type ){
+			case types.CapabilityType:
+				return cap.location().name() === name;
+			case types.TypeVariable:
+				return cap.name() === name;
+			// cap may be anywhere, linear search
+			case types.StarType:
+			case types.AlternativeType:{
+				var ins = cap.inner();
+				for(var i=0;i<ins.length;++i){
+					if( capContains(name,ins[i]) )
+						return true;
+				}
+				return false;
+			}
+			case types.RelyType:{
+				return cap.rely().location().name() === name;
+			}
+			default:
+				// another types disallowed, for now
+				assert(false,'Error @capContains: '+cap.type);
+		}
+	}
 	
 	// TypeVariables must be upper cased.
 	var isTypeVariableName = function(n){
@@ -1643,15 +1658,12 @@ var TypeChecker = (function(AST,assertF){
 	
 	var unstackType = function(t, d, ast){
 		switch( t.type ){
+		case types.AlternativeType:
+		case types.RelyType:
 		case types.CapabilityType:
-			var loc = t.location().name(); 
-			assert( d.setCap( loc, t ) ,
-				'Duplicated capability for '+ loc, ast );
-			break;
 		case types.TypeVariable:
-			var nam = t.name(); 
-			assert( d.setCap( nam , t ) ,
-			 'Duplicated capability for '+ nam, ast );
+			assert( d.setCap( t ),
+			 'Duplicated capability for '+ t, ast );
 			break;
 		case types.StarType:{
 			var tps = t.inner();
@@ -1661,11 +1673,7 @@ var TypeChecker = (function(AST,assertF){
 			break;
 		}
 		case types.NoneType:
-			break; // nothing to do
-		case types.AlternativeType:
-		case types.RelyType:
-			assert( d.setCap( null , t ) ,
-			 'Duplicated capability '+ t, ast );
+			// nothing to add to the environment
 			break;
 		default: 
 			assert( false, 'Cannot unstack: '+t+' of '+t.type, ast);
@@ -1683,6 +1691,7 @@ var TypeChecker = (function(AST,assertF){
 	 * 	much as possible.
 	 */
 	var autoStack = function(t,p,e,a){
+		// FIXME, rethink now that there exists a cap search...
 		switch( p.type ) {
 			case types.StarType: {
 				if( t !== null && t.type === types.StarType ){
@@ -1690,6 +1699,8 @@ var TypeChecker = (function(AST,assertF){
 					// assume that it has all types there and do not
 					// auto-stack anything since otherwise we would
 					// need to compare and see what is missing, etc.
+					// NOTE: this type is NOT the one given by the
+					// programmer, but one that the typechecker found.
 					return t;
 				}
 				else {
@@ -1736,7 +1747,7 @@ var TypeChecker = (function(AST,assertF){
 					return t;
 				} else {
 					assert( t === null, 'Error @autoStack ', a );
-					var cap = assert( e.removeCap( cap_loc ),
+					var cap = assert( e.removeNamedCap( cap_loc ),
 						'Missing capability '+cap_loc, a );
 					return cap;
 				}
@@ -1753,43 +1764,37 @@ var TypeChecker = (function(AST,assertF){
 				} else {
 					assert( t===null, 'Error @autoStack ', a );
 					// note that, by its name, it must be a TypeVariable
-					var cap = assert( e.removeCap( p_loc ),
+					var cap = assert( e.removeNamedCap( p_loc ),
 						'Missing capability '+p_loc, a );
 					return cap;
 				}
 			}
 			case types.AlternativeType:{
-				assert( t == null , 'Error @autoStack ', a);
+				assert( t === null , 'Error @autoStack ', a);
+
+				// try the whole alternative type first
+				var cap = e.removeCap(
+					function(c){
+						return subtypeOf(c,p);
+					}
+				);
+				// if found, accept 'p'
+				if( cap !== undefined )
+					return p;
+				
+				// else, we must have at least one of the alternatives in
+				// order to stack (+)
 				var alts = p.inner();
 				for( var i=0; i<alts.length; ++i ){
-					var j = alts[i];
-					switch( j.type ){
-						case types.CapabilityType:{
-							var cap = e.checkCap( j.location().name() );
-							// one of the alternatives is valid
-							if( cap !== undefined && subtypeOf( cap, j ) ){
-								e.removeCap( j.location().name() );
-								return p;
-							}
-							break;
+					cap = e.removeCap(
+						function(c){
+							return subtypeOf(c,alts[i]);
 						}
-						case types.TypeVariable: {
-							if( e.removeCap( j.name() ) !== undefined )
-								return p;
-							break;
-						}
-						// FIXME: also above?
-						case types.RelyType: {
-							var cap_loc = j.rely().location().name();
-							var cap = assert( e.removeCap( cap_loc ),
-									'Missing capability '+cap_loc, a );
-							return cap;
-						}
-						default:
-							assert( false, 'Error @autoStack '+j.type, a );
-					}
+					);
+					// if found, accept 'p'
+					if( cap !== undefined )
+						return p;
 				}
-				// we must have one of the alternatives in order to stack (+)
 				assert( false, 'Failed to stack any of the alternatives', a);
 			}
 			case types.NoneType:
@@ -1798,9 +1803,10 @@ var TypeChecker = (function(AST,assertF){
 					'Error @autoStack ', a );
 				return NoneType;
 			case types.RelyType: {
-				var cap_loc = p.rely().location().name();
-				var cap = assert( e.removeCap( cap_loc ),
-						'Missing capability '+cap_loc, a );
+				var cap = e.removeCap( function(c){
+					return subtypeOf(p,c);
+				});
+				assert( cap, 'Missing capability '+p, a );
 				return cap;
 			}
 			case types.GuaranteeType:
@@ -2103,11 +2109,11 @@ var TypeChecker = (function(AST,assertF){
 			
 			case AST.kinds.ALTERNATIVE_OPEN: {
 				var type = check(ast.type, env);
-				assert( type.type === types.LocationVariable ||
-						type.type === types.TypeVariable,
+				assert( type.type === types.LocationVariable ,
 					'Cannot alt-open '+type,ast.type );
 				
-				var cap = env.removeCap( type.name() );
+				// TODO: should be search CapType( equals )
+				var cap = env.removeNamedCap( type.name() );
 				
 				assert( cap,
 					'Missing cap: '+cap, ast.type );
@@ -2223,7 +2229,7 @@ var TypeChecker = (function(AST,assertF){
 					"Invalid dereference '"+exp+"'", ast );
 
 				var loc = exp.location().name();
-				var cap = env.removeCap( loc );
+				var cap = env.removeNamedCap( loc );
 				
 				assert( cap, "No capability to '"+loc+"'", ast );
 				
@@ -2240,7 +2246,7 @@ var TypeChecker = (function(AST,assertF){
 					residual = new BangType(new RecordType());
 				
 				cap = new CapabilityType( cap.location(), residual );
-				assert( env.setCap( loc, cap ), 'Failed to re-add cap', ast );
+				assert( env.setCap( cap ), 'Failed to re-add cap', ast );
 				return old;
 			}
 			
@@ -2249,7 +2255,7 @@ var TypeChecker = (function(AST,assertF){
 				
 				if( exp.type === types.ReferenceType ){
 					var loc = exp.location().name();
-					var cap = env.removeCap( loc );
+					var cap = env.removeNamedCap( loc );
 					
 					assert( cap, "No capability to '"+loc+"'", ast );
 					
@@ -2286,7 +2292,7 @@ var TypeChecker = (function(AST,assertF){
 					"Invalid assign '"+lvalue+"' := '"+value+"'", ast.lvalue);
 				
 				var loc = lvalue.location().name();
-				var cap = env.removeCap( loc );
+				var cap = env.removeNamedCap( loc );
 				
 				assert( cap, "Cannot assign, no capability to '"+loc+"'", ast );
 				
@@ -2295,7 +2301,7 @@ var TypeChecker = (function(AST,assertF){
 				
 				var old = cap.value();
 				cap = new CapabilityType( cap.location(), purify(value) );
-				env.setCap( loc , cap );
+				env.setCap( cap );
 				return old;
 			}
 			
@@ -2406,7 +2412,7 @@ var TypeChecker = (function(AST,assertF){
 			case AST.kinds.SHARE: {
 				var locs = ast.locs;
 				// FIXME assuming just one
-				var cap = env.removeCap( locs[0] );
+				var cap = env.removeNamedCap( locs[0] );
 				
 				assert( cap, "No capability to '"+locs[0]+"'", ast );
 				
@@ -2516,8 +2522,8 @@ var checkProtocolConformance = function( s, a, b ){
 };
 				checkProtocolConformance(cap, left, right);
 				
-				env.setCap( null, unAll(left, undefined, false, true) );
-				env.setCap( null, unAll(right, undefined, false, true) );
+				env.setCap( unAll(left, undefined, false, true) );
+				env.setCap( unAll(right, undefined, false, true) );
 				// returns unit
 				return new BangType(new RecordType());
 			} 

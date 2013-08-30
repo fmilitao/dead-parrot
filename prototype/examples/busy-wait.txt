@@ -1,5 +1,6 @@
 
 // NOTE READY, just parser test.
+import add
 
 typedef Retry = forall p.rec X.( ( rw p (Held#[]) => rw p (Held#[]) ; X )
 	(+) ( rw p (Released#int) => none ) )
@@ -10,8 +11,7 @@ open <u,meh> = new {} in
 
 open <t,x> = new Held#{} in
 	share t as (Retry[t]) || (OneUse[t]);
-
-// FIXME: needs to be able to pick from multiple caps with same indexer...	
+	
 	meh := <(OneUse[t]):What,{}::(OneUse[t])>;
 	
 	fun Y(_:[]):int.( // FIXME argument and result are PLACE HOLDERS
@@ -23,9 +23,9 @@ open <t,x> = new Held#{} in
 				Y {}// recursion point
 		|	Released#n -> // recovers
 				defocus;
-				x := n; // FIXME + 1;
+				x := (add n 1);
 				// ...
-				x := !x; // FIXME + 1;
+				x := (add !x 1);
 				//...
 				delete x
 		end) {}
