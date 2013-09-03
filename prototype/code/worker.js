@@ -159,6 +159,16 @@ var libLoader = function( file, ctx ){
 		return add;
 	}
 	
+	if( file === 'abort' ){
+		var abort = new v.Function();
+		abort.call = function(msg){
+			//FIXME this is not clean, using RangeError just like stack overflow
+			// error is considerer a horrible hack and you should be ashamed.
+			throw new RangeError(msg);
+		};
+		return abort;
+	}
+	
 	// others are unknown
 	return undefined;
 };
@@ -188,6 +198,21 @@ var libTyper = function( file, ctx ){
 					new v.PrimitiveType('int'),
 					new v.BangType(new v.PrimitiveType('int'))
 					) 
+			)
+		);
+	}
+	
+	if( file === 'abort' ){
+		return new v.BangType(
+			new v.ForallType(
+				new v.TypeVariable('T'),
+				new v.FunctionType(
+					new v.StackedType(
+						new v.PrimitiveType('string'),
+						new v.TypeVariable('T')
+						),
+					new v.BangType(new v.RecordType())
+				)
 			)
 		);
 	}
