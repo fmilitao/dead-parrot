@@ -1160,6 +1160,8 @@ var TypeChecker = (function(AST,assertF){
 	// 	undefined - new element collides with a previously existing one;
 	//  null/value - if all OK.
 	var Environment = function(parent){
+		// note that set only works at the local level (i.e. it will never
+		// attempt to set something in an upper-level).
 
 		// CAREFUL: '$' and '#' cannot be source-level identifiers
 		var TYPE_INDEX='$';
@@ -1185,23 +1187,18 @@ var TypeChecker = (function(AST,assertF){
 			this.$map[id] = value;
 			return null; // ok
 		}
-		this.get = function(id){
-			if ( this.$map.hasOwnProperty(id) )
-				return this.$map[id];
-			if( this.$parent === null )
-				return undefined;
-			return this.$parent.get(id);
-		}
-		this.remove = function(id){
-			if( this.$map.hasOwnProperty(id) ){
+		this.get = function(id,cond){ // condition for removal
+			if ( this.$map.hasOwnProperty(id) ){
 				var tmp = this.$map[id];
-				 // ensures that it is no longer listed
-				delete this.$map[id];
+				if( cond !== undefined && cond(tmp) ){
+					// ensures that it is no longer listed
+					delete this.$map[id];
+				}
 				return tmp;
 			}
 			if( this.$parent === null )
-				return undefined; // not found
-			return this.$parent.remove(id);
+				return undefined;
+			return this.$parent.get(id,cond);
 		}
 		
 		// operations over VARIABLES
@@ -1390,6 +1387,7 @@ var TypeChecker = (function(AST,assertF){
 				return undefined; // not found
 			return this.$parent.removeCap(searchF);
 		}
+		/*
 		this.removeRWCap = function( loc_name ){
 			return this.removeCap(
 				function( c ){
@@ -1397,7 +1395,7 @@ var TypeChecker = (function(AST,assertF){
 						c.loc().name() === loc_name;
 				}
 			);
-		}
+		}*/
 		
 		// FIXME tmp function
 		this.removeNamedCap = function( name ){
@@ -1422,6 +1420,7 @@ var TypeChecker = (function(AST,assertF){
 						return undefined;
 					}
 				}
+				//TODO else add to hiding set
 			}
 			// all rest ok.
 			this.$caps.push( c );
@@ -2201,13 +2200,14 @@ var TypeChecker = (function(AST,assertF){
 			}
 			
 			case AST.kinds.ID: {
+				var destructive = function(t) {
+					// only removes (i.e. destructive) if linear
+					return t.type !== types.BangType;
+				}
 				var id = ast.text;
-				var val = env.get( id );
+				var val = env.get( id, destructive );
 			
 				assert( val, "Identifier '" + id + "' not found", ast);
-
-				if( val.type !== types.BangType )
-					env.remove( id );
 
 				return val;
 			}

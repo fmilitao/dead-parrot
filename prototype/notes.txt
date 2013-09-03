@@ -1,15 +1,50 @@
 
 ENVIRONMENT OPERATIONS:
-1. categoryze accesses:
-	- getRWCapability( location / subtyping/equals? )
-	- searchTCap( equals/upToSubtyping ) // removes if found
+ - focus( rely )
+ 	all behind a fake environment?
+ 	defocus, search for defocus cap and then restore it?
+ - fake parent?
  
- set( )
- if( type === CapabilityType ){
- 	// no duplications must hide above.
- }
- 
- - must be able to filter all existing caps when focusing!
+ - 3 FILTERS:
+
+ # non-shared type 	
+ 	filter( t ){
+ 		// types that are sure to not interfere with any focused cell
+ 		return t.type === types.BangType ||
+ 			( t.type === types.ForallType && filter( t.inner().type ) ) ||
+ 			( t.type === types.ExistsType && filter( t.inner().type ) ) ||
+ 			( t.type === types.CapabilityType && filter( t.inner().type ) ||
+ 			( t.type === types.StackedType && filter( t.left().type ) && filter( t.right().type ) ); 
+ 	}
+ 	
+ 	// env on focus
+ 	defocus = new Environment(null,filter);
+ 	
+ 	function(t){
+ 		return this.$filter(t) && filter(t);
+ 	}
+ 	
+ # \Delta^G
+ 	newScope(filterDefocus){
+ 		if( ... )
+ 		filters access to defocus
+ 	}
+ 	focus(t){
+ 		new Environment(null);
+ 		filter = shared_filter; // FLAGS?
+ 		parent = this.$parent; 
+ 		cap = [x...]
+ 		maps = {}
+ 	}
+ 	must hide defocus-guarantee, forbids defocus... but access to those filtered out should be possible.
+ 	
+ - location
+ 	when adding a cap, must ensure hiding above filtering its repetition.
+ 	if( filter(type) ){
+ 	}
+ 	locations = { p : true }
+ 	
+ 	FILTER to parent environment
 
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -18,8 +18,10 @@ open <t,x> = new Held#{} in
 		end
 		in
 	
-	// so that the relation between location is
+	// so that the relation between locations is
 	// no longer statically known.
+	// manually open alternative:
+	@t (
 		focus t;
 		case !x of
 			Held#n ->
@@ -28,9 +30,9 @@ open <t,x> = new Held#{} in
 		| Released#n ->
 				defocus;
 				x := (add n 1);
-				// ...
+				// ... free to do whatever it pleases
 				delete x
-		end
+		end )
 
 	end
 end
