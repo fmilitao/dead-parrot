@@ -333,20 +333,23 @@ $(document).ready(function() {
 	var refreshTypeListners = function(){
 		$('.'+changers)
 				.css('background-color', 'inherit')
-			    .css('outline', 'none');
+			    .css('outline', 'none')
+			    ;
 		
 		$('.'+triggers).hover(
 		  function(){
 			  $(this)
 			    .siblings('.'+changers)
 			    .css('background-color', 'white')
-			    .css('outline', '2px solid #bbbbbb');
+			    .css('outline', '2px solid #bbbbbb')
+			    ;
 		  },
 		  function(){
 			  $(this)
 			    .siblings('.'+changers)
 			    .css('background-color', 'inherit')
-			    .css('outline', 'none');
+			    .css('outline', 'none')
+			    ;
 		  }
 		);		
 	};

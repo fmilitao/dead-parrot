@@ -98,6 +98,7 @@ select {
 	border-color: gray; */
 	font-size: 9pt;
 	font-family: sans-serif;
+	z-index: 1000;
 	/* z-index: 10000; /* is this enough? */
 }
 
