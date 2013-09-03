@@ -1,13 +1,13 @@
 
-// NOTE READY, just parser test.
+// NOT READY, just parser test.
 
 // head node
-typedef H = rec X.forall p.( ( rw p (Empty#[]) => rw p (Empty#[]) ; (X[p]) ) (+)
+typedef H = rec X.forall p.( ( rw p !(Empty#[]) => rw p !(Empty#[]) ; (X[p]) ) (+)
 			( rw p (Closed#[]) => none ) (+) 
 			( rw p (Node#[int,exists q.(X[q])]) => none ) )
 
 // tail node
-typedef T = forall p.( rw p (Empty#[]) =>
+typedef T = forall p.( rw p !(Empty#[]) =>
 	( (rw p (Closed#[])) (+) (rw p (Node#[int,exists q.(H[q])]))) )
 
 let newPipe = fun( _ : [] ).
@@ -22,7 +22,7 @@ let newPipe = fun( _ : [] ).
 				open <l2,oldlast> = !tail in
 					focus l2;
 						share l1 as (H[l1]) || (T[l1]);
-						oldlast := Node#{ e , <l1,last :: H[l1]> };
+						oldlast := Node#{ e , <l1,last :: (H[l1])> };
 					defocus;
 					tail := <l1,last :: T[l1]>
 				end

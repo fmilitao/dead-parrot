@@ -1,3 +1,6 @@
+// FIXME missing Delta^G restrictions on environments
+// FIXME problem on priting multiple levels of capabilities
+// FIXME is it possible to delete twice if at multiple levels??
 
 ENVIRONMENT OPERATIONS:
  - focus( rely )

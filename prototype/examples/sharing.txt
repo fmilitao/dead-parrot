@@ -1,6 +1,4 @@
 
-// NOTE READY, just parser test.
-
 import add
 
 typedef Alias = forall t.( ( rw t (Held#[]) => rw t (Released#int) ) 
@@ -31,7 +29,8 @@ open <t,x> = new Held#{} in
 				defocus;
 				x := (add n 1);
 				// ... free to do whatever it pleases
-				delete x
+				delete x;
+				{} // also return unit to safely merge
 		end )
 
 	end

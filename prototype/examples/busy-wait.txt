@@ -1,5 +1,6 @@
 
-// NOTE READY, just parser test.
+// MAKE SURE TO DISABLE AUTO-RUN OR EXECUTION WILL CRASH (max stack size)
+
 import add
 
 typedef Retry = forall p.rec X.( ( rw p (Held#[]) => rw p (Held#[]) ; X )
@@ -14,7 +15,8 @@ open <t,x> = new Held#{} in
 	
 	meh := <(OneUse[t]):What,{}::(OneUse[t])>;
 	
-	fun Y(_:[]):int.( // FIXME argument and result are PLACE HOLDERS
+	fun Y( _ : []::(Retry[t]) ):int.(
+		@t (
 		focus t;
 		case !x of
 			Held#n ->
@@ -28,7 +30,10 @@ open <t,x> = new Held#{} in
 				x := (add !x 1);
 				//...
 				delete x
-		end) {}
+		end)
+	) {};
+	
+	delete meh
 end
 
 end

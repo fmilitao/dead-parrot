@@ -201,6 +201,22 @@ var libTyper = function( file, ctx ){
 //
 
 var printEnvironment = function(env,ast,pos){
+	var res = _printEnvironment(env);
+	
+	var gamma = res.gamma;
+	var delta = res.delta;
+	
+	gamma.sort(); // to ensure always the same order
+	gamma = gamma.join(',\n    ');
+	
+	delta.sort(); // ...same order
+	delta = delta.join(',\n    ');
+	
+	return "@"+(ast.line+1)+":"+ast.col+' '+ast.kind+"\n\u0393 = "+gamma+"\n"+
+		   "\u0394 = "+delta;
+}
+
+var _printEnvironment = function(env,ast,pos){
 	var gamma = [];
 	var delta = [];
 	var visited = [];
@@ -236,19 +252,26 @@ var printEnvironment = function(env,ast,pos){
 			gamma.push('<span class="type_name">'+id+'</span>'+": "+toHTML(val.inner()));
 			return;
 		}			
-		// FIXME problem on priting multiple levels of capabilities
-		// FIXME is it possible to delete twice if at multiple levels??
 		delta.push('<span class="type_name">'+id+'</span>'+": "+toHTML(val));
 	});
-	
-	gamma.sort(); // to ensure always the same order
-	gamma = gamma.join(',\n    ');
-	
-	delta.sort(); // ...same order
-	delta = delta.join(',\n    ');
 
-	return "@"+(ast.line+1)+":"+ast.col+' '+ast.kind+"\n\u0393 = "+gamma+"\n"+
-		   "\u0394 = "+delta;
+	var e = env;
+	while( e !== null ){
+		if( e.$defocus_guarantee !== null ){
+			var tmp = _printEnvironment(e.$defocus_env).delta;
+			if( tmp.length > 0 ){
+				tmp.sort(); // ...same order
+				tmp = tmp.join(',\n    ');
+			}else{
+				tmp = '&#8709;';
+			}
+			delta.push( toHTML(e.$defocus_guarantee) +' &#9659; '+tmp );
+			break;
+		}
+		e = e.$parent;
+	}
+	
+	return { delta : delta, gamma : gamma };
 }
 
 

@@ -1172,6 +1172,119 @@ var TypeChecker = (function(AST,assertF){
 		this.$caps = [];
 		this.$parent = parent;
 		
+		// FIXME first attempt
+		this.$defocus_guarantee = null;
+		this.$defocus_env = null;
+		
+		var isNonShared = function( t ){
+	 		// types that are sure to not interfere with any focused cell
+	 		return t.type === types.BangType ||
+	 		 ( t.type === types.ForallType && isNonShared( t.inner() ) ) ||
+	 		 ( t.type === types.ExistsType && isNonShared( t.inner() ) ) ||
+	 		 ( t.type === types.CapabilityType && isNonShared( t.value() ) ) ||
+	 		 ( t.type === types.StackedType && isNonShared( t.left() ) 
+	 			&& isNonShared( t.right() ) ); 
+ 		}
+ 	
+ 		// splits the environments
+		var split = function(a,d_env){
+			if( a === null )
+				return null;
+			
+			for( var i in a.$map ){
+				var tmp = a.$map[i];
+				if( !isNonShared(tmp) && i.indexOf(TYPE_INDEX) !== 0 ){
+					// move to defocus environment
+					delete a.$map[i];
+					d_env.$map[i] = tmp;
+				}
+			}
+			var aa = [];
+			var dd = [];
+			for( var i=0; i<a.$caps.length;++i ){
+				var tmp = a.$caps[i];
+				if( !isNonShared(tmp) ){
+					dd.push( tmp );
+				}else{
+					aa.push( tmp );
+				}
+			}
+			a.$caps = aa;
+			d_env.$caps = dd;
+			
+			if( a.$parent !== null ){
+				d_env.$parent = new Environment(null);
+				split(a.$parent,d_env.$parent);
+				
+				// nest defocus guarantees, if they exist
+				d_env.$parent.$defocus_guarantee = a.$parent.$defocus_guarantee;
+				d_env.$parent.$defocus_env = a.$parent.$defocus_env;
+				
+				a.$parent.$defocus_guarantee = null;
+				a.$parent.$defocus_env = null;
+			}
+			
+			return null;
+		}
+		
+		// merge the environments
+		var merge = function(a,d_env){
+			if( d_env === null )
+				return null;
+			
+			for( var i in d_env.$map ){
+				a.$map[i] = d_env.$map[i];
+			}
+			
+			for( var i=0; i<d_env.$caps.length;++i ){
+				a.$caps.push( d_env.$caps[i] );
+			}
+			
+			if( a.$parent !== null ){
+				return merge(a.$parent,d_env.$parent);
+			}
+			
+			return null;
+		}
+		
+		this.focus = function(t){
+			if( t.type !== types.RelyType )
+				return undefined;
+			
+			var tmp = new Environment(null);
+			this.$defocus_guarantee = t.guarantee();
+			this.$defocus_env = tmp;
+			
+			split( this, tmp );
+			
+			// append the focused cap
+			this.setCap( t.rely() );
+			return null; //signals OK
+		}
+		
+		this.defocus_guarantee = function(){
+			if( this.$defocus_guarantee !== null )
+				return this.$defocus_guarantee;
+			if( this.$parent === null )
+				return undefined;
+			return this.$parent.defocus_guarantee();
+		}
+		
+		this.defocus = function(){
+
+			if( this.$defocus_guarantee === null ){
+				if( this.$parent === null )
+					return undefined;
+				// search upwards...
+				return this.$parent.defocus();
+			}
+			
+			// merge environments
+			merge( this, this.$defocus_env );
+			this.$defocus_guarantee = null;
+			this.$defocus_env = null;
+		}
+		
 		// scope methods		
 		this.newScope = function(){
 			return new Environment(this);
@@ -1232,13 +1345,137 @@ var TypeChecker = (function(AST,assertF){
 				env.set( i, this.$map[i] );
 			}
 			for( var i=0; i<this.$caps.length;++i ){
-				env.setCap( this.$caps[i] ); // null is a trick for no id
+				env.setCap( this.$caps[i] );
 			}
+			
+			env.$defocus_guarantee = this.$defocus_guarantee;
+			env.$defocus_env =  this.$defocus_env !== null ?
+				this.$defocus_env.clone():
+				null;
+			
 			return env;
 		}
 		
+		// FIXME: more of a merge
+		this.isEqual = function(other){
+			return comps(this,other,true);
+		}
 		
-		var comps = function(a,b,merge_caps){
+		// no order is guaranteed!
+		this.visit = function(all,f){
+			for( var i in this.$map ){
+				var isType = (i[0] === TYPE_INDEX);
+				f(i,this.$map[i],false,isType);
+			}
+			for( var i=0; i<this.$caps.length;++i ){
+				f(null,this.$caps[i],true,false);
+			}
+			if( all && this.$parent !== null )
+				this.$parent.visit(all,f);
+		}
+		
+		// -------
+		
+		this.removeCap = function( searchF ){
+			for( var i=0; i<this.$caps.length ; ++i ){
+				if( searchF( this.$caps[i] ) ){
+					// if found, remove it
+					var res = this.$caps[i];
+					this.$caps.splice(i,1)[0];
+					return res;
+				}
+			}
+			if( this.$parent === null )
+				return undefined; // not found
+			return this.$parent.removeCap(searchF);
+		}
+		/*
+		this.removeRWCap = function( loc_name ){
+			return this.removeCap(
+				function( c ){
+					return c.type === types.CapabilityType &&
+						c.loc().name() === loc_name;
+				}
+			);
+		}*/
+		
+		// Temporary Function
+		this.removeNamedCap = function( name ){
+			return this.removeCap(
+				function( c ){
+					return capContains( name, c );
+				}
+			);
+		}
+		
+		this.setCap = function( c ){
+			assert( c.type !== types.LocationVariable &&
+				c.type !== types.GuaranteeType, 'Error @setCap');
+			
+			// ensure there is no other RW cap is that is the arg.
+			if( c.type === types.CapabilityType ){
+				for( var i=0; i<this.$caps.length ; ++i ){
+					var cc = this.$caps[i];
+					if( cc.type === types.CapabilityType &&
+						cc.location().name() === c.location().name() ){
+						// local repetition of RW caps is not allowed
+						return undefined;
+					}
+				}
+				//TODO else add to hiding set
+			}
+			// all rest ok.
+			this.$caps.push( c );
+			return null;
+		}
+		
+	};
+	
+	// CAUTION: the following functions/methods ASSUME there is a separation
+	// in the domain of LocationVariables and TypeVariables so that just
+	// comparing strings is enough to know if some string is equal to some
+	// Loc/TypeVariable without needing to compare the types, just strings.
+	/**
+	 * @param {Type} val
+	 * @param {String} id
+	 * @return if there is a type/loc variable with name 'id' in type 'val'
+	 */
+	var capContains = function( name, cap ){
+		switch( cap.type ){
+			case types.CapabilityType:
+				return cap.location().name() === name;
+			case types.TypeVariable:
+				return cap.name() === name;
+			// cap may be anywhere, linear search
+			case types.StarType:
+			case types.AlternativeType:{
+				var ins = cap.inner();
+				for(var i=0;i<ins.length;++i){
+					if( capContains(name,ins[i]) )
+						return true;
+				}
+				return false;
+			}
+			case types.RelyType:{
+				return cap.rely().location().name() === name;
+			}
+			default:
+				// another types disallowed, for now
+				assert(false,'Error @capContains: '+cap.type);
+		}
+	}
+	
+	// TypeVariables must be upper cased.
+	var isTypeVariableName = function(n){
+		return n[0] === n[0].toUpperCase();
+	}
+	
+	//
+	// TYPE CHECKER
+	//
+	
+	// FIXME clean up
+	var comps = function(a,b,merge_caps){
 			// compare nulls due to parents
 			if( a === null && b === null )
 				return true;
@@ -1354,124 +1591,7 @@ var TypeChecker = (function(AST,assertF){
 			}
 		}
 		
-		// FIXME: more of a merge
-		this.isEqual = function(other){
-			return comps(this,other,true);
-		}
 		
-		// no order is guaranteed!
-		this.visit = function(all,f){
-			for( var i in this.$map ){
-				var isType = (i[0] === TYPE_INDEX);
-				f(i,this.$map[i],false,isType);
-			}
-			for( var i=0; i<this.$caps.length;++i ){
-				f(null,this.$caps[i],true,false);
-			}
-			if( all && this.$parent !== null )
-				this.$parent.visit(all,f);
-		}
-		
-		// -------
-		
-		this.removeCap = function( searchF ){
-			for( var i=0; i<this.$caps.length ; ++i ){
-				if( searchF( this.$caps[i] ) ){
-					// if found, remove it
-					var res = this.$caps[i];
-					this.$caps.splice(i,1)[0];
-					return res;
-				}
-			}
-			if( this.$parent === null )
-				return undefined; // not found
-			return this.$parent.removeCap(searchF);
-		}
-		/*
-		this.removeRWCap = function( loc_name ){
-			return this.removeCap(
-				function( c ){
-					return c.type === types.CapabilityType &&
-						c.loc().name() === loc_name;
-				}
-			);
-		}*/
-		
-		// FIXME tmp function
-		this.removeNamedCap = function( name ){
-			return this.removeCap(
-				function( c ){
-					return capContains( name, c );
-				}
-			);
-		}
-		
-		this.setCap = function( c ){
-			assert( c.type !== types.LocationVariable &&
-				c.type !== types.GuaranteeType, 'Error @setCap');
-			
-			// ensure there is no other RW cap is that is the arg.
-			if( c.type === types.CapabilityType ){
-				for( var i=0; i<this.$caps.length ; ++i ){
-					var cc = this.$caps[i];
-					if( cc.type === types.CapabilityType &&
-						cc.location().name() === c.location().name() ){
-						// local repetition of RW caps is not allowed
-						return undefined;
-					}
-				}
-				//TODO else add to hiding set
-			}
-			// all rest ok.
-			this.$caps.push( c );
-			return null;
-		}
-		
-	};
-	
-	// CAUTION: the following functions/methods ASSUME there is a separation
-	// in the domain of LocationVariables and TypeVariables so that just
-	// comparing strings is enough to know if some string is equal to some
-	// Loc/TypeVariable without needing to compare the types, just strings.
-	/**
-	 * @param {Type} val
-	 * @param {String} id
-	 * @return if there is a type/loc variable with name 'id' in type 'val'
-	 */
-	var capContains = function( name, cap ){
-		switch( cap.type ){
-			case types.CapabilityType:
-				return cap.location().name() === name;
-			case types.TypeVariable:
-				return cap.name() === name;
-			// cap may be anywhere, linear search
-			case types.StarType:
-			case types.AlternativeType:{
-				var ins = cap.inner();
-				for(var i=0;i<ins.length;++i){
-					if( capContains(name,ins[i]) )
-						return true;
-				}
-				return false;
-			}
-			case types.RelyType:{
-				return cap.rely().location().name() === name;
-			}
-			default:
-				// another types disallowed, for now
-				assert(false,'Error @capContains: '+cap.type);
-		}
-	}
-	
-	// TypeVariables must be upper cased.
-	var isTypeVariableName = function(n){
-		return n[0] === n[0].toUpperCase();
-	}
-	
-	//
-	// TYPE CHECKER
-	//
-	
 	/**
 	 * Attempts to merge the two types given as argument.
 	 * @return undefined if they cannot be merged, or the type that is
@@ -1647,7 +1767,9 @@ var TypeChecker = (function(AST,assertF){
 	var unstack = function( type, d, ast ){
 		if( type.type === types.StackedType ){
 			// all types are on the right, recursion is on left
-			unstackType( type.right(), d, ast );
+			var right = unAll(type.right(),ast, false, true);
+			unstackType( right, d, ast );
+			//unstackType( type.right(), d, ast );
 			
 			return unstack( type.left(), d, ast );
 		}
@@ -1691,6 +1813,8 @@ var TypeChecker = (function(AST,assertF){
 	 */
 	var autoStack = function(t,p,e,a){
 		// FIXME, rethink now that there exists a cap search...
+		p = unAll(p,null,false,true);
+		
 		switch( p.type ) {
 			case types.StarType: {
 				if( t !== null && t.type === types.StarType ){
@@ -1811,8 +1935,10 @@ var TypeChecker = (function(AST,assertF){
 			case types.GuaranteeType:
 				assert( false, 'Error @autoStack, Guarantee...', a );
 				break;
-			default: // other types just fall through, 
-					 // leave the given type in.
+			default:
+				// other types just fall through, leave the given type
+				// in but make sure it is not null.
+				assert( t !== null, 'Error @autoStack ' + p.type, a);
 		}
 		return t;
 	}
@@ -1928,7 +2054,7 @@ var TypeChecker = (function(AST,assertF){
 				// sequence is encoded as LET with id 'null', but this construct
 				// drops the first expression's value so it must be of BangType
 				assert( ast.id !== null || value.type === types.BangType,
-					'Cannot drop linear type', ast );
+					'Cannot drop linear type '+value, ast );
 				
 				if( ast.id !== null ){
 					// creating a new environment should avoid this error, but
@@ -2330,7 +2456,7 @@ var TypeChecker = (function(AST,assertF){
 				// this is necessary since parts of the argument may have been
 				// manually stacked and other should be implicitly put there.
 				arg = autoStack( arg, fun_arg, env, ast.arg );
-				
+						
 				assert( subtypeOf( arg, fun_arg ),
 					"Invalid call: expecting '"+fun_arg+"' got '"+arg+"'", ast.arg );
 				
@@ -2530,20 +2656,32 @@ var checkProtocolConformance = function( s, a, b ){
 			
 			case AST.kinds.FOCUS: {
 				var locs = ast.locs;
-				// locations to search for in the env
-				/* TODO:
-				 *  - fetch shared type, access rely, frame possible 
-				 * interferences behind guarantee. 
-				 */
-				assert(false,'NOT DONE',ast); // FIXME
+				
+				var cap = env.removeNamedCap( locs[0] );
+				
+				assert( cap, "No capability to '"+locs[0]+"'", ast );
+				assert( cap.type === types.RelyType, 'Expecting RelyType, got '+cap, ast);
+				
+				env.focus( cap );
+				
+				return new BangType(new RecordType());
 			} 
 			
 			case AST.kinds.DEFOCUS: {
-				// no inner expression
-				/* TODO:
-				 *  - unframe accessible guarantee. 
-				 */
-				assert(false,'NOT DONE',ast); // FIXME
+				var dg = env.defocus_guarantee();
+				
+				var res = autoStack( null , dg.guarantee(), env, ast );
+				
+				assert( subtypeOf( res, dg.guarantee() ),
+					'Not at Guarantee, expecting "'+dg.guarantee()+'" got '+res,
+					ast );
+				
+				env.defocus();
+				
+				unstackType(
+					unAll( dg.rely(),ast, false, true) 
+					, env, ast );
+				return new BangType(new RecordType());
 			} 
 			
 			// TYPES
@@ -2647,8 +2785,13 @@ var checkProtocolConformance = function( s, a, b ){
 			
 			case AST.kinds.CAP_STACK: {
 //debugger;
+// FIXME recursive types?
 				var exp = check( ast.exp, env );
 				var cap = check( ast.type, env );
+				
+// FIXME broken
+				cap = unAll(cap,ast,false,true);
+				
 				var c = autoStack ( null, cap, env, ast.type );
 				// make sure that the capabilities that were extracted from 
 				// the typing environment can be used as the written cap.
@@ -2734,7 +2877,7 @@ var checkProtocolConformance = function( s, a, b ){
 									"Identifier '" + ast.rec + "' already in scope", ast );
 							}
 							
-							
+							//var unstacked = unAll(arg_type,ast, false, true); 
 							var unstacked = unstack(arg_type,e,ast);
 							
 							assert( e.set( id, purify(unstacked) ),
