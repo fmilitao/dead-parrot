@@ -8,14 +8,14 @@ var require = (function () {
     var factories = {};
     var r = function(id) {
         if (!modules[id]) {
-        console.log(id);
+        //console.log(id);
             modules[id] = {};
             factories[id](r, modules[id], { id : id });
         }
         return modules[id];
     };
     r.def = function(id, params) {
-        console.log('def', id);
+        //console.log('def', id);
         factories[id] = params.factory;
     };
     return r;

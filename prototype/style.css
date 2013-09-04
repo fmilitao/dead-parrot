@@ -206,3 +206,19 @@ a:visited {
 .type_field{
 	color: purple;
 }
+
+
+
+.chrome_show{
+	font-size: 8pt;
+	text-align: center;
+	border: 2px solid #FF0000;
+	background: #EE5757;
+	border-radius: 5px;
+	padding: 2px;
+	margin: 5px;
+}
+
+.chrome_hide{
+	display:none;
+}

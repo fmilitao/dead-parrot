@@ -11,6 +11,8 @@
 //      a copy of the 'src-noconflict' folder.
 // [copies of around August 21st, 2012]
 
+//document.write('<script src="lib/jison.js"><\/script>')
+
 // HTML element IDs that need to be present in the .html file
 var INFO ="info";
 var EDITOR = "editor";
@@ -29,37 +31,19 @@ var _TYPEINFO_ = '#'+TYPEINFO;
 var _TYPING_ = '#'+TYPING;
 var _RESET_ = '#reset';
 
-var TYPE_INFO_WIDTHS = null
+var TYPE_INFO_WIDTHS = null;
 
-// from: http://stackoverflow.com/questions/13382516/getting-scroll-bar-width-using-javascript
-function getScrollbarWidth() { // FIXME: to fix firefox scrollbar problem with box-sizing
-    var outer = document.createElement("div");
-    outer.style.visibility = "hidden";
-    outer.style.width = "100px";
-    document.body.appendChild(outer);
-    
-    var widthNoScroll = outer.offsetWidth;
-    // force scrollbars
-    outer.style.overflow = "scroll";
-    
-    // add innerdiv
-    var inner = document.createElement("div");
-    inner.style.width = "100%";
-    outer.appendChild(inner);        
-    
-    var widthWithScroll = inner.offsetWidth;
-    
-    // remove divs
-    outer.parentNode.removeChild(outer);
-    
-    return widthNoScroll - widthWithScroll;
-}
 
 $(document).ready(function() {
 	
 	// FIXME debug
 	$.ajaxSetup({ cache: false });
 	var DEBUG_MSG = true;
+	
+	if( !window.chrome ){
+		// warn that it is not chrome
+		document.getElementById("chrome_warn").className = "chrome_show";
+	}
 	
 	//
 	// window layout setup

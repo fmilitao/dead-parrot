@@ -154,3 +154,7 @@ CODE STYLE:
 
 // Copyright (C) 2013 Filipe Militao <filipe.militao@cs.cmu.edu>
 // GPL v3 Licensed http://www.gnu.org/licenses/
+
+===============================================================================
+// to fix firefox scrollbar problem with box-sizing
+// from: http://stackoverflow.com/questions/13382516/getting-scroll-bar-width-using-javascript
