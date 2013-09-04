@@ -27,20 +27,15 @@ var TypeChecker = (function(AST,assertF){
 		assert( !types.hasOwnProperty(type) && !fct.hasOwnProperty(type),
 			'Error @newType, already exists: '+type );
 		
-		var wrp = function(){
-			// add common methods by wrapping constructor
-			// type is just a String to make it easier to debug
-			this.type = type;
-			this.toString = function() { return toString(this); }
-			// now call constructor with the supplied arguments
-			constructor.apply(this,arguments);
-		};
+		// default stuff for that particular type
+		constructor.prototype.type = type;
+		constructor.prototype.toString = function() { return toString(this); }
 
 		// later it may be useful to change away from strings, but for now
 		// they are very useful when debugging problems.
 		types[type] = type;
-		fct[type] = wrp;
-		return wrp;
+		fct[type] = constructor;
+		return constructor;
 	};
 	
 	var FunctionType = newType('FunctionType',

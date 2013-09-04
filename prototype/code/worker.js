@@ -83,7 +83,11 @@ var receive = {
 
 			send('println', '<b>Type</b>: '+
 				toHTML( checker( ast , typeinfo, libTyper ) ) );
-			
+
+if( !isThread ){
+	console.debug( typeinfo.diff );
+}
+
 			if( autorun ){
 				send('println', '<b>Result</b>: '+
 					interpreter( ast,
