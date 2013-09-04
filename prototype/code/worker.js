@@ -7,13 +7,13 @@ var isThread = typeof(window) === 'undefined';
 // only loads the following if it is a standalone thread
 if( isThread ){
 
-	// convenient debug stuff
+	// convenient debug
 	var console = function(){
 		var aux = function(k,arg){
 			var tmp =[];
 			for( var i in arg )
 				tmp.push(arg[i].toString());
-			self.postMessage({kind: k, data: tmp.join(' ') });
+			self.postMessage({kind: k, data: '[Worker] '+tmp.join(' ') });
 		}
 		
 		return {
@@ -134,7 +134,6 @@ if( !isThread ){
 // Quick and Dirty Standard Lib for basic arithm.
 //
 
-// for now it just supports 'add' and 'println'
 var libLoader = function( file, ctx ){
 	var v = ctx.factory;
 
@@ -286,7 +285,7 @@ var _printEnvironment = function(env,ast,pos){
 			var tmp = _printEnvironment(e.$defocus_env).delta;
 			if( tmp.length > 0 ){
 				tmp.sort(); // ...same order
-				tmp = tmp.join(',\n    ');
+				tmp = tmp.join(',\n\t\t');
 			}else{
 				tmp = '&#8709;';
 			}
@@ -355,7 +354,7 @@ var info = function(tp,pos){
 		return '';
 
 	var msg = '<b title="click to hide">Type Information</b><br/>'+
-		'('+diff+'ms)'; // TODO &#9659;
+		'('+diff+'ms)';
 	
 	for(var i=0;i<indexes.length;++i){
 		var ptr = indexes[i];

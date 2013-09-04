@@ -1349,9 +1349,8 @@ var TypeChecker = (function(AST,assertF){
 			}
 			
 			env.$defocus_guarantee = this.$defocus_guarantee;
-			env.$defocus_env =  this.$defocus_env !== null ?
-				this.$defocus_env.clone():
-				null;
+			// $defocus_env is immutable so it is safe to alias
+			env.$defocus_env =  this.$defocus_env;
 			
 			return env;
 		}

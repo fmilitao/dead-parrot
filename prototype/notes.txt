@@ -2,6 +2,16 @@
 // FIXME problem on priting multiple levels of capabilities
 // FIXME is it possible to delete twice if at multiple levels??
 
+
+		var importScript = function(file){
+			$.ajax({ type : 'GET',
+				async : false,
+				url : file,
+				dataType:'script',
+				success : function(data) {}
+			});
+		};
+		
 ENVIRONMENT OPERATIONS:
  - focus( rely )
  	all behind a fake environment?
@@ -154,7 +164,3 @@ CODE STYLE:
 
 // Copyright (C) 2013 Filipe Militao <filipe.militao@cs.cmu.edu>
 // GPL v3 Licensed http://www.gnu.org/licenses/
-
-===============================================================================
-// to fix firefox scrollbar problem with box-sizing
-// from: http://stackoverflow.com/questions/13382516/getting-scroll-bar-width-using-javascript

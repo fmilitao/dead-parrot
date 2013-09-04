@@ -1,17 +1,53 @@
-// Notes about used libraries and location of plugin files:
-// * jison ( http://zaach.github.com/jison/ )
-//      The custom rules are in 'grammar.jison' file.
-//      Library files were fetched from the project's github repo.
-//      NOTE: jison was modified so that errors use 'this.lexer.yylineno' 
-//      instead of was just 'yylineno' for line number. 
-// * ace editor ( http://ace.ajax.org/index.html )
-//      Custom highlighter mode is in 'mode-grammar.js'
-//      Library files are based on the project's github 'ace-builds' repo
-//      (and not the one directly linked from the project's website) and is
-//      a copy of the 'src-noconflict' folder.
-// [copies of around August 21st, 2012]
 
-//document.write('<script src="lib/jison.js"><\/script>')
+var DEBUG_MSG = true;
+var worker_enabled = true;
+var default_file = 'examples/welcome.txt';
+
+//load examples given as parameters
+var parameters = document.URL.split('?');
+var filegiven = false;
+if( parameters.length > 1 ){
+	parameters = parameters[1].split('&');
+	for( var i=0;i<parameters.length;++i ){
+    	var tmp = parameters[i].split('=');
+    	if( tmp.length > 1 ){
+    		var option = tmp[0];
+    		var value = tmp[1];
+    		switch( option ){
+    			case 'file': // load file
+    				default_file = value;
+    				/*
+    				filegiven = true;
+	    			$.get( value , function(data) {
+						setEditor(data);
+						//console.log(data);
+					})
+					*/;
+    				break;
+    			case 'worker':
+    				worker_enabled = (value.toLowerCase() === 'true');
+    				break;
+    			default: // not other options for now.
+    				break;
+    		}
+    	}
+	}
+}
+
+if( !worker_enabled ){
+	// import all scripts for debugging
+	var importScript = function(file){
+		document.write('<script src="'+file+'"><\/script>');
+	};
+
+	console.log('importing scripts to run locally...');
+	importScript('lib/jison.js');
+	importScript('code/parser.js');
+	importScript('code/interpreter.js');
+	importScript('code/typechecker.js');
+	importScript('code/worker.js');
+	console.log('done.');
+}
 
 // HTML element IDs that need to be present in the .html file
 var INFO ="info";
@@ -33,12 +69,9 @@ var _RESET_ = '#reset';
 
 var TYPE_INFO_WIDTHS = null;
 
-
 $(document).ready(function() {
 	
-	// FIXME debug
-	$.ajaxSetup({ cache: false });
-	var DEBUG_MSG = true;
+	$.ajaxSetup({ cache: !DEBUG_MSG });
 	
 	if( !window.chrome ){
 		// warn that it is not chrome
@@ -131,7 +164,6 @@ $(document).ready(function() {
     editor.setShowPrintMargin(false);
     editor.getSession().setTabSize(3);
 	
-	var worker_enabled = true;
 	
 	(function(){ // Examples buttons.
 		var setEditor = function(text){
@@ -180,38 +212,8 @@ $(document).ready(function() {
 	        $("#examples").slideToggle(25);
 	    });
 	    
-	    //load examples given as parameters
-	    var parameters = document.URL.split('?');
-	    var filegiven = false;
-	    if( parameters.length > 1 ){
-	    	parameters = parameters[1].split('&');
-	    	for( var i=0;i<parameters.length;++i ){
-		    	var tmp = parameters[i].split('=');
-		    	if( tmp.length > 1 ){
-		    		var option = tmp[0];
-		    		var value = tmp[1];
-		    		switch( option ){
-		    			case 'file': // load file
-		    				filegiven = true;
-			    			$.get( value , function(data) {
-								setEditor(data);
-								//console.log(data);
-							});
-		    				break;
-		    			case 'worker':
-		    				worker_enabled = (value.toLowerCase() === 'true');
-		    				break;
-		    			default: // not other options for now.
-		    				break;
-		    		}
-		    	}
-	    	}
-	    }
-		if( !filegiven ){ // no parameters given, load default
-	    	$.get( 'examples/welcome.txt' , function(data) {
-				setEditor(data);
-			});
-	    }
+		// setup editor with default file.
+		$.get( default_file , function(data) { setEditor(data); });
 
 		// tests	    
 	    var TEST_LIST = $("#test-file");
@@ -393,9 +395,9 @@ $(document).ready(function() {
 		// debug
 		//
 		
-		log : function(msg){ console.log('[Worker] '+msg); },
-		debug : function(msg){ console.debug('[Worker] '+msg); },
-		error : function(msg){ console.error('[Worker] '+msg); },
+		log : function(msg){ console.log( msg ); },
+		debug : function(msg){ console.debug( msg ); },
+		error : function(msg){ console.error( msg ); },
 		
 		//
 		// info
@@ -500,32 +502,9 @@ $(document).ready(function() {
 		resetWorker();
 		
 	}else{
-		/*
-		 * This runs the typechecker, etc. locally.
-		 * It is really just meant for debugging since some of the Chrome Dev
-		 * Tools do not work properly when they are triggered from inside a
-		 * Web Worker... WARNING: unpleasant code.
-		 */
-		
-		var importScript = function(file){
-			$.ajax({ type : 'GET',
-				async : false,
-				url : file,
-				dataType:'script',
-				success : function(data) {}
-				});
-		};
-console.log('importing scripts for running locally...');
-		importScript('lib/jison.js');
-		importScript('code/parser.js');
-		importScript('code/interpreter.js');
-		importScript('code/typechecker.js');
-console.log('done.');
-console.log('importing worker code...');
-
+// FIXME ugly...
 		// make handle function available to worker THIS IS A GLOBAL VAR
 		GLOBAL_HANDLER = handle;
-		importScript('code/worker.js');
 		
 		var send_here = function(kind,data) {
 			try{
@@ -533,8 +512,7 @@ console.log('importing worker code...');
 			}catch(e){
 				console.error(e);
 			}
-		};
-		
+		};		
 	}
 	
 	var comm = (function(send){
