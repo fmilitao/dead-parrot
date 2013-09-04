@@ -1956,6 +1956,9 @@ var TypeChecker = (function(AST,assertF){
 	 * 	order than the one picked by this function)
 	 */
 	var safelyEndScope = function( type, env, ast ){
+		
+		assert( env.$defocus_guarantee === null , 'Cannot drop focus' , ast);
+		
 		// 1. stack all capabilities
 		var tmp = new StarType();
 

@@ -65,7 +65,7 @@ if( isThread ){
 	// Just for local debugging, GLOBAL_HANDLER is global var
 	send = function(kind,data) {
 		try{
-			GLOBAL_HANDLER[kind](data);
+			MAIN_HANDLER[kind](data);
 		} catch(e) {
 			console.error(e);
 		}

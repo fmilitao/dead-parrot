@@ -349,21 +349,18 @@ $(document).ready(function() {
     	var t = $(_TYPING_);
     	
     	this.clearAll = function(){
-    		o.removeClass('bad');
     		o.html('');
     		this.clearTyping();
     	};
     	
     	this.printError = function(error){
-    		o.addClass('bad');
-    		o.html(error);
+    		// uses inner span to print with different colors
+    		this.println( "<span class=bad>"+error+"</span>" );
     	}
     	
     	this.println = function(val){
-    		if( o.html() )
-    			o.html( o.html() +"\n"+ val.toString() );
-    		else
-    			o.html( val.toString() );
+    		var old = o.html();
+    		o.html( ( old ? old+'\n' :'' ) + val.toString() );
     	};
     	
     	this.clearTyping = function(){
@@ -504,7 +501,7 @@ $(document).ready(function() {
 	}else{
 // FIXME ugly...
 		// make handle function available to worker THIS IS A GLOBAL VAR
-		GLOBAL_HANDLER = handle;
+		MAIN_HANDLER = handle;
 		
 		var send_here = function(kind,data) {
 			try{

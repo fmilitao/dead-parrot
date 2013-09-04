@@ -4,6 +4,6 @@
 	let z = x in
 		focus t;
 		z := false;
-		defocus;
+		//defocus;
 		0
 	end

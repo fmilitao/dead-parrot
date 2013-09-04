@@ -17,7 +17,7 @@ let newPair = fun( _ : [] ).
 			sum = fun( _ : [] :: ( rw pl int * rw pr int ) ).(add !l !r),
 			destroy = fun ( _ : [] :: ( rw pl int * rw pr int ) ).( delete l; delete r ) 
 			}::( rw pr [] * rw pl [] )
-			// we must explicitly stacks caps to ensure they are placed inside the packed value
+			// we must explicitly stacks caps to ensure they are placed INSIDE the packed value
 		>>
 	end
 	end

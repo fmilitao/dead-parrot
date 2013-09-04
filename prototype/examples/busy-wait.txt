@@ -1,5 +1,6 @@
 
-// MAKE SURE TO DISABLE AUTO-RUN OR EXECUTION WILL CRASH (max stack size)
+// Note that execution will obviously crash since this code contains
+// and infinite recursion (i.e. reaches max call stack size).
 
 import add
 

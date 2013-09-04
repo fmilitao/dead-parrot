@@ -2,15 +2,6 @@
 // FIXME problem on priting multiple levels of capabilities
 // FIXME is it possible to delete twice if at multiple levels??
 
-
-		var importScript = function(file){
-			$.ajax({ type : 'GET',
-				async : false,
-				url : file,
-				dataType:'script',
-				success : function(data) {}
-			});
-		};
 		
 ENVIRONMENT OPERATIONS:
  - focus( rely )
