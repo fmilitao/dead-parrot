@@ -132,8 +132,10 @@ $(document).ready(function() {
     //
     
     var editor = ace.edit(EDITOR);
+	var Range = ace.require("ace/range").Range;
 
 	(function(){
+		// FIXME the only style with underline_error
     	editor.setTheme("ace/theme/mono_industrial");
     	// selected="selected"
 		var STYLE_LIST = $("#editor-style");
@@ -424,10 +426,12 @@ $(document).ready(function() {
 			e = JSON.parse(e); //deserialize object
 			var msg = "";
         	var line = 1;
+        	var col = 0;
         	var groupName = null;
         	
 			if ( e.hasOwnProperty('ast') && e.ast !== undefined ) {
 				line = e.ast.line;
+				col = e.ast.col;
 				// for printing we must +1 to properly match ACE's counting
 				msg += e.kind+" on line "+(e.ast.line+1)+
 					(e.ast.col?(":"+e.ast.col):'')+" - ";
@@ -451,24 +455,37 @@ $(document).ready(function() {
 			}
             out.printError( msg );
 
-			handle.updateAnnotations( { reason : msg, line : line } );
+			handle.updateAnnotations( { reason : msg, line : line, col : col } );
 		},
 		
     	updateAnnotations : function(res){
 	    	if (res !== null) {
 	            editor.getSession().setAnnotations([{
 	                row : res.line,
-	                column : 0,
+	                column : res.col,
 	                text : res.reason,
 	                type : "error",
 	                lint : "error"
 	            }]);
+
+	            if( marker !== null ){
+	            	editor.getSession().removeMarker( marker );
+	            }
+	            var tmp = new Range(res.line, res.col, res.line,
+	            	// FIXME compute line(s)? etc.
+					editor.getSession().getLine(res.line).length);
+	            marker = editor.getSession().addMarker(tmp, "underline_error", "text");
+	            //ace_selection
 	        } else {
 	            // no error, clear old annotations
 	            editor.getSession().clearAnnotations();
+	            editor.getSession().removeMarker( marker );
+	            marker = null;
 	        }
         }
 	};
+	
+	var marker = null;
 	
 	//
 	// Worker Setup
