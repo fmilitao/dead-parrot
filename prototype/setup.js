@@ -425,13 +425,20 @@ $(document).ready(function() {
 		errorHandler : function(e){
 			e = JSON.parse(e); //deserialize object
 			var msg = "";
+        	
         	var line = 1;
         	var col = 0;
+        	var last_line = 1;
+        	var last_col = -1;
+        	
         	var groupName = null;
         	
 			if ( e.hasOwnProperty('ast') && e.ast !== undefined ) {
 				line = e.ast.line;
 				col = e.ast.col;
+				last_line = e.ast.last_line;
+				last_col = e.ast.last_col;
+				
 				// for printing we must +1 to properly match ACE's counting
 				msg += e.kind+" on line "+(e.ast.line+1)+
 					(e.ast.col?(":"+e.ast.col):'')+" - ";
@@ -455,12 +462,16 @@ $(document).ready(function() {
 			}
             out.printError( msg );
 
-			handle.updateAnnotations( { reason : msg, line : line, col : col } );
+			handle.updateAnnotations( { reason : msg,
+					line : line, col : col,
+					last_line : last_line, last_col : last_col } );
 		},
 		
     	updateAnnotations : function(res){
+    		var session = editor.getSession();
+
 	    	if (res !== null) {
-	            editor.getSession().setAnnotations([{
+	            session.setAnnotations([{
 	                row : res.line,
 	                column : res.col,
 	                text : res.reason,
@@ -469,17 +480,18 @@ $(document).ready(function() {
 	            }]);
 
 	            if( marker !== null ){
-	            	editor.getSession().removeMarker( marker );
+	            	session.removeMarker( marker );
 	            }
-	            var tmp = new Range(res.line, res.col, res.line,
-	            	// FIXME compute line(s)? etc.
-					editor.getSession().getLine(res.line).length);
-	            marker = editor.getSession().addMarker(tmp, "underline_error", "text");
+	            var tmp = new Range(res.line, res.col,
+					( res.last_line ? res.last_line : res.line ),
+					// highlight the whole line if no end given
+	            	( res.last_col ? res.last_col : session.getLine(res.line).length ));
+	            marker = session.addMarker(tmp, "underline_error", "text");
 	            //ace_selection
 	        } else {
 	            // no error, clear old annotations
-	            editor.getSession().clearAnnotations();
-	            editor.getSession().removeMarker( marker );
+	            session.clearAnnotations();
+	            session.removeMarker( marker );
 	            marker = null;
 	        }
         }

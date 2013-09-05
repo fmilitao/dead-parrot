@@ -14,6 +14,8 @@ var AST = new function(){
 			// Jison lines start at line 1, but ACE indexing starts at 0
 			ast.line = info.first_line - 1;
 			ast.col = info.first_column;
+			ast.last_line = info.last_line -1;
+			ast.last_col = info.last_column;
 		}
 		return ast;
 	};
@@ -291,7 +293,7 @@ var Parser = function(file){
 				return parser.parse(source);
 			}catch(e){
 				throw new ErrorWrapper( e.message, 'Parse Error',
-					{ line: parser.lexer.yylineno, col: undefined },
+					{ line: parser.lexer.yylineno, col: 0 },
 					e, e.stack );
 			}
 		};
