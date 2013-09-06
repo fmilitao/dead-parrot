@@ -137,11 +137,10 @@ $(document).ready(function() {
 	var Range = ace.require("ace/range").Range;
 
 	(function(){
-		// FIXME the only style with underline_error
     	editor.setTheme("ace/theme/mono_industrial");
     	// selected="selected"
 		var STYLE_LIST = $("#editor-style");
-		$.get( "themes-list" , function(data) {
+		$.get( "ace/ace-themes-list" , function(data) {
 			var themes = data.split('\n');
 			for( var i=0 ; i<themes.length ; ++i ){
 				var name = themes[i];
@@ -203,7 +202,7 @@ $(document).ready(function() {
 			$(_EXAMPLES_).append(button);
 		}
 		
-		$.get( "examples-list" , function(data) {
+		$.get( "examples/examples-list" , function(data) {
 			var examples = data.split('\n');
 			for( var i=0 ; i<examples.length ; ++i ){
 				if( examples[i][0] != '#' ) // ignore commented stuff
@@ -221,7 +220,7 @@ $(document).ready(function() {
 
 		// tests	    
 	    var TEST_LIST = $("#test-file");
-		$.get( "tests-list" , function(data) {
+		$.get( "examples/tests-list" , function(data) {
 			var file = data.split('\n');
 			for( var i=0 ; i<file.length ; ++i ){
 				if( file[i][0] != '#' ){ // ignore commented out file
