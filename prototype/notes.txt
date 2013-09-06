@@ -26,7 +26,6 @@ LOWER PRIORITY:
  - organize error messages, as CONSTANTS?
  - Program assertions != Type Errors / Interpreter Errors
  - pass assert function instead of 'ast'?
- - parser lacks lineno for imports, result in ugly highlight when errors exist
 
 TODO?
 

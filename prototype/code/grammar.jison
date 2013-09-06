@@ -1,3 +1,5 @@
+// Copyright (C) 2013 Filipe Militao <filipe.militao@cs.cmu.edu>
+// GPL v3 Licensed http://www.gnu.org/licenses/
 
 /* lexical grammar */
 %lex
@@ -207,7 +209,7 @@ imports :
 
 import :
 	IMPORT IDENTIFIER
-		{ $$ = $2; }
+		{ $$ = AST.makeImport($2,@$); }
 	;
 
 typedefs :

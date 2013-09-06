@@ -1,3 +1,5 @@
+// Copyright (C) 2013 Filipe Militao <filipe.militao@cs.cmu.edu>
+// GPL v3 Licensed http://www.gnu.org/licenses/
 
 // http://qunitjs.com/cookbook/
 

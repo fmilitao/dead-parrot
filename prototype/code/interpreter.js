@@ -1,3 +1,6 @@
+// Copyright (C) 2013 Filipe Militao <filipe.militao@cs.cmu.edu>
+// GPL v3 Licensed http://www.gnu.org/licenses/
+
 /**
  * Notes:
  * 	- ignores all location/type abstractions (i.e. as if erased)
@@ -299,11 +302,10 @@ var Interpreter = (function( AST, assertF ){
 			assert( loader !== undefined, 'Error @run, missing import loader', ast );
 			var libs = ast.imports;
 			for( var i=0; i<libs.length; ++i ){
-				// remove initial and ending quotes of the import string
 				var lib = libs[i];
-				var value = loader( lib, exports );
-				assert( value, "Invalid import: "+lib, ast );
-				heap.set( lib, value );
+				var value = loader( lib.id, exports );
+				assert( value, "Invalid import: "+lib.id, lib );
+				heap.set( lib.id, value );
 			}
 		}
 		return run( ast.exp, heap );

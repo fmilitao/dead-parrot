@@ -1,3 +1,6 @@
+// Copyright (C) 2013 Filipe Militao <filipe.militao@cs.cmu.edu>
+// GPL v3 Licensed http://www.gnu.org/licenses/
+
 /* 
  * GLOBALS used:
  * 	- AST (for ast node kinds and creating nodes)
@@ -32,6 +35,7 @@ var AST = new function(){
 	
 	this.kinds = new Enum (
 		'PROGRAM',
+		'IMPORT',
 		'TYPEDEF',
 		// types
 		'FUN_TYPE',
@@ -89,6 +93,9 @@ var AST = new function(){
 	
 	this.makeTypedef = function(id,type,info){
 		return aux( this.kinds.TYPEDEF, {id:id,type:type}, info);
+	}
+	this.makeImport = function(id,info){
+		return aux( this.kinds.IMPORT, {id:id}, info);
 	}
 	this.makeProgram = function(imports,typedefs,exp,info){
 		return aux( this.kinds.PROGRAM, {imports:imports,typedefs:typedefs,exp:exp}, info);

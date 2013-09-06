@@ -1,3 +1,6 @@
+// Copyright (C) 2013 Filipe Militao <filipe.militao@cs.cmu.edu>
+// GPL v3 Licensed http://www.gnu.org/licenses/
+
 /**
  * Notes:
  * 	- syntax direct alternatives using: @p Expression. Later this can be 
@@ -2961,10 +2964,10 @@ var checkProtocolConformance = function( s, a, b ){
 				var libs = ast.imports;
 				for( var i=0; i<libs.length; ++i ){
 					var lib = libs[i];
-					var import_type = loader( lib, exports );
-					assert( import_type, "Invalid import: "+lib, ast );
-					assert( env.set( lib, import_type ),
-						'Identifier '+ lib +' already in scope', ast );
+					var import_type = loader( lib.id, exports );
+					assert( import_type, "Invalid import: "+lib.id, lib );
+					assert( env.set( lib.id, import_type ),
+						'Identifier '+ lib.id +' already in scope', lib );
 				}
 			}
 				
