@@ -1,77 +1,32 @@
-// FIXME missing Delta^G restrictions on environments
-// FIXME problem on priting multiple levels of capabilities
-// FIXME is it possible to delete twice if at multiple levels??
-// FIXME ugly highlight on import errors...
-		
-ENVIRONMENT OPERATIONS:
- - focus( rely )
- 	all behind a fake environment?
- 	defocus, search for defocus cap and then restore it?
- - fake parent?
+
+TYPECHECKER, missing features: 
+ - Missing Delta^G restrictions on environments.
+ ensure no access to enclosing defocus-guarantee of environment inside 
+ functions and foralls
+	Ensure no defocus guarantee on functions and forall abstraction
  
- - 3 FILTERS:
+ - Capabilities collision.
+	Is it possible to delete twice if at multiple levels??
+	Problem on priting multiple levels of capabilities
+ 	Hide collisions of capabilities to same locations
 
- # non-shared type 	
- 	filter( t ){
- 		// types that are sure to not interfere with any focused cell
- 		return t.type === types.BangType ||
- 			( t.type === types.ForallType && filter( t.inner().type ) ) ||
- 			( t.type === types.ExistsType && filter( t.inner().type ) ) ||
- 			( t.type === types.CapabilityType && filter( t.inner().type ) ||
- 			( t.type === types.StackedType && filter( t.left().type ) && filter( t.right().type ) ); 
- 	}
- 	
- 	// env on focus
- 	defocus = new Environment(null,filter);
- 	
- 	function(t){
- 		return this.$filter(t) && filter(t);
- 	}
- 	
- # \Delta^G
- 	newScope(filterDefocus){
- 		if( ... )
- 		filters access to defocus
- 	}
- 	focus(t){
- 		new Environment(null);
- 		filter = shared_filter; // FLAGS?
- 		parent = this.$parent; 
- 		cap = [x...]
- 		maps = {}
- 	}
- 	must hide defocus-guarantee, forbids defocus... but access to those filtered out should be possible.
- 	
- - location
- 	when adding a cap, must ensure hiding above filtering its repetition.
- 	if( filter(type) ){
- 	}
- 	locations = { p : true }
- 	
- 	FILTER to parent environment
+ - isEquals on environments must be cleaned
+ 	Equals and subtypeOf functions must be cleaned they are messy... and buggy?
 
+ - join multiple typing environments with (+)
 
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-TRIAGE:
- - ensure no defocus guarantee on functions and forall abstraction
-	DEFOCUS |> env
  - is duplication allowed?
  for caps it makes dereference messy since there are multiple to pick...
  but how to forbid it in a clean way?
- - isEquals on environments must be cleaned
- - join multiple typing environments with (+)
  - make sure packing an alternative cannot obey multiple alternatives
  simultaneously? is this important? such alternative cannot
  (logically) occur!
-# clean up Environment code, it's currently messy.
-# rethink collisions, specially with capabilities.
-
 
 LOWER PRIORITY: 
  - organize error messages, as CONSTANTS?
+ - Program assertions != Type Errors / Interpreter Errors
  - pass assert function instead of 'ast'?
- - firefox issue with scrollbars (getScrollbarWidth function).
- - equals and subtypeOf functions must be cleaned they are messy... and buggy?
+ - parser lacks lineno for imports, result in ugly highlight when errors exist
 
 TODO?
 
@@ -153,5 +108,6 @@ CODE STYLE:
 	- https://developers.google.com/chrome-developer-tools/docs/console
 	- convention: "fake" protected/private fields using $NAME
 
+ALL CODE SHOULD INCLUDE COMMENT AT TOP:
 // Copyright (C) 2013 Filipe Militao <filipe.militao@cs.cmu.edu>
 // GPL v3 Licensed http://www.gnu.org/licenses/

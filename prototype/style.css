@@ -16,9 +16,8 @@ h2 {
 
 .underline_error {
 	position: absolute;
-	margin: -1px 0 0 0px;
-	border-bottom: 1px solid red; 
-	/* background: #710909; */
+	margin: -2px 0 0 0px;
+	border-bottom: 2px solid red; 
 }
 
 select {
