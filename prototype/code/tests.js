@@ -3,7 +3,16 @@
 
 // http://qunitjs.com/cookbook/
 
-$.ajaxSetup({ cache: false }); // FIXME debug
+QUnit.config.urlConfig.push({
+	id:"cache",
+	label:"Cache Files",
+	tooltip:"Enable Caching of Test Files."
+	 });
+
+var cache_examples = !!QUnit.urlParams.cache;
+console.debug( 'AJAX Cache: '+cache_examples );
+
+$.ajaxSetup({ cache: cache_examples });
 
 // this cache is different from jQueries since we are just avoiding
 // re-fetching the same file multiple times, but on each test we must
@@ -75,7 +84,7 @@ var examples = [];
 $.ajax({
 		type : 'GET',
 		async : false,
-		url : "tests-list",
+		url : "examples/tests-list",
 		success : function(data) {
 			examples = data.split('\n');
 			var tmp = [];

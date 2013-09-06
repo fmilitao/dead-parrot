@@ -23,7 +23,7 @@ TYPECHECKER, missing features:
  (logically) occur!
 
 LOWER PRIORITY: 
- - organize error messages, as CONSTANTS?
+ - organize type error messages, as CONSTANTS? / FUNCTIONS?
  - Program assertions != Type Errors / Interpreter Errors
  - pass assert function instead of 'ast'?
 
