@@ -293,7 +293,7 @@ var assertF = function(kind,f,msg,ast){
 	return result;
 }
 
-var Parser = function(file){
+var Parser = function(file,fetcher){
 	var wrap = function(parser){
 		return function(source){
 			try{
@@ -309,16 +309,20 @@ var Parser = function(file){
 	var parser = null;
     var Jison = require('jison'), bnf = require('jison/bnf');
     
-    // synchronous fetch of grammar file (this doesn't work locally due to
-    // permissions on fetching from javascript, must be run in a server)
-    var r = new XMLHttpRequest();
-	r.open("GET", file, false); //note async
-	r.send(null);
-	if( r.status == 200 )
-		grammar = r.responseText;
-	else{
-		console.error('Error fetching grammar.');
-		return null;
+    if( fetcher === undefined ){
+	    // synchronous fetch of grammar file (this doesn't work locally due to
+	    // permissions on fetching from javascript, must be run in a server)
+	    var r = new XMLHttpRequest();
+		r.open("GET", file, false); //note async
+		r.send(null);
+		if( r.status == 200 )
+			grammar = r.responseText;
+		else{
+			console.error('Error fetching grammar.');
+			return null;
+		}
+	}else{
+		grammar = fetcher(file);
 	}
 
     try {

@@ -7,15 +7,6 @@ Javascript prototype implementation of the paper's language.
 THIS IS NOT A COMPLETED PROJECT THERE ARE KNOWN BUGS AND MISSING FEATURES
 
 ================================================================================
-RUNNING OUTSIDE THE BROWSER
-================================================================================
-
-We recommend the use of node.js ( http://nodejs.org/ ) to the project without
-a browser since node.js uses the same V8 javascript engine as Google Chrome.
-
-???? TODO: MISSING INSTRUCTIONS AND MAIN.JS ???
-
-================================================================================
 DEVELOPMENT NOTES
 ================================================================================
 
@@ -26,7 +17,7 @@ DEVELOPMENT NOTES
    (may need preceding 'sudo') and then run from 'trunk/' directory:
 		static
 
-2. Generate static grammar.
+2. Generating static grammar.
    To generate the (static) grammar javascript file you need to install jison 
 ( http://zaach.github.com/jison/ ) that can also be done through node.js' npm
 with the command:
@@ -35,12 +26,9 @@ with the command:
 and then calling jison with our grammar to generate the grammar.js file:	
 		jison grammar.jison
 Then you need to change all parts of the code that include 'jison.js' and link
-them to the generated 'grammar.js'.
+them to the generated 'grammar.js' and use that 'grammar' var directly.
 
-???? TODO: MISSING INSTRUCTIONS ON VARS CHANGED ????
-
-And this should be enough to avoid re-generating the grammar each time the
-prototype is launched. Although the testing part should still use it... I guess.
+To facilitate testing this code will use re-generation of the grammar.
 
 ================================================================================
 LIBRARIES
