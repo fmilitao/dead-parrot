@@ -145,150 +145,209 @@ var Interpreter = (function( AST, assertF ){
 	}
 	
 	//
-	// Run
+	// Visitor
 	//
 	
-	var run = function(ast,env) {
-
-		switch(ast.kind) {
+	/*
+	 * By having an auxiliary object that stores a map to functions, we should
+	 * avoid a big switch (sequential) case comparision.
+	 */
+	
+	var setupAST = function( kind ){	
+		switch( kind ) {
 			case AST.kinds.OPEN:
-			case AST.kinds.LET: {
-				var value = run(ast.val, env);
-				var newEnv = env;
-				if( ast.id !== null ){
-					newEnv = env.newScope();
-					newEnv.set(ast.id, value);
-				}
-				return run(ast.exp, newEnv);
-			}
-			case AST.kinds.ID:
-				return assert(function() {
-					return env.get(ast.text);
-				}, "Identifier \'" + ast.text + "\' not found", ast);
-			case AST.kinds.DEREF: {
-				var exp = run(ast.exp, env);
-				return assert(function(){
-					return exp.get();
-				},"Invalid dereference",ast);
-			}
-			case AST.kinds.NEW: {
-				var exp = run(ast.exp, env);
-				return new fct.Reference(exp);
-			}
-			case AST.kinds.ASSIGN: {
-				var lvalue = run(ast.lvalue, env);
-				var value = run(ast.exp, env);
-				return assert(function(){
-					return lvalue.set(value);
-				},"Invalid assign",ast.lvalue);
-			}
-			case AST.kinds.DELETE: {
-				var lvalue = run(ast.exp, env);
-				return assert(function(){
-					return lvalue.free();
-				},"Invalid delete",ast.exp);
-			}
-			case AST.kinds.TAGGED: {
-				var exp = run(ast.exp, env);
-				return new fct.Tagged(ast.tag,exp);
-			}
-			case AST.kinds.CASE: {
-				var val = run(ast.exp, env);
-				var tag = assert(function(){
-					return val.tag();
-				},"Invalid case",ast.exp);
-				var branch = undefined;
-				for(var i=0;i<ast.branches.length;++i){
-					if( ast.branches[i].tag === tag ){
-						branch = ast.branches[i];
-						break;
+			case AST.kinds.LET: 
+				return function(ast,env) {
+					var value = run(ast.val, env);
+					var newEnv = env;
+					if( ast.id !== null ){
+						newEnv = env.newScope();
+						newEnv.set(ast.id, value);
 					}
-				}
-				assert( branch, "No matching branch for "+tag, ast );
-				var newEnv = env.newScope();
-				newEnv.set(branch.id,val.value());
-				return run(branch.exp, newEnv);
-			}
-			case AST.kinds.FUN: {
-				if( ast.rec !== null ){ //recursion function
+					return run(ast.exp, newEnv);
+				};
+				
+			case AST.kinds.ID:
+				return function(ast,env) {
+					return assert(function() {
+						return env.get(ast.text);
+					}, "Identifier \'" + ast.text + "\' not found", ast);
+				};
+
+			case AST.kinds.DEREF: 
+				return function(ast,env) {
+					var exp = run(ast.exp, env);
+					return assert(function(){
+						return exp.get();
+					},"Invalid dereference",ast);
+				};
+
+			case AST.kinds.NEW: 
+				return function(ast,env) {
+					var exp = run(ast.exp, env);
+					return new fct.Reference(exp);
+				};
+				
+			case AST.kinds.ASSIGN: 
+				return function(ast,env) {
+					var lvalue = run(ast.lvalue, env);
+					var value = run(ast.exp, env);
+					return assert(function(){
+						return lvalue.set(value);
+					},"Invalid assign",ast.lvalue);
+				};
+				
+			case AST.kinds.DELETE: 
+				return function(ast,env) {
+					var lvalue = run(ast.exp, env);
+					return assert(function(){
+						return lvalue.free();
+					},"Invalid delete",ast.exp);
+				};
+				
+			case AST.kinds.TAGGED: 
+				return function(ast,env) {
+					var exp = run(ast.exp, env);
+					return new fct.Tagged(ast.tag,exp);
+				};
+				
+			case AST.kinds.CASE: 
+				return function(ast,env) {
+					var val = run(ast.exp, env);
+					var tag = assert(function(){
+						return val.tag();
+					},"Invalid case",ast.exp);
+					var branch = undefined;
+					for(var i=0;i<ast.branches.length;++i){
+						if( ast.branches[i].tag === tag ){
+							branch = ast.branches[i];
+							break;
+						}
+					}
+					assert( branch, "No matching branch for "+tag, ast );
 					var newEnv = env.newScope();
-					var rec = new fct.Function(ast.exp, ast.parms.id,newEnv);
-					newEnv.set(ast.rec,rec);
+					newEnv.set(branch.id,val.value());
+					return run(branch.exp, newEnv);
+				};
+				
+			case AST.kinds.FUN: 
+				return function(ast,env) {
+					if( ast.rec !== null ){ //recursive function
+						var newEnv = env.newScope();
+						var rec = new fct.Function(ast.exp, ast.parms.id,newEnv);
+						newEnv.set(ast.rec,rec);
+						return rec;
+					}
+					return new fct.Function(ast.exp, ast.parms.id,env);
+				};
+				
+			case AST.kinds.CALL: 
+				return function(ast,env) {
+					var fun = run(ast.fun, env);
+					var arg = run(ast.arg, env);
+					return assert(function(){
+						return fun.call(arg);
+					},"Invalid call",ast.arg);
+				};
+				
+			case AST.kinds.SELECT: 
+				return function(ast,env) {
+					var rec = run(ast.left, env);
+					var id = ast.right;
+					return assert(function() {
+						return rec.select(id);
+					}, "Invalid field \'" + id + "\' for record", ast);
+				};
+				
+			case AST.kinds.RECORD: 
+				return function(ast,env) {
+					var rec = new fct.Record();
+					for(var i=0; i < ast.exp.length; ++i) {
+						var field = ast.exp[i];
+						var id = field.id;
+						var value = run(field.exp, env);
+						assert(function() {
+							return rec.add(id, value);
+						}, "Duplicated field \'" + id + "\' in record", field);
+					}
 					return rec;
-				}
-				return new fct.Function(ast.exp, ast.parms.id,env);
-			}
-			case AST.kinds.CALL: {
-				var fun = run(ast.fun, env);
-				var arg = run(ast.arg, env);
-				return assert(function(){
-					return fun.call(arg);
-				},"Invalid call",ast.arg);
-			}
-			case AST.kinds.SELECT: {
-				var rec = run(ast.left, env);
-				var id = ast.right;
-				return assert(function() {
-					return rec.select(id);
-				}, "Invalid field \'" + id + "\' for record", ast);
-			}
-			case AST.kinds.RECORD: {
-				var rec = new fct.Record();
-				for(var i=0; i < ast.exp.length; ++i) {
-					var field = ast.exp[i];
-					var id = field.id;
-					var value = run(field.exp, env);
-					assert(function() {
-						return rec.add(id, value);
-					}, "Duplicated field \'" + id + "\' in record", field);
-				}
-				return rec;
-			}
-			case AST.kinds.TUPLE: {
-				var values = [];
-  				for (var i=0; i < ast.exp.length; ++i) {
-    				values.push( run(ast.exp[i], env) );
-  				}
-  				return new fct.Tuple(values);
-			}
-			case AST.kinds.LET_TUPLE: {
-				var vals = run(ast.val, env);
-				vals = assert(function(){
-					return vals.values();
-				},"Invalid tuple",ast.val);
-				var ids = ast.ids;
-				assert( ids.length === vals.length,"Tuple size mismatch",ast.val);
-				var newEnv = env;
-				newEnv = env.newScope();
-				for (var i = 0; i < vals.length; ++i) {
-					newEnv.set(ids[i], vals[i]);
-  				}
-				return run(ast.exp, newEnv);
-			}
+				};
+				
+			case AST.kinds.TUPLE: 
+				return function(ast,env) {
+					var values = [];
+	  				for (var i=0; i < ast.exp.length; ++i) {
+	    				values.push( run(ast.exp[i], env) );
+	  				}
+	  				return new fct.Tuple(values);
+				};
+				
+			case AST.kinds.LET_TUPLE: 
+				return function(ast,env) {
+					var vals = run(ast.val, env);
+					vals = assert(function(){
+						return vals.values();
+					},"Invalid tuple",ast.val);
+					var ids = ast.ids;
+					assert( ids.length === vals.length,"Tuple size mismatch",ast.val);
+					var newEnv = env;
+					newEnv = env.newScope();
+					for (var i = 0; i < vals.length; ++i) {
+						newEnv.set(ids[i], vals[i]);
+	  				}
+					return run(ast.exp, newEnv);
+				};
 			
 			case AST.kinds.FOCUS:
 			case AST.kinds.DEFOCUS:
-			case AST.kinds.SHARE: 
-				return new fct.Record();
+			case AST.kinds.SHARE:
+				return function(ast,env){
+					return new fct.Record();
+				};
 
 			case AST.kinds.CAP_STACK:
 			case AST.kinds.PACK:
 			case AST.kinds.FORALL:
 			case AST.kinds.TYPE_APP:
 			case AST.kinds.ALTERNATIVE_OPEN:
-				return run(ast.exp, env);
+				return function(ast,env){
+					return run(ast.exp, env);
+				};
 			
 			case AST.kinds.NUMBER:
 			case AST.kinds.BOOLEAN:
 			case AST.kinds.STRING:
-			// DANGER: assumes parser properly filters to only allow
-			// primitive javascript types.
-				return eval(ast.text);
-			default:
-				assert(false,'Error @run, '+ast.kind,ast);
-				break;
+				return function(ast,env){
+					// DANGER: assumes parser properly filters to only 
+					// allow (safe) primitive javascript types.
+					return eval(ast.text);
+				};
+				
+			// the default handler for the remaining nodes just fails
+			default: 
+				return function(ast,env) {
+					assert(false,'Error @run, '+ast.kind,ast);
+				};
 		}
-
+	};
+	
+	var visitor = {};
+	// setup visitors
+	for( var i in AST.kinds ){
+		assert( !visitor.hasOwnProperty(i),'Error @visitor, duplication: '+i);
+		// find witch function to call on each AST kind of node
+		visitor[i] = setupAST(i);
+	}
+	
+	//
+	// Run
+	//
+	
+	var run = function(ast,env){
+		if( !visitor.hasOwnProperty( ast.kind ) ){
+			assert(false,'Error @run, '+ast.kind,ast);
+		}
+		return (visitor[ast.kind])( ast, env );
 	}
 	
 	exports.run = function( ast, loader ){

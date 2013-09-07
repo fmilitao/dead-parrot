@@ -14,8 +14,8 @@ if( isThread ){
 	var console = function(){
 		var aux = function(k,arg){
 			var tmp =[];
-			for( var i in arg )
-				tmp.push(arg[i].toString());
+			for( var i=0; i<arg.length; ++i )
+				tmp.push( arg[i].toString() );
 			self.postMessage({kind: k, data: '[Worker] '+tmp.join(' ') });
 		}
 		

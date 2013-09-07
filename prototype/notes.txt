@@ -1,4 +1,16 @@
 
+// setup visitors to avoid big switch at runtime
+for( var i in AST.kinds ){
+	visitor[i] = getVisit();
+}
+
+var run = function(ast,env){
+	if( !visitor.hasOwnProperty( ast.kind ) )
+		throw error;
+	
+	return (visitor[ast.kind])(ast,env);
+}
+
 -- avoid closures by defining function with argument?
 
 TYPECHECKER, missing features: 
