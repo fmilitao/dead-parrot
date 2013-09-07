@@ -1,4 +1,6 @@
 
+FIXME: same correction to typechecker...
+
 // setup visitors to avoid big switch at runtime
 for( var i in AST.kinds ){
 	visitor[i] = getVisit();

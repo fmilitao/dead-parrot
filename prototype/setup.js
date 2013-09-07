@@ -49,6 +49,9 @@ if( !worker_enabled ){
 	importScript('code/typechecker.js');
 	importScript('code/worker.js');
 	console.log('done.');
+	
+	// uses this GLOBAL var to communicate with worker
+	var MAIN_HANDLER = null;
 }
 
 // HTML element IDs that need to be present in the .html file
@@ -392,7 +395,7 @@ $(document).ready(function() {
 	var handle = {
 		
 		//
-		// debug
+		// console
 		//
 		
 		log : function(msg){ console.log( msg ); },
@@ -423,6 +426,7 @@ $(document).ready(function() {
 		// error handling & annotaitons
 		//
 		
+		// WARNING: assumes JSONed object
 		errorHandler : function(e){
 			e = JSON.parse(e); //deserialize object
 			var msg = "";
@@ -454,12 +458,9 @@ $(document).ready(function() {
 				} else {
 					// real error, show expanded
 					console.group( groupName );
-					//console.debug( 'Message: '+msg );
 				}
 				console.debug("Extra Info: "+e.debug+"\nStack Trace:\n"+e.stack);
 				console.groupEnd();
-				//console.error("@"+source+"@");
-				//console.error("AST dump:"+"\n"+JSON.stringify(ast,undefined,2));
 			}
             out.printError( msg );
 
@@ -480,6 +481,7 @@ $(document).ready(function() {
 	                lint : "error"
 	            }]);
 
+				// marker stores the last hightlight mark or null if none exists
 	            if( marker !== null ){
 	            	session.removeMarker( marker );
 	            }
@@ -501,65 +503,72 @@ $(document).ready(function() {
 	var marker = null;
 	
 	//
-	// Worker Setup
+	// Communication Object
 	//
-	
-	var worker;
-	var send;
-	var receive = handle;
+
+	var comm = new function(){ 
 		
-	if( worker_enabled ){
-		
-		// launch worker
-		var resetWorker = function(){
-			worker = new Worker('code/worker.js');
-			worker.addEventListener('message', function(e) {
-				var m = e.data;
+		if( worker_enabled ){
+			
+			var worker;
+			
+			// launch worker
+			this.resetWorker = function() {
+				if( worker !== undefined ){
+					// stops old worker
+					worker.terminate();
+				}
+				
+				worker = new Worker('code/worker.js');
+				worker.addEventListener('message', function(e) {
+					var m = e.data;
+					try{
+						handle[m.kind](m.data);
+					}catch(er){
+						console.error(er);
+					}
+				}, false);
+				
+				this.send = function(k,msg){
+					worker.postMessage({ kind: k, data: msg });
+				};
+			};
+			
+			this.resetWorker();
+			
+		}else{
+
+			// make handle function available to worker THIS IS A GLOBAL VAR
+			MAIN_HANDLER = handle;
+			
+			this.send = function(kind,data) {
 				try{
-					receive[m.kind](m.data);
+					WORKER_HANDLER[kind](data);
 				}catch(e){
 					console.error(e);
 				}
-			}, false);
-			send = function(k,msg){
-				worker.postMessage({ kind: k, data: msg });
-			};
+			};		
+			
+		}
+		
+		this.eval = function(){
+			this.send('EVAL', editor.getSession().getValue());		
 		};
 		
-		resetWorker();
-		
-	}else{
-// FIXME ugly...
-		// make handle function available to worker THIS IS A GLOBAL VAR
-		MAIN_HANDLER = handle;
-		
-		var send_here = function(kind,data) {
-			try{
-				WORKER_HANDLER[kind](data);
-			}catch(e){
-				console.error(e);
-			}
-		};		
-	}
-	
-	var comm = (function(send){
-		return { // communication object
-			eval : function(){
-				send('EVAL', editor.getSession().getValue());		
-			},
-			checker : function(p){
-				send('CHECKER' , p);		
-			},
-			autorun : function(v){
-				send('AUTO', v);
-			},
-			reset : function(){
-				worker.terminate();
-				resetWorker();
-				comm.eval();
-			} 
+		this.checker = function(p){
+			this.send('CHECKER', p);		
 		};
-	})( worker_enabled ? send : send_here );
+		
+		this.autorun = function(v){
+			this.send('AUTO', v);
+		};
+
+		this.reset = function(){
+			this.resetWorker();
+			this.eval();
+		};
+		
+	};
 
 	var cursor_elem = $(_CURSOR_);
 	
