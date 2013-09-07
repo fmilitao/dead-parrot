@@ -1,4 +1,6 @@
 
+-- avoid closures by defining function with argument?
+
 TYPECHECKER, missing features: 
  - Missing Delta^G restrictions on environments.
  ensure no access to enclosing defocus-guarantee of environment inside 

@@ -2,10 +2,10 @@
 // GPL v3 Licensed http://www.gnu.org/licenses/
 
 /* 
- * GLOBALS used:
+ * GLOBALS defined:
  * 	- AST (for ast node kinds and creating nodes)
  *  - ErrorWrapper
- *  - assertf
+ *  - assertF
  *  - Parser (...the actual parser for the language)
  */
 
@@ -34,10 +34,11 @@ var AST = new function(){
 	};
 	
 	this.kinds = new Enum (
+		// entry nodes
 		'PROGRAM',
 		'IMPORT',
 		'TYPEDEF',
-		// types
+		// rest
 		'FUN_TYPE',
 		'CAP_TYPE',
 		'BANG_TYPE',
@@ -56,7 +57,6 @@ var AST = new function(){
 		'NONE_TYPE',
 		'RECURSIVE_TYPE',
 		'DELAY_TYPE_APP',
-		// constructs
 		'ALTERNATIVE_OPEN',
 		'FORALL',
 		'PACK',
@@ -293,67 +293,56 @@ var assertF = function(kind,f,msg,ast){
 	return result;
 }
 
-var Parser = function(file,fetcher){
-	var wrap = function(parser){
-		return function(source){
-			try{
-				return parser.parse(source);
-			}catch(e){
-				throw new ErrorWrapper( e.message, 'Parse Error',
-					{ line: parser.lexer.yylineno, col: 0 },
-					e, e.stack );
-			}
-		};
-	}
+var Parser = function(file){
 
-	var parser = null;
-    var Jison = require('jison'), bnf = require('jison/bnf');
+    var Jison = require('jison');
+    var bnf = require('jison/bnf');
     
-    if( fetcher === undefined ){
-	    // synchronous fetch of grammar file (this doesn't work locally due to
-	    // permissions on fetching from javascript, must be run in a server)
-	    var r = new XMLHttpRequest();
-		r.open("GET", file, false); //note async
-		r.send(null);
-		if( r.status == 200 )
-			grammar = r.responseText;
-		else{
-			console.error('Error fetching grammar.');
-			return null;
-		}
-	}else{
-		grammar = fetcher(file);
+    // synchronous fetch of grammar file (this doesn't work locally due to
+    // permissions on fetching from javascript, must be run in a server)
+    var r = new XMLHttpRequest();
+	r.open("GET", file, false); // async fetch
+	r.send(null);
+	if( r.status !== 200 ){
+		// some error HTTP code other than OK
+		throw new Error('Failed to fetch grammar "'+file+'" ('+r.status+')');
 	}
 
-    try {
-        var cfg = bnf.parse(grammar);
-    	parser = new Jison.Generator(cfg, { type : "lalr" });
-	} catch (e) {
-		console.error("Error parsing grammar file.\n" + e);
-		return null;
-    }
-
-    if (!parser.conflicts) {
-        console.debug('Parser generated successfully.');
-        parser = parser.createParser();
-    } else {
-        console.error('Error generating parser, conflicts encountered:');
+    var cfg = bnf.parse( r.responseText );
+    var parser = new Jison.Generator(cfg, { type : "lalr" });
+	
+    if ( parser.conflicts ) {
+    	// taken from Jison's example file
+    	var msg = 'Error generating parser, conflicts encountered:';
         parser.resolutions.forEach(function(res) {
             var r = res[2];
             if (!r.bydefault)
                 return null;
-            console.error(r.msg + "\n" + "(" + r.s + ", " + r.r + ") -> " + r.action);
+			msg = msg + '\n' +
+				// Jisong's style error message 
+				(r.msg + "\n" + "(" + r.s + ", " + r.r + ") -> " + r.action);
         });
+        throw new Error(msg);
     }
     
-    return wrap(parser);
-
-    /* // this does not work well with blanket.js
-    if( typeof grammar === 'undefined' ){
-     	console.log('"grammar" undefined, generating a new one now...');
-    } else {
-        // a precompiled grammar is available, (include 'grammar.js' for this)
-        return wrap(new grammar.Parser());
-    }*/
+	parser = parser.createParser();
     
+	return (function(p){
+		return function(source){
+			try{
+				return p.parse(source);
+			}catch(e){
+				// wraps parser exception into one that has line numbers, etc.
+				throw new ErrorWrapper(
+					e.message,
+					'Parse Error',
+					// lexer.yylineno works better than just yylineno
+					// however, we must consider the whole line to be wrong
+					{ line: p.lexer.yylineno, col: 0 },
+					e,
+					e.stack
+				);
+			}
+		};
+	})(parser);    
 }
