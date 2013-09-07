@@ -5,10 +5,10 @@
 // Worker thread
 //
 
-var isThread = typeof(window) === 'undefined';
+var isWorker = typeof(window) === 'undefined';
 
 // only loads the following if it is a standalone thread
-if( isThread ){
+if( isWorker ){
 
 	// convenient debug
 	var console = function(){
@@ -32,26 +32,17 @@ if( isThread ){
 
 }
 
-var parser = Parser( (isThread?'':'code/') + 'grammar.jison' );
+var parser = Parser( (isWorker?'':'code/') + 'grammar.jison' );
 var interpreter = function(ast){ return Interpreter.run(ast,libLoader); };
 var types = TypeChecker.types;
 var checker = TypeChecker.check;
 
-// to avoid reparsing, the 'ast' is made available
-// to the other listener functions through this var.
-
-var ast = null;
-var typeinfo = null;
-var autorun = true;
-
-var handleError = function(e){
-	if( e.stack )
-		console.error( e.stack.toString() );
-	send('errorHandler', JSON.stringify(e));
-}
+//
+// Send function
+//
 
 var send;
-if( isThread ){
+if( isWorker ){
 	send = function(k,msg){
 		self.postMessage({kind: k, data: msg });
 	};
@@ -59,13 +50,14 @@ if( isThread ){
 	self.addEventListener('message', function(e) {
 		var m = e.data;
 		try{
-			receive[m.kind](m.data);
+			// this is the 'receiver' var from below
+			receiver[m.kind](m.data);
 		}catch(e){
 			console.error(e);
 		}
 	}, false);
-}else{
-	// Just for local debugging, GLOBAL_HANDLER is global var
+} else {
+	// Just for local debugging, MAIN_HANDLER is global var
 	send = function(kind,data) {
 		try{
 			MAIN_HANDLER[kind](data);
@@ -75,8 +67,26 @@ if( isThread ){
 	};
 }
 
-var receive = {
-	EVAL : function(data){
+//
+// Receiver object
+//
+
+var receiver = new function(){
+	
+	// local state between calls
+	// to avoid reparsing, the 'ast' is made available
+	// to the other listener functions through this var.
+	var ast = null;
+	var typeinfo = null;
+	var autorun = true;
+	
+	var handleError = function(e){
+		if( e.stack )
+			console.error( e.stack.toString() );
+		send('errorHandler', JSON.stringify(e));
+	};
+	
+	this.EVAL = function(data){
 		try{
 			ast = null;
 			typeinfo = {};
@@ -87,9 +97,10 @@ var receive = {
 			send('println', '<b>Type</b>: '+
 				toHTML( checker( ast , typeinfo, libTyper ) ) );
 
-if( !isThread ){
-	console.debug( typeinfo.diff );
-}
+			if( !isWorker ){
+				// some debug information
+				console.debug( 'checked in: '+typeinfo.diff+' ms' );
+			}
 
 			if( autorun ){
 				send('println', '<b>Result</b>: '+
@@ -102,8 +113,9 @@ if( !isThread ){
 		}catch(e){
 			handleError(e);
 		}
-	},
-	AUTO : function(auto){
+	};
+	
+	this.AUTO = function(auto){
 		try{
 			autorun = auto;
 			if( autorun && ast !== null ){
@@ -114,10 +126,10 @@ if( !isThread ){
 		}catch(e){
 			handleError(e);
 		}
-	},
-	CHECKER: function(data){
+	};
+	
+	this.CHECKER = function(pos){
 		try{
-			var pos = data;
 			// only if parsed correctly
 		   	if( ast === null || typeinfo === null )
 		   		return;
@@ -130,11 +142,13 @@ if( !isThread ){
 		}catch(e){
 			handleError(e);
 		}
-	}
+	};
+	
 };
 
-if( !isThread ){
-	var WORKER_HANDLER = receive;
+if( !isWorker ){
+	// intentional GLOBAL variable
+	var WORKER_HANDLER = receiver;
 }
 
 //
@@ -492,7 +506,6 @@ var toHTML = function (t){
 			return wq( wq( _toHTML(t.rely()) )+wQ(' &#8658; ') + wq(_toHTML(t.guarantee())) );
 		case types.GuaranteeType:
 			return wq( wq( _toHTML(t.guarantee()) )+wQ(' ; ') + wq(_toHTML(t.rely())) );
-//			return wq( wq( _toHTML(t.inner()) )+wQ('[')+ wq( toHTML(t.id()) )+wQ(']') );
 		default:
 			console.error( "Error @toHTML: " +t.type );
 			return null;
