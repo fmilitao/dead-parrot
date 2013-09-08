@@ -41,6 +41,7 @@ var TypeChecker = (function(AST,assertF){
 		return constructor;
 	};
 	
+	// FIXME maybe label constructors for easier heap profiling?
 	var FunctionType = newType('FunctionType',
 		function( argument, body ) {
 			this.argument = function(){ return argument; }

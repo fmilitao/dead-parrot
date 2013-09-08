@@ -100,9 +100,21 @@ var parser = Parser('code/grammar.jison');
 var interpreter = Interpreter.run;
 var typechecker = TypeChecker.check;
 
-module('Cache Test Files');
+var ast_cache = {};
+var parseCode = function(file,data) {
+	if( !ast_cache.hasOwnProperty(file) ){
+		var ast = parser( data );
+		ast_cache[file] = ast;
+		return ast;
+	}
+	return ast_cache[file];
+};
 
-	test( "File Fetch", function() {
+//QUnit.config.reorder = false;
+
+module('Fetch Files');
+
+	test( "Fetches", function() {
 		for( var i in examples ){
 			var f = fetchCode(examples_dir+examples[i]);
 		  	ok( f !== null && f !== undefined , "'"+examples[i]+"' fetched.");
@@ -113,8 +125,8 @@ module('Parser');
 
 	test( "Parses", function() {
 		for( var i in examples ){
-			var test = fetchCode(examples_dir+examples[i]);
-			var ast = parser(test.data);
+			var test = fetchCode( examples_dir+examples[i] );
+			var ast = parseCode( examples[i], test.data ); //parser(test.data);
 		  	ok( ast !== null , "'"+examples[i]+"' parsed.");
 		}
 	});
@@ -124,7 +136,7 @@ module('Interpreter');
 	test( "Runs", function() {
 		for( var i in examples ){
 			var test = fetchCode(examples_dir+examples[i]);
-			var ast = parser(test.data);
+			var ast = parseCode( examples[i], test.data ); //parser(test.data);
 			if( ast === null ){
 				// forced failure due to paserser failur
 		  		ok( false , "'"+examples[i]+"' parser failure.");
@@ -147,7 +159,7 @@ module('Typechecker');
 	test( "Checks", function() {
 		for( var i in examples ){
 			var test = fetchCode(examples_dir+examples[i]);
-			var ast = parser(test.data);
+			var ast = parseCode( examples[i], test.data );; //parser(test.data);
 		  	if( ast === null ){
 				// forced failure due to paserser failur
 		  		ok( false , "'"+examples[i]+"' parser failure.");
