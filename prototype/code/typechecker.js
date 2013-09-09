@@ -317,27 +317,27 @@ var TypeChecker = (function(AST,assertF){
 		
 		_add( types.RecursiveType, function(){
 			return 'rec '+this.id().name()+'.'+_wrap( this.inner() );
-		});
+		} );
 		
 		_add( types.ExistsType, function(){
 			return 'exists '+this.id().name()+'.'+_wrap( this.inner() );
-		});
+		} );
 		
 		_add( types.ForallType, function(){
 			return 'forall '+this.id().name()+'.('+_wrap( this.inner() );
-		});
+		} );
 		
 		_add( types.ReferenceType, function(){
 			return "ref "+this.location().name();
-		});
+		} );
 		
 		_add( types.CapabilityType, function(){
 			return 'rw '+this.location().name()+' '+_wrap( this.value() );			
-		});
+		} );
 		
 		_add( types.StackedType, function(){
 			return _wrap( this.left() )+' :: '+_wrap( this.right() );
-		});
+		} );
 		
 		_add( types.RecordType, function(){
 			var res = [];
@@ -345,11 +345,11 @@ var TypeChecker = (function(AST,assertF){
 			for( var i in fields )
 				res.push(i+": "+_wrap( fields[i]) );
 			return "["+res.join()+"]";
-		});
+		} );
 		
 		_add( types.TupleType, function(){
 			return "["+this.getValues().join()+"]";
-		});
+		} );
 		
 		var tmp = function(){ return this.name(); };
 		_add( types.LocationVariable, tmp );
@@ -360,7 +360,7 @@ var TypeChecker = (function(AST,assertF){
 		
 		_add( types.DelayedApp, function(){
 			return _wrap( t.inner() )+'['+ this.id() +']';
-		});
+		} );
 		
 	})();
 
@@ -606,18 +606,6 @@ var TypeChecker = (function(AST,assertF){
 				// ok to apply
 				if( inner.type === types.ForallType )
 					return substitution( inner.inner(), inner.id(), id );
-				
-				/*
-				if( inner.type() === types.RecursiveType &&
-					inner.inner().type() === types.ForallType ){
-						var ninner = inner.inner();
-						var inside = substitution( ninner.inner(), ninner.id(), id );
-						console.log( t );
-						console.log( inner );
-						console.log( inside );
-						console.log( id );
-						return new RecursiveType(inner.id(),inside);
-				} */
 				// still delayed
 				return new DelayedApp(inner,id);
 			}
@@ -689,7 +677,7 @@ var TypeChecker = (function(AST,assertF){
 	}
 	
 // FIXME both subtype and equals are quite messy algorithms that need to be
-// rethought, specially where tabling should oe not appear.
+// rethought, specially where tabling should or not appear.
 
 	/**
 	 * Tests if types 'a' and 'b' are the same.
