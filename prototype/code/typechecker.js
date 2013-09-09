@@ -15,8 +15,34 @@ var TypeChecker = (function(AST,assertF){
 
 	var exports = {};
 	
-	var assert = function(f,msg,ast){
-		return assertF('Type error',f,msg,ast);
+	/*
+	 * WARNING - Usage Notes:
+	 * The following two function smake use of a side-effect when evaluating
+	 * an OR such that A || B will only compute B if A is NOT true. Therefore
+	 * the following functions make use of that assumption on their argument
+	 * such that if the argument is true, then the function does nothing, else
+	 * it throws the respective error with the argument which should be a string
+	 * so that it can be used as:
+	 *		assert( CONDITION || EXPENSIVE_ERROR_MSG , AST );
+	 * and not compute EXPENSIVE_ERROR_MSG unless CONDITION is false.
+	 */
+	
+	// yields true or string on error
+	var assert = function( msg, ast ){
+		// if a boolean and true
+		if( typeof(msg) === 'boolean' && msg )
+			return;
+		assertF( 'Type error', false, msg, ast );
+	}
+	
+	// these are program assertions and should never be seen by users
+	// unless there is a major malfunction in the code (bug...)
+	var error = function(msg){
+		// if a boolean and true
+		if( typeof(msg) === 'boolean' && msg )
+			return;
+		// else it should be a string with the type error
+		assertF( 'Bug Alert', false, msg, undefined ); // undefined blamed 'ast'
 	}
 
 	//
@@ -27,8 +53,8 @@ var TypeChecker = (function(AST,assertF){
 	var fct = {}; // types factory
 
 	var newType = function( type, constructor ){
-		assert( !types.hasOwnProperty(type) && !fct.hasOwnProperty(type),
-			'Error @newType, already exists: '+type );
+		error( ( !types.hasOwnProperty(type) && !fct.hasOwnProperty(type) )
+			|| ( '@newType, already exists: '+type ) );
 		
 		// default stuff for that particular type
 		constructor.prototype.type = type;
@@ -63,7 +89,7 @@ var TypeChecker = (function(AST,assertF){
 				if ( tags.hasOwnProperty(tag) )
 					return undefined; // already exists!
 				tags[tag] = inner;
-				return null;
+				return true;
 			}
 			this.tags = function(){ return Object.keys(tags); }
 			this.inner = function(tag){ return tags[tag]; }
@@ -75,7 +101,7 @@ var TypeChecker = (function(AST,assertF){
 			var types = [];
 			this.add = function( inner ){
 				types.push(inner);
-				return null;
+				return true;
 			}
 			this.inner = function(){ return types; }
 		}
@@ -86,7 +112,7 @@ var TypeChecker = (function(AST,assertF){
 			var alts = [];
 			this.add = function( inner ){
 				alts.push(inner);
-				return null;
+				return true;
 			}
 			this.inner = function(){ return alts; }
 		}
@@ -115,7 +141,7 @@ var TypeChecker = (function(AST,assertF){
 					return undefined;
 				}
 				fields[id] = type;
-				return null;
+				return true;
 			}
 			this.select = function(id) {
 				if (fields.hasOwnProperty(id)) {
@@ -146,7 +172,7 @@ var TypeChecker = (function(AST,assertF){
 			var values = [];
 			this.add = function(type) {
 				values.push(type);
-				return null;
+				return true;
 			}
 			this.getValues = function(){
 				return values;
@@ -310,8 +336,7 @@ var TypeChecker = (function(AST,assertF){
 			case types.DelayedApp:
 				return isFree(t.inner(),loc) && isFree(t.id(),loc);
 			default:
-				assert( false, "Assertion error on " +t.type );
-				break;
+				error( "Not expecting " +t.type );
 			}
 		};
 
@@ -394,8 +419,7 @@ var TypeChecker = (function(AST,assertF){
 			case types.DelayedApp:
 				return _toString(t.inner())+'['+toString(t.id())+']';
 			default:
-				assert( false, "Assertion error on " +t.type );
-				break;
+				error( "Not expecting " +t.type );
 			}
 	};
 	
@@ -420,7 +444,7 @@ var TypeChecker = (function(AST,assertF){
 				case types.TypeVariable:
 					return new TypeVariable(null);
 				default:
-					assert( false, 'Expecting variable but got: '+variable, null);
+					error( 'Expecting variable but got: '+variable );
 			}
 		};
 		
@@ -501,7 +525,7 @@ var TypeChecker = (function(AST,assertF){
 					case types.RecursiveType:
 						return new RecursiveType( nvar, rec(ninner) );
 					default:
-						assert( false, 'Not expecting '+t.type, null);
+						error( "Not expecting " +t.type );
 				}
 			}
 			case types.ReferenceType:
@@ -553,8 +577,7 @@ var TypeChecker = (function(AST,assertF){
 				return new DelayedApp(inner,id);
 			}
 			default:
-				assert( false, "Assertion error on " +t.type );
-				break;
+				error( "Not expecting " +t.type );
 			}
 		};
 		return rec(type);
@@ -609,7 +632,7 @@ var TypeChecker = (function(AST,assertF){
 			if ( map.hasOwnProperty(id) )
 				return undefined; // already exists
 			map[id] = value;
-			return null; // ok
+			return true; // ok
 		}
 		this.get = function(id){
 			if ( map.hasOwnProperty(id) )
@@ -873,8 +896,7 @@ var TypeChecker = (function(AST,assertF){
 						equalsTo( t1.id(), m1, t2.id(), m2 ) ;
 				}
 				default:
-					assert( false, "Assertion error on " +t2.type );
-					break;
+					error( "Not expecting " +t2.type );
 				}
 		}
 
@@ -1132,8 +1154,8 @@ var TypeChecker = (function(AST,assertF){
 					if( a1 === undefined && a2 === undefined )
 						return t1.name() === t2.name();
 					
-					assert( a1 !== undefined && a2 !== undefined,
-						'Program error '+t1+' '+t2+' '+a1+' '+a2 );
+					error( ( a1 !== undefined && a2 !== undefined )
+						|| ( 'Program error '+t1+' '+t2+' '+a1+' '+a2 ) );
 					
 					return subtype( a1, m1, a2, m2 );	
 				}
@@ -1142,7 +1164,7 @@ var TypeChecker = (function(AST,assertF){
 						subtype( t1.id(), m1, t2.id(), m2 ) ;
 				}
 				default:
-					assert( false, 'Assertion Error Subtype '+t1.type );
+					error( "Not expecting " +t1.type );
 			}
 			
 		};
@@ -1259,7 +1281,7 @@ var TypeChecker = (function(AST,assertF){
 			
 			// append the focused cap
 			this.setCap( t.rely() );
-			return null; //signals OK
+			return true; //signals OK
 		}
 		
 		this.defocus_guarantee = function(){
@@ -1298,7 +1320,7 @@ var TypeChecker = (function(AST,assertF){
 			if ( this.$map.hasOwnProperty(id) )
 				return undefined; // already exists
 			this.$map[id] = value;
-			return null; // ok
+			return true; // ok
 		}
 		this.get = function(id,cond){ // condition for removal
 			if ( this.$map.hasOwnProperty(id) ){
@@ -1388,6 +1410,7 @@ var TypeChecker = (function(AST,assertF){
 				return undefined; // not found
 			return this.$parent.removeCap(searchF);
 		}
+		
 		/*
 		this.removeRWCap = function( loc_name ){
 			return this.removeCap(
@@ -1408,8 +1431,8 @@ var TypeChecker = (function(AST,assertF){
 		}
 		
 		this.setCap = function( c ){
-			assert( c.type !== types.LocationVariable &&
-				c.type !== types.GuaranteeType, 'Error @setCap');
+			error( ( c.type !== types.LocationVariable && 
+				c.type !== types.GuaranteeType ) || 'Error @setCap' );
 			
 			// ensure there is no other RW cap is that is the arg.
 			if( c.type === types.CapabilityType ){
@@ -1425,7 +1448,7 @@ var TypeChecker = (function(AST,assertF){
 			}
 			// all rest ok.
 			this.$caps.push( c );
-			return null;
+			return true;
 		}
 		
 	};
@@ -1460,7 +1483,7 @@ var TypeChecker = (function(AST,assertF){
 			}
 			default:
 				// another types disallowed, for now
-				assert(false,'Error @capContains: '+cap.type);
+				error( 'Error @capContains: '+cap.type );
 		}
 	}
 	
@@ -1717,8 +1740,8 @@ var TypeChecker = (function(AST,assertF){
 				// if we may be unfolding an unending recursive type
 				// counting is the easiest, the second is the most likely to
 				// catch such pointless loops earlier.
-				assert( (++visited) < 100 , 'Failed to unfold: '+tt +', max unfolds reached', ast);
-				assert( !seen( t ), 'Fix-point reached after '+visited+' unfolds' , ast);
+				assert( (++visited) < 100 || ('Failed to unfold: '+tt +', max unfolds reached'), ast);
+				assert( !seen( t ) || ('Fix-point reached after '+visited+' unfolds') , ast);
 				see.push( t );
 
 				// unfold
@@ -1782,8 +1805,7 @@ var TypeChecker = (function(AST,assertF){
 		case types.RelyType:
 		case types.CapabilityType:
 		case types.TypeVariable:
-			assert( d.setCap( t ),
-			 'Duplicated capability for '+ t, ast );
+			assert( d.setCap( t ) || ('Duplicated capability for '+ t), ast );
 			break;
 		case types.StarType:{
 			var tps = t.inner();
@@ -1796,7 +1818,7 @@ var TypeChecker = (function(AST,assertF){
 			// nothing to add to the environment
 			break;
 		default: 
-			assert( false, 'Cannot unstack: '+t+' of '+t.type, ast);
+			assert( 'Cannot unstack: '+t+' of '+t.type, ast);
 		}
 	}
 	
@@ -1828,7 +1850,7 @@ var TypeChecker = (function(AST,assertF){
 				else {
 					// any other type should be ignored, but this
 					// assert ensures nothing is silently dropped.
-					assert( t === null, 'Error @autoStack ', a );
+					assert( t === null || 'Error @autoStack ', a );
 					
 					var inners = p.inner();
 					var tmp = new StarType();
@@ -1863,14 +1885,13 @@ var TypeChecker = (function(AST,assertF){
 					// if it was manually stacked, then just make
 					// sure they are the same thing.
 					var t_loc = t.location().name();
-					assert( t_loc === cap_loc,
-						'Incompatible capability '+
-						t_loc+' vs '+cap_loc, a );
+					assert( t_loc === cap_loc ||
+						('Incompatible capability '+ t_loc+' vs '+cap_loc), a );
 					return t;
 				} else {
-					assert( t === null, 'Error @autoStack ', a );
-					var cap = assert( e.removeNamedCap( cap_loc ),
-						'Missing capability '+cap_loc, a );
+					assert( t === null || 'Error @autoStack ', a );
+					var cap = e.removeNamedCap( cap_loc );
+					assert( cap !== undefined || ('Missing capability '+cap_loc), a );
 					return cap;
 				}
 			}
@@ -1880,19 +1901,19 @@ var TypeChecker = (function(AST,assertF){
 				var p_loc = p.name();
 				if( t !== null && t.type === types.TypeVariable ){
 					var t_loc = t.name();
-					assert( t_loc === p_loc,
-						'Incompatible variable '+t_loc+' vs '+p_loc, a );
+					assert( t_loc === p_loc ||
+						('Incompatible variable '+t_loc+' vs '+p_loc), a );
 					return t;
 				} else {
-					assert( t===null, 'Error @autoStack ', a );
+					assert( t === null || 'Error @autoStack ', a );
 					// note that, by its name, it must be a TypeVariable
-					var cap = assert( e.removeNamedCap( p_loc ),
-						'Missing capability '+p_loc, a );
+					var cap = e.removeNamedCap( p_loc );
+					assert( cap !== undefined || ('Missing capability '+p_loc), a );
 					return cap;
 				}
 			}
 			case types.AlternativeType:{
-				assert( t === null , 'Error @autoStack ', a);
+				assert( t === null || 'Error @autoStack ', a);
 
 				// try the whole alternative type first
 				var cap = e.removeCap(
@@ -1917,27 +1938,27 @@ var TypeChecker = (function(AST,assertF){
 					if( cap !== undefined )
 						return p;
 				}
-				assert( false, 'Failed to stack any of the alternatives', a);
+				assert( 'Failed to stack any of the alternatives', a);
 			}
 			case types.NoneType:
 				// always valid to stack a NoneType
-				assert( t === null || t.type === types.NoneType,
+				assert( (t === null || t.type === types.NoneType) ||
 					'Error @autoStack ', a );
 				return NoneType;
 			case types.RelyType: {
 				var cap = e.removeCap( function(c){
 					return subtypeOf(p,c);
 				});
-				assert( cap, 'Missing capability '+p, a );
+				assert( cap !== undefined || ('Missing capability '+p), a );
 				return cap;
 			}
 			case types.GuaranteeType:
-				assert( false, 'Error @autoStack, Guarantee...', a );
+				assert( 'Error @autoStack, Guarantee...', a );
 				break;
 			default:
 				// other types just fall through, leave the given type
 				// in but make sure it is not null.
-				assert( t !== null, 'Error @autoStack ' + p.type, a);
+				assert( t !== null || ('Error @autoStack ' + p.type), a);
 		}
 		return t;
 	}
@@ -1957,7 +1978,7 @@ var TypeChecker = (function(AST,assertF){
 	 */
 	var safelyEndScope = function( type, env, ast ){
 		
-		assert( env.$defocus_guarantee === null , 'Cannot drop focus' , ast);
+		assert( env.$defocus_guarantee === null || 'Cannot drop focus' , ast);
 		
 		// 1. stack all capabilities
 		var tmp = new StarType();
@@ -1980,8 +2001,7 @@ var TypeChecker = (function(AST,assertF){
 					break;
 				default:
 					// fails if attempting to stack something else
-					assert( false, 'Auto-stack failure, '+
-						id+' : '+cap.type, ast );
+					assert( 'Auto-stack failure, '+id+' : '+cap.type, ast );
 			}
 
 		});
@@ -2018,7 +2038,7 @@ var TypeChecker = (function(AST,assertF){
 					break;
 				default:
 					// fails if attempting to stack something else
-					assert( false, 'Auto-stack failure, '+e+' : '+el.type, ast );
+					assert( 'Auto-stack failure, '+e+' : '+el.type, ast );
 			}
 		});
 		return res;	
@@ -2069,10 +2089,10 @@ var checkProtocolConformance = function( s, a, b, ast ){
 					tmp_s = tmp.s;
 					tmp_p = tmp.p;
 				}else{
-					assert( equals( tmp_s, tmp.s ) && equals( tmp_p, tmp.p ),
-						'[Protocol Conformance] Alternatives mimatch.\n'+
+					assert( (equals( tmp_s, tmp.s ) && equals( tmp_p, tmp.p )) ||
+						('[Protocol Conformance] Alternatives mimatch.\n'+
 						'(1)\tstate:\t'+tmp_s+'\n\tstep:\t'+tmp_p+'\n'+
-						'(2)\tstate:\t'+tmp.s+'\n\tstep:\t'+tmp.p+'\n', ast );
+						'(2)\tstate:\t'+tmp.s+'\n\tstep:\t'+tmp.p+'\n'), ast );
 				}
 			}
 			return { s : tmp_s , p : tmp_p };
@@ -2090,22 +2110,22 @@ var checkProtocolConformance = function( s, a, b, ast ){
 					continue;
 				}
 			}
-			assert( false, '[Protocol Conformance] No matching alternative.\n'+
+			assert( '[Protocol Conformance] No matching alternative.\n'+
 				'state:\t'+s+'\n'+
 				'step:\t'+p, ast );
 		}
 		
 		var pp = unAll( p, undefined, false, true );
 		
-		assert( pp.type === types.RelyType,
-			'Expecting RelyType, got: '+pp.type+'\n'+pp, ast);
+		assert( pp.type === types.RelyType ||
+			('Expecting RelyType, got: '+pp.type+'\n'+pp), ast);
 		
-		assert( subtypeOf( s, pp.rely() ),
-			'Invalid Step: '+s+' VS '+pp.rely(), ast );
+		assert( subtypeOf( s, pp.rely() ) ||
+			('Invalid Step: '+s+' VS '+pp.rely()), ast );
 		
 		var next = pp.guarantee();
-		assert( next.type === types.GuaranteeType,
-			'Expecting GuaranteeType, got: '+next.type, ast);
+		assert( next.type === types.GuaranteeType ||
+			('Expecting GuaranteeType, got: '+next.type), ast);
 		
 		return { s : next.guarantee() , p : next.rely() };		
 	}
@@ -2132,7 +2152,7 @@ var checkProtocolConformance = function( s, a, b, ast ){
 		var r = sim(_s,_b);
 		work.push( [r.s,_a,r.p] );
 		
-		assert( max_visited-- > 0 ,'ERROR: MAX VISITED', ast);
+		assert( max_visited-- > 0 || 'ERROR: MAX VISITED', ast);
 	}
 };
 
@@ -2168,14 +2188,14 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				
 				// sequence is encoded as LET with id 'null', but this construct
 				// drops the first expression's value so it must be of BangType
-				assert( ast.id !== null || value.type === types.BangType,
-					'Cannot drop linear type '+value, ast );
+				assert( ast.id !== null || value.type === types.BangType ||
+					('Cannot drop linear type '+value), ast );
 				
 				if( ast.id !== null ){
 					// creating a new environment should avoid this error, but
 					// include this check for consistency
-					assert( e.set( ast.id, value ),
-						'Identifier '+ ast.id +' already in scope', ast );
+					assert( e.set( ast.id, value ) ||
+						('Identifier '+ ast.id +' already in scope'), ast );
 				}
 
 				var res = check( ast.exp, e );
@@ -2186,17 +2206,17 @@ var checkProtocolConformance = function( s, a, b, ast ){
 			return function( ast, env ){
 				var exp = check( ast.val, env );
 				exp = unAll(exp, ast.val, true, true);
-				assert( exp.type === types.TupleType,
-					"Type '" + exp + "' not tuple", ast.exp);
+				assert( exp.type === types.TupleType ||
+					("Type '" + exp + "' not tuple"), ast.exp);
 				
 				var values = exp.getValues();
-				assert( values.length === ast.ids.length,
-					"Incompatible sizes "+ast.ids.length+" != "+values.length, ast.exp);
+				assert( values.length === ast.ids.length ||
+					("Incompatible sizes "+ast.ids.length+" != "+values.length), ast.exp);
 
 				var e = env.newScope();
 				for( var i=0; i<ast.ids.length ; ++i ){
-					assert( e.set( ast.ids[i], values[i] ),
-						"Identifier '" + ast.ids[i] + "' already in scope", ast );
+					assert( e.set( ast.ids[i], values[i] ) ||
+						("Identifier '" + ast.ids[i] + "' already in scope"), ast );
 				}
 				
 				var res = check( ast.exp, e );
@@ -2208,8 +2228,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				var value = check( ast.val, env );
 				value = unAll( value, ast.val, true, true );
 				
-				assert( value.type === types.ExistsType,
-					"Type '" + value + "' not existential", ast.exp);
+				assert( value.type === types.ExistsType ||
+					("Type '" + value + "' not existential"), ast.exp);
 
 				var loc = ast.type;
 				var locvar;
@@ -2218,9 +2238,9 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				else
 					locvar = new LocationVariable(loc);
 
-				assert( locvar.type === value.id().type,
-					'Variable mismatch, expecting '+locvar.type
-					+' got '+value.id().type, ast.val);
+				assert( locvar.type === value.id().type ||
+					('Variable mismatch, expecting '+locvar.type
+					+' got '+value.id().type), ast.val);
 
 				value = substitution( value.inner(), value.id(), locvar );
 				// unfold anything that became newly available
@@ -2232,10 +2252,10 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				// attempt to make it pure before adding to typing env.
 				value = purify( value );
 
-				assert( e.set( ast.id, value ),
-						"Identifier '" + ast.id + "' already in scope", ast );
-				assert( e.setType( loc, locvar ),
-						"Type '" + loc + "' already in scope", ast );
+				assert( e.set( ast.id, value ) ||
+						("Identifier '" + ast.id + "' already in scope"), ast );
+				assert( e.setType( loc, locvar ) ||
+						("Type '" + loc + "' already in scope"), ast );
 				
 				var res = check( ast.exp, e );
 				return safelyEndScope( res, e, ast);
@@ -2244,8 +2264,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 			case AST.kinds.CASE: 
 			return function( ast, env ){
 				var val = unAll( check( ast.exp, env ), ast.exp, true, true );
-				assert( val.type === types.SumType,
-					"'" + val.type + "' not a SumType", ast);
+				assert( val.type === types.SumType ||
+					("'" + val.type + "' not a SumType"), ast);
 				
 				// checks only the branches that are listed in the sum type
 				var tags = val.tags();
@@ -2265,7 +2285,7 @@ var checkProtocolConformance = function( s, a, b, ast ){
 						}
 					}
 					// if still undefined
-					assert( branch, 'Missing branch for '+tag, ast);
+					assert( branch !== undefined || ('Missing branch for '+tag), ast);
 
 					var e = env;
 					if( endEnv !== null ){
@@ -2275,8 +2295,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 					e = e.newScope();
 					value = purify( unstack( value, e, branch.exp ) );
 
-					assert( e.set( branch.id, value ),
-						"Identifier '" + branch.id + "' already in scope", ast );
+					assert( e.set( branch.id, value ) ||
+						("Identifier '" + branch.id + "' already in scope"), ast );
 					
 					var res = check( branch.exp, e );
 					res = safelyEndScope( res, e, ast.exp );
@@ -2285,8 +2305,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 					if( endEnv === null ){
 						endEnv = e.endScope();
 					}else{
-						assert( endEnv.isEqual( e.endScope() ),
-							"Incompatible effects on branch '" + tag + "'", branch);
+						assert( endEnv.isEqual( e.endScope() ) ||
+							("Incompatible effects on branch '" + tag + "'"), branch);
 					}
 
 					// if first result, remember it
@@ -2294,8 +2314,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 						result = res;
 					else { // else try to merge both
 						var tmp = mergeType( result, res );
-						assert( tmp, 'Incompatible branch results: '+
-							result+' vs '+res, ast);
+						assert( tmp !== undefined || ('Incompatible branch results: '+
+							result+' vs '+res), ast);
 						result = tmp;
 					}
 				}
@@ -2318,11 +2338,11 @@ var checkProtocolConformance = function( s, a, b, ast ){
 						// create the new type/location variable with the 
 						// given label, even if null for fresh.
 						if( isTypeVariableName(packed.name()) ){
-							assert( label === null || isTypeVariableName(label),
+							assert( label === null || isTypeVariableName(label) ||
 								'TypeVariable is wrongly cased', ast );
 							variable = new TypeVariable(label);
 						} else {
-							assert( label === null || !isTypeVariableName(label),
+							assert( label === null || !isTypeVariableName(label) ||
 								'LocationVariable is wrongly cased', ast );
 							variable = new LocationVariable(label);
 						}
@@ -2330,7 +2350,7 @@ var checkProtocolConformance = function( s, a, b, ast ){
 						break;
 					}
 					default: {
-						assert( label === null || isTypeVariableName(label),
+						assert( label === null || isTypeVariableName(label) ||
 							'TypeVariables must be upper-cased', ast );
 							
 						variable = new TypeVariable(label);
@@ -2344,8 +2364,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				// may be given, thus committing ourselves to some label
 				// from which we may not be able to move without 
 				// breaking programmer's expectations.
-				assert( isFree(exp,variable),
-					'Label "'+variable.name()+'" is not free in '+exp, ast );
+				assert( isFree(exp,variable) ||
+					('Label "'+variable.name()+'" is not free in '+exp), ast );
 
 				exp = substitution( exp , packed, variable );
 				return new ExistsType(variable,exp);
@@ -2354,17 +2374,16 @@ var checkProtocolConformance = function( s, a, b, ast ){
 			case AST.kinds.ALTERNATIVE_OPEN: 
 			return function( ast, env ){
 				var type = check(ast.type, env);
-				assert( type.type === types.LocationVariable ,
-					'Cannot alt-open '+type,ast.type );
+				assert( type.type === types.LocationVariable ||
+					('Cannot alt-open '+type), ast.type );
 				
 				// TODO: should be search CapType( equals )
 				var cap = env.removeNamedCap( type.name() );
 				
-				assert( cap,
-					'Missing cap: '+cap, ast.type );
+				assert( cap !== undefined || ('Missing cap: '+cap), ast.type );
 					
-				assert( cap.type === types.AlternativeType,
-					'Not AlternativeType '+cap, ast.type );
+				assert( cap.type === types.AlternativeType ||
+					('Not AlternativeType '+cap), ast.type );
 				
 				var alts = cap.inner();
 				var env_start = env.clone();
@@ -2383,15 +2402,15 @@ var checkProtocolConformance = function( s, a, b, ast ){
 					else {
 						// attempt to merge results
 						var tmp = mergeType( result, res );
-						assert( tmp, 'Incompatible alternative results: '+
-							result+' vs '+res, ast);
+						assert( tmp !== undefined || ('Incompatible alternative results: '+
+							result+' vs '+res), ast);
 						result = tmp;
 					}
 					
 					if( end_env === null )
 						end_env = tmp_env;
 					else{
-						assert( end_env.isEqual( tmp_env ),
+						assert( end_env.isEqual( tmp_env ) ||
 							"Incompatible effects on alternatives", ast.exp);
 					}
 				}
@@ -2403,6 +2422,7 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				var sum = new SumType();
 				for( var i=0; i<ast.sums.length; ++i ){
 					var tag = ast.sums[i].tag;
+					// FIXME: what if duplicated tag?
 					sum.add( tag, check( ast.sums[i].exp, env ) );
 				}
 				return sum;
@@ -2447,19 +2467,19 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				if( lookup !== undefined && lookup !== null )
 					return lookup;
 		
-				assert( false, 'Unknown type '+label, ast);
+				assert( 'Unknown type '+label, ast);
 			};
 			
 			case AST.kinds.ID:
-			return function( ast, env ){
+				// auxiliary function that only removes (i.e. destructive) if linear
 				var destructive = function(t) {
-					// only removes (i.e. destructive) if linear
 					return t.type !== types.BangType;
-				}
+				};
+			return function( ast, env ){
 				var id = ast.text;
 				var val = env.get( id, destructive );
 			
-				assert( val, "Identifier '" + id + "' not found", ast);
+				assert( val !== undefined || ("Identifier '" + id + "' not found"), ast);
 
 				return val;
 			};
@@ -2479,16 +2499,16 @@ var checkProtocolConformance = function( s, a, b, ast ){
 			return function( ast, env ){
 				var exp = unAll( check( ast.exp, env ), ast.exp, true, true );
 				
-				assert( exp.type === types.ReferenceType,
-					"Invalid dereference '"+exp+"'", ast );
+				assert( exp.type === types.ReferenceType ||
+					("Invalid dereference '"+exp+"'"), ast );
 
 				var loc = exp.location().name();
 				var cap = env.removeNamedCap( loc );
 				
-				assert( cap, "No capability to '"+loc+"'", ast );
+				assert( cap !== undefined || ("No capability to '"+loc+"'"), ast );
 				
-				assert( cap.type === types.CapabilityType,
-					loc+" is not a capability, "+cap.type, ast );
+				assert( cap.type === types.CapabilityType ||
+					(loc+" is not a capability, "+cap.type), ast );
 				
 				var old = cap.value();
 				
@@ -2500,7 +2520,7 @@ var checkProtocolConformance = function( s, a, b, ast ){
 					residual = new BangType(new RecordType());
 				
 				cap = new CapabilityType( cap.location(), residual );
-				assert( env.setCap( cap ), 'Failed to re-add cap', ast );
+				assert( env.setCap( cap ) || 'Failed to re-add cap', ast );
 				return old;
 			};
 			
@@ -2512,10 +2532,10 @@ var checkProtocolConformance = function( s, a, b, ast ){
 					var loc = exp.location().name();
 					var cap = env.removeNamedCap( loc );
 					
-					assert( cap, "No capability to '"+loc+"'", ast );
+					assert( cap !== undefined || ("No capability to '"+loc+"'"), ast );
 					
-					assert( cap.type === types.CapabilityType,
-						loc +" is not a capability, "+cap.type, ast );
+					assert( cap.type === types.CapabilityType ||
+						(loc +" is not a capability, "+cap.type), ast );
 
 					// just return the old contents of 'cap'
 					return cap.value();
@@ -2526,16 +2546,19 @@ var checkProtocolConformance = function( s, a, b, ast ){
 					if( inner.type === types.StackedType ){
 						var ref = unAll( inner.left(), ast, true, true );
 						var cap = inner.right();
-						assert( ref.type === types.ReferenceType, "Expecting reference '"+exp+"'",ast);
+						assert( ref.type === types.ReferenceType ||
+							("Expecting reference '"+exp+"'"), ast);
 						var loc = ref.location();
-						assert( cap.type === types.CapabilityType, "Expecting capability '"+exp+"'",ast);
-						assert( loc.name() === exp.id().name(), "Expecting matching location '"+exp+"'",ast);
+						assert( cap.type === types.CapabilityType ||
+							("Expecting capability '"+exp+"'"), ast);
+						assert( loc.name() === exp.id().name() ||
+							("Expecting matching location '"+exp+"'"), ast);
 						return new ExistsType(exp.id(),cap.value());
 					}
 					
 				} 
 
-				assert( false, "Invalid delete '"+exp+"'",ast);
+				assert( "Invalid delete '"+exp+"'",ast);
 			};
 
 			case AST.kinds.ASSIGN: 
@@ -2543,16 +2566,16 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				var lvalue = unAll( check( ast.lvalue, env ), ast.lvalue, true, true );
 				var value = check( ast.exp, env );
 				
-				assert( lvalue.type === types.ReferenceType,
-					"Invalid assign '"+lvalue+"' := '"+value+"'", ast.lvalue);
+				assert( lvalue.type === types.ReferenceType ||
+					("Invalid assign '"+lvalue+"' := '"+value+"'"), ast.lvalue);
 				
 				var loc = lvalue.location().name();
 				var cap = env.removeNamedCap( loc );
 				
-				assert( cap, "Cannot assign, no capability to '"+loc+"'", ast );
+				assert( cap !== undefined || ("Cannot assign, no capability to '"+loc+"'"), ast );
 				
-				assert( cap.type === types.CapabilityType,
-					loc+" is not a capability", ast );
+				assert( cap.type === types.CapabilityType ||
+					(loc+" is not a capability"), ast );
 				
 				var old = cap.value();
 				cap = new CapabilityType( cap.location(), purify(value) );
@@ -2565,11 +2588,11 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				var id = ast.right;
 				var rec = unAll( check( ast.left, env ), ast.left, true, true );
 				
-				assert( rec.type === types.RecordType,
-					"Invalid field selection '"+id+"' for '"+rec+"'", ast );
+				assert( rec.type === types.RecordType ||
+					("Invalid field selection '"+id+"' for '"+rec+"'"), ast );
 
 				var res = rec.select(id);				
-				assert( res, "Invalid field '" + id + "' for '"+rec+"'", ast );
+				assert( res !== undefined || ("Invalid field '" + id + "' for '"+rec+"'"), ast );
 				return res;
 			};
 			
@@ -2577,8 +2600,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 			return function( ast, env ){
 				var fun = unAll( check( ast.fun, env ), ast.fun, true, true );
 				
-				assert( fun.type === types.FunctionType,
-					'Type '+fun.toString()+' not a function', ast.fun );
+				assert( fun.type === types.FunctionType ||
+					('Type '+fun.toString()+' not a function'), ast.fun );
 
 				var arg = check( ast.arg, env );
 				var fun_arg = fun.argument();
@@ -2588,12 +2611,13 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				// manually stacked and other should be implicitly put there.
 				arg = autoStack( arg, fun_arg, env, ast.arg );
 						
-				assert( subtypeOf( arg, fun_arg ),
-					"Invalid call: expecting '"+fun_arg+"' got '"+arg+"'", ast.arg );
+				assert( subtypeOf( arg, fun_arg ) ||
+					("Invalid call: expecting '"+fun_arg+"' got '"+arg+"'"), ast.arg );
 				
 				// auto-unstack return
-				return assert( unstack( fun.body(), env, ast ),
-					"Unstack error on " + fun.body(), ast.exp );
+				var res = unstack( fun.body(), env, ast );
+				assert( res !== undefined || ("Unstack error on " + fun.body()), ast.exp );
+				return res;
 			};
 			
 			case AST.kinds.DELAY_TYPE_APP: 
@@ -2610,14 +2634,14 @@ var checkProtocolConformance = function( s, a, b, ast ){
 					return substitution( exp.inner(), exp.id(), packed );
 				}
 				assert( packed.type === types.TypeVariable ||
-					packed.type === types.LocationVariable, 
-					'Expecting variable, got: '+packed, ast.id );
+					packed.type === types.LocationVariable || 
+					('Expecting variable, got: '+packed), ast.id );
 
 				// application cannot occur right now, but delayed applications
 				// are only allowed on (bounded) type variables 
 				assert( exp.type === types.TypeVariable ||
-					exp.type === types.DelayedApp, // for nested delays 
-					'Expecting TypeVariable, got: '+exp, ast.exp );
+					exp.type === types.DelayedApp || // for nested delays 
+					('Expecting TypeVariable, got: '+exp), ast.exp );
 				
 				return new DelayedApp(exp,packed);
 			};
@@ -2626,8 +2650,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 			return function( ast, env ){
 				var exp = check( ast.exp, env );
 				exp = unAll(exp,ast.exp, true, true);
-				assert( exp.type === types.ForallType , 
-					'Not a Forall '+exp.toString(), ast.exp );
+				assert( exp.type === types.ForallType || 
+					('Not a Forall '+exp.toString()), ast.exp );
 				
 				var packed = check(ast.id, env);
 				return substitution( exp.inner(), exp.id(), packed );
@@ -2675,7 +2699,7 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				// FIXME assuming just one
 				var cap = env.removeNamedCap( locs[0] );
 				
-				assert( cap, "No capability to '"+locs[0]+"'", ast );
+				assert( cap !== undefined || ("No capability to '"+locs[0]+"'"), ast );
 				
 				var left = check( ast.a, env );
 				var right = check( ast.b, env );
@@ -2699,8 +2723,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				
 				var cap = env.removeNamedCap( locs[0] );
 				
-				assert( cap, "No capability to '"+locs[0]+"'", ast );
-				assert( cap.type === types.RelyType, 'Expecting RelyType, got '+cap, ast);
+				assert( cap !== undefined || ("No capability to '"+locs[0]+"'"), ast );
+				assert( cap.type === types.RelyType || ('Expecting RelyType, got '+cap), ast);
 				
 				env.focus( cap );
 				
@@ -2713,8 +2737,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				
 				var res = autoStack( null , dg.guarantee(), env, ast );
 				
-				assert( subtypeOf( res, dg.guarantee() ),
-					'Not at Guarantee, expecting "'+dg.guarantee()+'" got '+res,
+				assert( subtypeOf( res, dg.guarantee() ) ||
+					('Not at Guarantee, expecting "'+dg.guarantee()+'" got '+res),
 					ast );
 				
 				env.defocus();
@@ -2748,8 +2772,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				var id = ast.text;
 				var loc = env.getType( id );
 				
-				assert( loc !== undefined && loc.type === types.LocationVariable,
-					'Unknow Location Variable '+id, ast );
+				assert( (loc !== undefined && loc.type === types.LocationVariable) ||
+					('Unknow Location Variable '+id), ast );
 				
 				return new ReferenceType( loc );
 			};
@@ -2791,7 +2815,7 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				var id = ast.id;
 				var e = env.newScope();
 				
-				assert( isTypeVariableName(id),
+				assert( isTypeVariableName(id) ||
 					'Type Variables must be upper-cased', ast );
 					
 				var variable = new TypeVariable(id);
@@ -2822,8 +2846,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				var id = ast.id;
 				var loc = env.getType( id );
 				
-				assert( loc !== undefined && loc.type === types.LocationVariable,
-					'Unknow Location Variable '+id, ast);
+				assert( (loc !== undefined && loc.type === types.LocationVariable) ||
+					('Unknow Location Variable '+id), ast);
 
 				var type = check( ast.type, env );
 				return new CapabilityType( loc, purify(type) );
@@ -2849,8 +2873,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				var c = autoStack ( null, cap, env, ast.type );
 				// make sure that the capabilities that were extracted from 
 				// the typing environment can be used as the written cap.
-				assert( subtypeOf( c , cap ),
-					'Incompatible capability "'+c+'" vs "'+cap+'"', ast.type );
+				assert( subtypeOf( c , cap ) ||
+					('Incompatible capability "'+c+'" vs "'+cap+'"'), ast.type );
 				return new StackedType( exp, cap );
 			};
 			
@@ -2861,8 +2885,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 					var field = ast.exp[i];
 					var id = field.id;
 					var value = check( field.exp, env );
-					assert( rec.add(id, value),
-						"Duplicated field '" + id + "' in '"+rec+"'", field);
+					assert( rec.add(id, value) ||
+						("Duplicated field '" + id + "' in '"+rec+"'"), field);
 				}
 				return rec;
 			};
@@ -2904,8 +2928,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 					variable = new LocationVariable(id);
 
 				var e = env.newScope();
-				assert( e.setType( id, variable ),
-					"Type '" + id + "' already in scope", ast );
+				assert( e.setType( id, variable ) ||
+					("Type '" + id + "' already in scope"), ast );
 
 				return new ForallType( variable, check( ast.exp, e ) );
 			};
@@ -2924,30 +2948,30 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				
 				if( ast.rec !== null ){ // recursive function
 					result = check( ast.result, e );
-					assert( result !== null ,'No result type given on recursive function', ast );								
+					assert( result !== null ||'No result type given on recursive function', ast );								
 					// note that all recursive functions must be pure
 					var rec_fun = new BangType(
 						new FunctionType(arg_type, result)
 					);
-					assert( e.set( ast.rec, rec_fun ),
-						"Identifier '" + ast.rec + "' already in scope", ast );
+					assert( e.set( ast.rec, rec_fun ) ||
+						("Identifier '" + ast.rec + "' already in scope"), ast );
 				}
 				
 				//var unstacked = unAll(arg_type,ast, false, true); 
 				var unstacked = unstack(arg_type,e,ast);
 				
-				assert( e.set( id, purify(unstacked) ),
-						"Identifier '" + id + "' already in scope", ast );
+				assert( e.set( id, purify(unstacked) ) ||
+						("Identifier '" + id + "' already in scope"), ast );
 
 				var res = check( ast.exp, e );
 				res = safelyEndScope( res, e, ast.exp );
 				
 				if( ast.rec !== null ){
-					assert( subtypeOf( res, result ),
-						"Invalid result type '"+res+"' expecting '"+result+"'", ast);
+					assert( subtypeOf( res, result ) ||
+						("Invalid result type '"+res+"' expecting '"+result+"'"), ast);
 					// we also need to ensure it is pure so that the
 					// previously assumed bang is OK.
-					assert( initial_size === env.size(),
+					assert( initial_size === env.size() ||
 						'Linear recursive function.', ast );
 					// use the written return type
 					res = result;
@@ -2974,11 +2998,11 @@ var checkProtocolConformance = function( s, a, b, ast ){
 					}else{
 						var tmp_env = initEnv.clone();
 						value = check( field.exp, tmp_env );
-						assert( endEnv.isEqual(tmp_env),
-							"Incompatible effects on field '" + id + "'", field);
+						assert( endEnv.isEqual(tmp_env) ||
+							("Incompatible effects on field '" + id + "'"), field);
 					}
-					assert( rec.add(id, value),
-						"Duplicated field '" + id + "' in '"+rec+"'", field);
+					assert( rec.add(id, value) ||
+						("Duplicated field '" + id + "' in '"+rec+"'"), field);
 				}
 
 				return rec;
@@ -3001,7 +3025,7 @@ var checkProtocolConformance = function( s, a, b, ast ){
 
 			default:
 			return function( ast, env ){
-				assert(false,"Error @check " + ast.kind, ast);
+				error( "Not expecting " + ast.kind );
 			};
 		}
 	};
@@ -3009,7 +3033,8 @@ var checkProtocolConformance = function( s, a, b, ast ){
 	var visitor = {};
 	// setup visitors
 	for( var i in AST.kinds ){
-		assert( !visitor.hasOwnProperty(i),'Error @visitor, duplication: '+i);
+		error( !visitor.hasOwnProperty(i) ||
+				( 'Error @visitor, duplication: '+i ) );
 		// find witch function to call on each AST kind of node
 		// FIXME: not much benefit since they are all diff functions... FIXME FIXME
 		visitor[i] = setupAST(i);
@@ -3018,7 +3043,7 @@ var checkProtocolConformance = function( s, a, b, ast ){
 	// FIXME: switch all to have this instead of expensive switch/case
 	var check_inner = function( ast, env ){
 		if( !visitor.hasOwnProperty( ast.kind ) ){
-			assert(false,'Error @check '+ast.kind,ast);
+			error( 'Not expecting '+ast.kind );
 		}
 		return (visitor[ast.kind])( ast, env );
 	}
@@ -3033,7 +3058,7 @@ var checkProtocolConformance = function( s, a, b, ast ){
 		type_info = [];
 		
 		try{
-			assert( ast.kind === AST.kinds.PROGRAM, 'Error @check', ast );
+			error( (ast.kind === AST.kinds.PROGRAM) || 'Unexpected AST node' );
 				
 			// reset typechecke's state.
 			unique_counter = 0;
@@ -3042,22 +3067,23 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				
 			if( ast.imports !== null ){
 			 	// loader does not need to be provided, but all imports are errors
-				assert( loader !== undefined, 'Error @check missing import loader', ast );
+				error( loader !== undefined || 'Missing import loader' );
+				
 				var libs = ast.imports;
 				for( var i=0; i<libs.length; ++i ){
 					var lib = libs[i];
 					var import_type = loader( lib.id, exports );
-					assert( import_type, "Invalid import: "+lib.id, lib );
-					assert( env.set( lib.id, import_type ),
-						'Identifier '+ lib.id +' already in scope', lib );
+					assert( import_type !== undefined || ("Invalid import: "+lib.id), lib );
+					assert( env.set( lib.id, import_type ) ||
+						('Identifier '+ lib.id +' already in scope'), lib );
 				}
 			}
 				
 			if( ast.typedefs !== null ){
 				for(var i=0;i<ast.typedefs.length;++i){
 					var type = ast.typedefs[i];
-					assert( !typedefs.hasOwnProperty(type.id),
-						'Duplicated typedef: '+type.id, type )
+					assert( !typedefs.hasOwnProperty(type.id) ||
+						('Duplicated typedef: '+type.id), type )
 					// map of type names to typechecker types.
 					typedefs[type.id] = check( type.type, env );
 				}

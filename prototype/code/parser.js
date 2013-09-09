@@ -264,6 +264,9 @@ var ErrorWrapper = function(msg,kind,ast,debug,stack){
 	this.ast = ast;
 	this.debug = debug;
 	this.stack = stack || new Error().stack.toString();
+	this.toString = function(){
+		return this.kind+': '+this.message;
+	}
 }
 
 // convenient assert function to wrap errors

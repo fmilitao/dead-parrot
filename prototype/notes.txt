@@ -2,6 +2,9 @@
 FIXME: same improvement to other type checker functions?
 Like equals and whatnot?
 
+FIXME: DUMB FQ, using assert(cond,msg)
+	will be generating msg every single time...
+
 // setup visitors to avoid big switch at runtime
 for( var i in AST.kinds ){
 	visitor[i] = getVisit();
