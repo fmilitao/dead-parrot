@@ -58,7 +58,6 @@ var TypeChecker = (function(AST,assertF){
 		
 		// default stuff for that particular type
 		constructor.prototype.type = type;
-		constructor.prototype.toString = function() { return toString(this); }
 
 		// later it may be useful to change away from strings, but for now
 		// they are very useful when debugging problems.
@@ -202,17 +201,19 @@ var TypeChecker = (function(AST,assertF){
 	
 	var LocationVariable = newType('LocationVariable',
 		function LocationVariable( name ){
-			var n = name===null ? 't<sub>'+(unique_counter++)+'</sub>' : name;
+			var n = name === null ? 't<sub>'+(unique_counter++)+'</sub>' : name;
 			
 			this.name = function(){ return n; }
+			this.clone = function( n ){ return new LocationVariable(n); }
 		}
 	);
 	
 	var TypeVariable = newType('TypeVariable',
 		function TypeVariable( name ){
-			var n = name===null ? 'T<sub>'+(unique_counter++)+'</sub>' : name;
+			var n = name === null ? 'T<sub>'+(unique_counter++)+'</sub>' : name;
 			
 			this.name = function(){ return n; }
+			this.clone = function( n ){ return new TypeVariable(n); }
 		}
 	);
 	
@@ -253,6 +254,115 @@ var TypeChecker = (function(AST,assertF){
 	
 	exports.types = types;
 	exports.factory = fct;
+	
+	// append toString method
+	(function(){
+		// defines which types get wrapping parenthesis
+		var _wrap = function(t){
+			if( t.type === types.ReferenceType ||
+				t.type === types.FunctionType ||
+				t.type === types.StackedType ||
+				t.type === types.StarType || 
+				t.type === types.AlternativeType ||
+				t.type === types.SumType ){
+					return '('+t.toString()+')';
+				}
+			return t.toString();
+		};
+		var _add = function(t,fun){
+			error( !fct[t].hasOwnProperty('toString') || ("Duplicated " +k) );
+			fct[t].prototype.toString = fun;
+		};
+		
+		_add( types.FunctionType, function(){
+			return _wrap( this.argument() )+" -o "+_wrap( this.body() );
+		} );
+		
+		_add( types.BangType, function(){
+			return "!"+_wrap( this.inner() );
+		} );
+
+		_add( types.RelyType, function(){
+			return _wrap( this.rely() )+' => '+_wrap( this.guarantee() );
+		} );
+
+		_add( types.GuaranteeType, function(){
+			return _wrap( this.guarantee() )+' ; '+_wrap( this.rely() );
+		} );
+		
+		_add( types.SumType, function(){
+			var tags = this.tags();
+			var res = [];
+			for( var i in tags ){
+				res.push( tags[i]+'#'+_wrap( this.inner(tags[i]) ) ); 
+			}	
+			return res.join('+');
+		} );
+
+		_add( types.StarType, function(){
+			var inners = this.inner();
+			var res = [];
+			for( var i=0; i<inners.length; ++i )
+				res.push( _wrap( inners[i] ) ); 
+			return res.join(' * ');
+		} );
+		
+		_add( types.AlternativeType, function(){
+			var inners = this.inner();
+			var res = [];
+			for( var i=0; i<inners.length; ++i )
+				res.push( _wrap( inners[i] ) ); 
+			return res.join(' (+) ');
+		} );
+		
+		_add( types.RecursiveType, function(){
+			return 'rec '+this.id().name()+'.'+_wrap( this.inner() );
+		});
+		
+		_add( types.ExistsType, function(){
+			return 'exists '+this.id().name()+'.'+_wrap( this.inner() );
+		});
+		
+		_add( types.ForallType, function(){
+			return 'forall '+this.id().name()+'.('+_wrap( this.inner() );
+		});
+		
+		_add( types.ReferenceType, function(){
+			return "ref "+this.location().name();
+		});
+		
+		_add( types.CapabilityType, function(){
+			return 'rw '+this.location().name()+' '+_wrap( this.value() );			
+		});
+		
+		_add( types.StackedType, function(){
+			return _wrap( this.left() )+' :: '+_wrap( this.right() );
+		});
+		
+		_add( types.RecordType, function(){
+			var res = [];
+			var fields = this.getFields();
+			for( var i in fields )
+				res.push(i+": "+_wrap( fields[i]) );
+			return "["+res.join()+"]";
+		});
+		
+		_add( types.TupleType, function(){
+			return "["+this.getValues().join()+"]";
+		});
+		
+		var tmp = function(){ return this.name(); };
+		_add( types.LocationVariable, tmp );
+		_add( types.TypeVariable, tmp );
+		_add( types.PrimitiveType, tmp );
+		
+		_add( types.NoneType, function(){ return 'none'; });
+		
+		_add( types.DelayedApp, function(){
+			return _wrap( t.inner() )+'['+ this.id() +']';
+		});
+		
+	})();
 
 	//
 	// VISITORS
@@ -266,162 +376,108 @@ var TypeChecker = (function(AST,assertF){
 	 * Note that all variable names collide so that checking for 
 	 * LocationVariable versus TypeVariable is not necessary.
 	 */
-	var isFree = function (t,loc){
-		switch ( t.type ){
-			case types.FunctionType:
-				return isFree( t.argument(), loc ) &&
-					isFree( t.body(), loc );
-			case types.BangType:
-				return isFree( t.inner(), loc );
-			case types.RelyType: {
-				return isFree( t.rely(), loc ) &&
-					isFree( t.guarantee(), loc );
-			}
-			case types.GuaranteeType: {
-				return isFree( t.guarantee(), loc ) &&
-					isFree( t.rely(), loc );
-			}
-			case types.SumType:{
-				var tags = t.tags();
-				for( var i in tags ){
-					if( !isFree(t.inner(tags[i]),loc) )
-						return false; 
-				}	
-				return true;
-			}
-			case types.RecursiveType:
-			case types.ExistsType:
-			case types.ForallType:
-				if( t.id().name() === loc.name() )
-					// the name is already bounded, so loc must be fresh
-					// because it does not occur free inside t.inner()
-					return true;
-				return isFree(t.id(),loc) && isFree(t.inner(),loc);
-			case types.ReferenceType:
-				return isFree( t.location(), loc );
-			case types.StackedType:
-				return isFree( t.left(), loc ) && isFree( t.right(), loc );
-			case types.CapabilityType:
-				return isFree( t.location(), loc ) && isFree( t.value(), loc );
-			case types.RecordType: {
-				var fs = t.getFields();
-				for( var i in fs ){
-					if( !isFree(fs[i],loc) )
-						return false;
-				}
-				return true;
-			}
-			case types.AlternativeType:
-			case types.StarType:{
-				var inners = t.inner();
-				for( var i=0; i<inners.length; ++i )
-					if( !isFree(inners[i],loc) )
-						return false;
-				return true;
-			}
-			case types.TupleType: {
-				var vs = t.getValues();
-				for( var i in vs ){
-					if( !isFree(vs[i],loc) )
-						return false;
-				}
-				return true;
-			}
-			case types.TypeVariable:
-			case types.LocationVariable:
-				return t.name() !== loc.name();
-			case types.NoneType:
-			case types.PrimitiveType:
-				return true;
-			case types.DelayedApp:
-				return isFree(t.inner(),loc) && isFree(t.id(),loc);
-			default:
-				error( "Not expecting " +t.type );
-			}
-		};
 
-	// defines which types get wrapping parenthesis
-	var _toString = function(t){
-		if( t.type === types.ReferenceType ||
-			t.type === types.FunctionType ||
-			t.type === types.StackedType ||
-			t.type === types.StarType || 
-			t.type === types.AlternativeType ||
-			t.type === types.SumType ){
-				return '('+toString(t)+')';
+	var isFree = (function(){
+		var _visitor = {};
+		var _add = function( k , fun ){
+			error( !_visitor.hasOwnProperty(k) || ("Duplicated " +k) );
+			_visitor[k] = fun;
+		};
+		
+		_add( types.FunctionType, function(t,loc){
+			return isFree( t.argument(), loc ) && isFree( t.body(), loc );
+		});
+		
+		_add( types.BangType, function(t,loc){
+			return isFree( t.inner(), loc );
+		});
+		
+		_add( types.RelyType, function(t,loc){
+			return isFree( t.rely(), loc ) && isFree( t.guarantee(), loc );
+		});
+		
+		_add( types.GuaranteeType, function(t,loc){
+			return isFree( t.guarantee(), loc ) && isFree( t.rely(), loc );
+		});
+ 
+		_add( types.SumType, function(t,loc){
+			var tags = t.tags();
+			for( var i in tags ){
+				if( !isFree(t.inner(tags[i]),loc) )
+					return false; 
+			}	
+			return true;
+		});
+
+		_add( types.ForallType, function(t,loc){
+			if( t.id().name() === loc.name() ) {
+				// the name is already bounded, so loc must be fresh
+				// because it does not occur free inside t.inner()
+				return true;
 			}
-		return toString(t);
-	}
-	
-	// required also for testing
-	var toString = function (t){
-		switch ( t.type ){
-			case types.FunctionType:
-				return _toString(t.argument())+" -o "+_toString(t.body());
-			case types.BangType: {
-				return "!"+_toString(t.inner());
+			return isFree(t.id(),loc) && isFree(t.inner(),loc);
+		});
+		_add( types.ExistsType, _visitor[types.ForallType] );
+		_add( types.RecursiveType, _visitor[types.ForallType] );
+
+		_add( types.ReferenceType, function(t,loc){
+			return isFree( t.location(), loc );
+		});
+
+		_add( types.StackedType, function(t,loc){
+			return isFree( t.left(), loc ) && isFree( t.right(), loc );
+		});
+		
+		_add( types.CapabilityType, function(t,loc){
+			return isFree( t.location(), loc ) && isFree( t.value(), loc );
+		});
+
+		_add( types.RecordType, function(t,loc){
+			var fs = t.getFields();
+			for( var i in fs ){
+				if( !isFree(fs[i],loc) )
+					return false;
 			}
-			case types.RelyType: {
-				return _toString(t.rely())+' => '+_toString(t.guarantee());
+			return true;
+		});
+		
+		_add( types.AlternativeType, function(t,loc){
+			var inners = t.inner();
+			for( var i=0; i<inners.length; ++i )
+				if( !isFree(inners[i],loc) )
+					return false;
+			return true;
+		});
+		_add( types.StarType, _visitor[types.AlternativeType] );
+		
+		_add( types.TupleType, function(t,loc){
+			var vs = t.getValues();
+			for( var i in vs ){
+				if( !isFree(vs[i],loc) )
+					return false;
 			}
-			case types.GuaranteeType: {
-				return _toString(t.guarantee())+' ; '+_toString(t.rely());
-			}
-			case types.SumType:{
-				var tags = t.tags();
-				var res = [];
-				for( var i in tags ){
-					res.push( tags[i]+'#'+_toString(t.inner(tags[i])) ); 
-				}	
-				return res.join('+');
-			}
-			case types.StarType:{
-				var inners = t.inner();
-				var res = [];
-				for( var i=0; i<inners.length; ++i )
-					res.push( _toString( inners[i] ) ); 
-				return res.join(' * ');
-			}
-			case types.AlternativeType:{
-				var inners = t.inner();
-				var res = [];
-				for( var i=0; i<inners.length; ++i )
-					res.push( _toString( inners[i] ) ); 
-				return res.join(' (+) ');
-			}
-			case types.RecursiveType:
-				return 'rec '+t.id().name()+'.'+_toString(t.inner());
-			case types.ExistsType:
-				return 'exists '+t.id().name()+'.'+_toString(t.inner());
-			case types.ForallType:
-				return 'forall '+t.id().name()+'.('+_toString(t.inner());
-			case types.ReferenceType:
-				return "ref "+t.location().name();
-			case types.CapabilityType:
-				return 'rw '+t.location().name()+' '+_toString(t.value());
-			case types.StackedType:
-				return _toString(t.left())+' :: '+_toString(t.right());
-			case types.RecordType: {
-				var res = [];
-				var fields = t.getFields();
-				for( var i in fields )
-					res.push(i+": "+_toString(fields[i]));
-				return "["+res.join()+"]";
-			}
-			case types.TupleType:
-				return "["+t.getValues().join()+"]";
-			case types.LocationVariable:
-			case types.TypeVariable:
-			case types.PrimitiveType:
-				return t.name();
-			case types.NoneType:
-				return 'none';
-			case types.DelayedApp:
-				return _toString(t.inner())+'['+toString(t.id())+']';
-			default:
+			return true;
+		});
+		
+		_add( types.TypeVariable, function(t,loc){
+			return t.name() !== loc.name();
+		});
+		_add( types.LocationVariable, _visitor[types.TypeVariable] );
+		
+		_add( types.PrimitiveType, function(t,loc){ return true; });
+		_add( types.NoneType, _visitor[types.PrimitiveType] );
+		
+		_add( types.DelayedApp, function(t,loc){
+			return isFree(t.inner(),loc) && isFree(t.id(),loc);
+		});
+		
+		// the closure that uses the private _visitor
+		return function (t,loc) {
+			if( !_visitor.hasOwnProperty( t.type ) )
 				error( "Not expecting " +t.type );
-			}
-	};
+			return _visitor[t.type](t,loc);
+		};
+	})();
 	
 	/**
 	 * Substitutes in 'type' any occurances of 'from' to 'to'
@@ -436,17 +492,6 @@ var TypeChecker = (function(AST,assertF){
 	 *  'from' name so that bounded names are never wrongly substituted.
 	 */
 	var substitution = function(type,from,to){
-		// to clone variables
-		var cloneVar = function(variable){
-			switch( variable.type ){
-				case types.LocationVariable:
-					return new LocationVariable(null);
-				case types.TypeVariable:
-					return new TypeVariable(null);
-				default:
-					error( 'Expecting variable but got: '+variable );
-			}
-		};
 		
 		var rec = function(t){
 			if( equals(t,from) )
@@ -512,7 +557,7 @@ var TypeChecker = (function(AST,assertF){
 					  to.type === types.TypeVariable )
 						&& t.id().name() === to.name() ){
 					// capture avoiding substitution 
-					nvar = cloneVar( t.id() );
+					nvar = t.id().clone(null); // fresh loc/type-variable
 					ninner = substitution( t.inner(), t.id(), nvar );
 				}
 				
