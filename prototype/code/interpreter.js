@@ -151,6 +151,8 @@ var Interpreter = (function( AST, assertF ){
 	/*
 	 * By having an auxiliary object that stores a map to functions, we should
 	 * avoid a big switch (sequential) case comparision.
+	 * Using such switch also makes it easier to assign the visit function when
+	 * multiple node kinds have the same function value.
 	 */
 	
 	var setupAST = function( kind ){	

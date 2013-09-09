@@ -1,5 +1,6 @@
 
-FIXME: same correction to typechecker...
+FIXME: same improvement to other type checker functions?
+Like equals and whatnot?
 
 // setup visitors to avoid big switch at runtime
 for( var i in AST.kinds ){
