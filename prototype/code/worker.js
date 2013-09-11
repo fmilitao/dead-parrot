@@ -245,7 +245,7 @@ var libTyper = function( file, ctx ){
 // Printing Type Information
 //
 
-var printEnvironment = function(env,ast,pos){
+var printEnvironment = function(env,ast,pos,r){
 	var res = _printEnvironment(env);
 	
 	var gamma = res.gamma;
@@ -257,8 +257,9 @@ var printEnvironment = function(env,ast,pos){
 	delta.sort(); // ...same order
 	delta = delta.join(',\n    ');
 	
-	return "@"+(ast.line+1)+":"+ast.col+' '+ast.kind+"\n\u0393 = "+gamma+"\n"+
-		   "\u0394 = "+delta;
+	return "@"+(ast.line+1)+":"+ast.col+'-'+(ast.last_line+1)+':'+ast.last_col+' '
+		+ast.kind //+'\nType: '+toHTML(r) //FIXME too much to show?
+		+"\n\n\u0393 = "+gamma+"\n"+"\u0394 = "+delta;
 }
 
 var _printEnvironment = function(env,ast,pos){
@@ -331,6 +332,7 @@ var info = function(tp,pos){
 		var ast = type_info[i].ast;
 		if( ptr === null ){
 			ptr = i;
+			indexes = [i];
 		} else {
 			var old = type_info[ptr].ast;
 			
@@ -387,7 +389,9 @@ var info = function(tp,pos){
 			continue;
 		msg += '<br/>'+printEnvironment(
 				type_info[ptr].env,
-				type_info[ptr].ast, pos
+				type_info[ptr].ast,
+				pos,
+				type_info[ptr].res
 			);
 		}
 		

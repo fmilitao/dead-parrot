@@ -2192,9 +2192,11 @@ var checkProtocolConformance = function( s, a, b, ast ){
 	// this wrapper function allows us to inspect the type and envs
 	// of some node, while leaving the checker mostly clean.
 	var check = function(ast,env) {
-		type_info.push( { ast : ast, env : env.clone() } );
-		
-		return check_inner( ast, env );
+		var info = { ast : ast, env : env.clone() };
+		type_info.push( info );
+		var res = check_inner( ast, env );
+		info.res = res;
+		return res;
 	};
 
 	/**
