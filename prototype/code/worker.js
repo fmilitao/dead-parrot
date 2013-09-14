@@ -259,7 +259,7 @@ var printEnvironment = function(env,ast,pos,r){
 	
 	return "@"+(ast.line+1)+":"+ast.col+'-'+(ast.last_line+1)+':'+ast.last_col+' '
 		+ast.kind //+'\nType: '+toHTML(r) //FIXME too much to show?
-		+"<hr/>"
+		+"<hr class='type_hr'/>"
 		+"\u0393 = "+gamma+"\n"+"\u0394 = "+delta;
 }
 

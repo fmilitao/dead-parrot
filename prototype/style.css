@@ -11,11 +11,18 @@ body {
 }
 
 h2 {
-	margin: 5px 0 10px 0;
+	margin: 5px 0 8px 0;
 }
 
+
+/* hr {
+	border: 0;
+   height: 1px;
+   background: #333;
+} */
+
 /* http://css-tricks.com/examples/hrs/ */
-hr {
+.type_hr {
 	background: #f1c661;
 	border: 0;
 	height: 2px; 
@@ -64,7 +71,7 @@ select {
 	border-right-color: gray;
 	border-right-style: solid;
 	border-right-width: 1px;
-	padding: 5px 10px;
+	padding: 5px 5px;
 }
 
 #cursor-position{
@@ -169,10 +176,12 @@ a:visited {
 	margin: 10px 0 10px 0;
 	padding: 2px 2px;
 	/* cursor: pointer; */
-	background-color: #dcdcdc;
-	border: 1px solid #666;
-	box-shadow: 2px 2px 2px #888888;
+	/*
 	border-radius: 3px;
+	*/
+	border: 1px solid #acacac;
+	background-color: #dcdcdc;
+	box-shadow: 2px 2px 2px #888888;
 }
 
 .heading-title {
@@ -188,13 +197,15 @@ a:visited {
 	color: #000;
 	text-decoration: none;
 	padding: 5px 5px 5px 5px;
+	/*
 	border-radius: 3px;
+	*/
 }
 
 .button:hover {
-	background-color: #cccccc;
+	background-color: #cdcdcd;
 	font-weight: bold;
-	border: 2px solid #666;
+	border: 2px solid #acacac;
 	padding: 4px 4px 4px 4px;
 }
 
