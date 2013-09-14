@@ -14,6 +14,13 @@ h2 {
 	margin: 5px 0 10px 0;
 }
 
+/* http://css-tricks.com/examples/hrs/ */
+hr {
+	background: #f1c661;
+	border: 0;
+	height: 2px; 
+}
+
 .underline_error {
 	position: absolute;
 	margin: -2px 0 0 0px;
@@ -113,23 +120,30 @@ select {
 	border: 2px solid #f1c661;
 	/* margin: 2px 2px; */
 	padding: 5px 10px;
-    position: absolute;
-    z-index: 10000; /* is this enough? */
+	position: absolute;
+	z-index: 10000; /* is this enough? */
 	/* -webkit-filter: blur(3px); */
-    /* background: #ffe580; */
-    /* box-shadow: 2px 2px 2px #888888; */
+   /* background: #ffe580; */
+   /* box-shadow: 2px 2px 2px #888888; */
 	border-radius: 5px;
 	background: #fde570;
 	/* background: -webkit-linear-gradient(left, #fde570, #ffe580); */
 	font-family: monospace;
-    font-size: 10pt;    
-    color: black;
-    opacity: 0.95;
-    /*max-width: 270px;*/ 
-    /*max-height: 300px; */
-    overflow: auto;
-    white-space: pre-wrap;
-    word-wrap:break-word;
+   font-size: 10pt;    
+   color: black;
+   opacity: 0.95;
+   
+}
+
+.typing_tmp{
+    overflow: hidden;
+    word-wrap: normal;
+    white-space: pre;
+}
+
+.typing_style{
+	white-space: pre-wrap;
+   word-wrap: break-word;
 }
 
 .bad {

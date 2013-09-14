@@ -259,7 +259,8 @@ var printEnvironment = function(env,ast,pos,r){
 	
 	return "@"+(ast.line+1)+":"+ast.col+'-'+(ast.last_line+1)+':'+ast.last_col+' '
 		+ast.kind //+'\nType: '+toHTML(r) //FIXME too much to show?
-		+"\n\n\u0393 = "+gamma+"\n"+"\u0394 = "+delta;
+		+"<hr/>"
+		+"\u0393 = "+gamma+"\n"+"\u0394 = "+delta;
 }
 
 var _printEnvironment = function(env,ast,pos){
@@ -376,8 +377,7 @@ var info = function(tp,pos){
 	if( ptr === null || indexes.length === 0 )
 		return '';
 
-	var msg = '<b title="click to hide">Type Information</b><br/>'+
-		'('+diff+'ms)';
+	var msg = '<b title="click to hide">Type Information</b> ('+diff+'ms)';
 	
 	for(var i=0;i<indexes.length;++i){
 		var ptr = indexes[i];

@@ -290,12 +290,18 @@ $(document).ready(function() {
 	        window.clearTimeout(t);
 	        t = window.setTimeout(function () {
 	            panel.animate({"max-width": TYPE_INFO_WIDTHS.limit }, 'fast');
+	            //panel.css('max-width',TYPE_INFO_WIDTHS.limit);
+	            //panel.removeClass('typing_style');
+	            //panel.addClass('typing_show');
 	          }, 500);
 	    });
 	    panel.mouseleave(function() {
 	        window.clearTimeout(t);
 	        t = window.setTimeout(function () {
+	            //panel.css('max-width',TYPE_INFO_WIDTHS.max);
 	            panel.animate({"max-width": TYPE_INFO_WIDTHS.max }, 'slow');
+	            //panel.removeClass('typing_show');
+	            //panel.addClass('typing_style');
 	          }, 250);
 	    });
 		

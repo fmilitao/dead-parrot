@@ -1,3 +1,11 @@
+PROTOTYPE:
+
+1. Examples should use initial empty line to not show typing info.
+2. Rethink interface.
+
+remember to disable Chrome's cache!
+
+========================================
 
 FIXME: same improvement to other type checker functions?
 Like equals and whatnot?
