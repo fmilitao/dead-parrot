@@ -1466,20 +1466,7 @@ var TypeChecker = (function(AST,assertF){
 		this.setCap = function( c ){
 			error( ( c.type !== types.LocationVariable && 
 				c.type !== types.GuaranteeType ) || 'Error @setCap' );
-			
-			// ensure there is no other RW cap is that is the arg.
-			if( c.type === types.CapabilityType ){
-				for( var i=0; i<this.$caps.length ; ++i ){
-					var cc = this.$caps[i];
-					if( cc.type === types.CapabilityType &&
-						cc.location().name() === c.location().name() ){
-						// local repetition of RW caps is not allowed
-						return undefined;
-					}
-				}
-				//TODO else add to hiding set
-			}
-			// all rest ok.
+
 			this.$caps.push( c );
 			return true;
 		}
