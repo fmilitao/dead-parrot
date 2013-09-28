@@ -1,37 +1,29 @@
+/*
+ * IDIOMS
+ * This examples introduces a few convenient idioms used by the prototype.  
+ */
 
-// IDIOMS
-// This file introduces some idioms that we use in the prototype/examples.
+// 0. convenient type definitions
+typedef OK = int
 
-
-// multi-argument functions, through Currying
+// 1. multi-argument functions, through Currying.
 let f = fun(x : int, y : boolean ).x in
     // note the type of 'f' is "int -o boolean -o int"
     f 2 false
 end;
 
-let x = new false in
-	0;
-	open <t,y> = delete x in // I hate this delete rule...
-		// or maybe it needs a proper subtyping for existentials and bang?
-        y
-    end
-end;
+// 2. recursive functions, requiring name and return type.
+fun R( x : int ):OK.( R x ) ;
 
-// auto-stack of capabilities on last expression
-// auto-pack to avoid error of having location vars.
-// go out of scope.
+/*
+ * 4. Capability stacking subtleties.
+ *		- manually stacking is possible by ::TYPE
+ *		- auto-stack is only used when leaving a scope by packing any location
+ *		that was previously bounded by it (on that last expression).
+ */
 open <p,x> = new 0 in
 	0::rw p int; // manually stacking
 	true // auto-stack and auto-pack.
 	// on last element, try to pack:
 	// < nloc , e :: all outstanding capabilities >
-
 end
-
-// TODO:
-// - mention that packs can have labels, up to renaming.
-// (so it does not make mush difference when compared to paper)
-// - recursion with return types and name for function
-// - number each
-// - manually stacking stuff
-// - typedefs as macro like type definitions

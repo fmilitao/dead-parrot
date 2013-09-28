@@ -1,11 +1,6 @@
 
 // Simple Linked List (ADT)
-// mostly just to test recursive types
-
-// FIXME: the abstracted version is quite messy, since it actually motivates
-// the need to have alternatives (and &-types) since otherwise there is quite a
-// bit of code duplication.
-// TODO: this example is not prettified (the second version is OK).
+// mostly just to test recursive types...
 
 typedef Empty = E#(exists p.( ref p :: rw p [] )) 
 
@@ -24,18 +19,13 @@ let ListADT = <T>
 	newList = fun ( _ : [] ).
 		E#new {},
 	
-	// FIXME: should packing consider up to subtyping?
-	// right now it matches the type with 'equals' and therefore we need
-	// to state the return type in order to consider it.
 	insertN = fun _( e : T , list : Node[T] ): Node[T].
 		N#new {e,list},
-	// FIXME: without intersection types there is no way to relate the two
-	// abstracted types and therefore, we must have this code duplication
+
 	insertE = fun _( e : T , list : Empty ): Node[T].
 		N#new {e,list},
 
-	// This might be a be dumb that the last element does not contain
-	// anything stored in it...
+	// A bit silly that the last element does not contain anything stored in it...
 	remove = fun( list : Node[T] ).
 		case list of
 			N#node ->
@@ -58,16 +48,11 @@ let ListADT = <T>
 	0
 end
 
-
-// abstract types but not the arguments the functions require.
-// allow List and EmptyList
-// note the loss in subtyping?
-// no way to abstract that ... until & are back.
-
 ;
 
 // Another version is *without* abstracting the list, just to test unfolding 
 // through subtyping on the empty and non-empty list types.
+// WARNING: slightly unpleasantly lengthy types...
 let GenericList = <T> {
 	newList = fun ( _ : [] ).
 		E#new {},

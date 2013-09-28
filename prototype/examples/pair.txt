@@ -1,11 +1,8 @@
 // Pair example + client code.
 
-// In this version we just abstract the location variables.
-// The 'typestate' version of this example abstracts the capability
-// type, thus creating a proper typestate.
-
 import add
 
+// 1. only abstracting the location variable
 let newPair = fun( _ : [] ).
 	open <pl,l> = new {} in
 	open <pr,r> = new {} in
@@ -35,5 +32,35 @@ let newPair = fun( _ : [] ).
 		end
 	end
 	end
+
+end;
+
+// 2. typestate version, same code different packs.
+let newPair = fun( _ : [] ).
+	open <pl,l> = new {} in
+	open <pr,r> = new {} in
+		<rw pl []:EL,<rw pr []:ER,<rw pr int:R,<rw pl int:L,
+			{
+			initL = fun( i : int :: rw pl [] ).( l := i ),
+			initR = fun( i : int :: rw pr [] ).( r := i ),
+			sum = fun( _ : [] :: ( rw pl int * rw pr int ) ).(add !l !r),
+			destroy = fun ( _ : [] :: ( rw pl int * rw pr int ) ).( delete l; delete r ) 
+			}::( rw pr [] * rw pl [] )
+		>>>>
+	end
+	end
+	in
+
+	open < EL, t0 > = newPair({}) in
+	open < ER, t1 > = t0 in
+	open < R, t2 > = t1 in
+	open < L, obj > = t2 in
+			obj.initL(12);
+			obj.initR(30);
+			let res = obj.sum({}) in
+				obj.destroy({});
+				res
+			end
+	end end end end
 
 end
