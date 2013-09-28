@@ -194,11 +194,13 @@ $(document).ready(function() {
 				class: 'button',
 	        	text: name,
 	        	click: function(){
-	        		button.text(name+' (Loading...)');
+	        		//button.text(name+' (Loading...)');
+	        		button.addClass('button_load');
 	        		
 	        		$.get( file , function(data) {
 						setEditor(data);
-						button.text(name);
+						//button.text(name);
+						button.removeClass('button_load');
 					});
 				}
 	    	});

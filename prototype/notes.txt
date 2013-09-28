@@ -24,6 +24,8 @@ var run = function(ast,env){
 
 -- avoid closures by defining function with argument?
 
+========================================
+
 TYPECHECKER, missing features: 
  - Missing Delta^G restrictions on environments.
  ensure no access to enclosing defocus-guarantee of environment inside 
@@ -34,6 +36,8 @@ TYPECHECKER, missing features:
  	Equals and subtypeOf functions must be cleaned they are messy... and buggy?
 
  - join multiple typing environments with (+)
+
+========================================
 
 LOWER PRIORITY: 
  - organize type error messages, as CONSTANTS? / FUNCTIONS?
