@@ -2,6 +2,7 @@ PROTOTYPE:
 
 1. Examples should use initial empty line to not show typing info.
 2. Rethink interface.
+3. How to show multiple levels of same capability?
 
 remember to disable Chrome's cache!
 

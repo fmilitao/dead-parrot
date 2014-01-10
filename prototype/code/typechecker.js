@@ -710,6 +710,10 @@ var TypeChecker = (function(AST,assertF){
 			if( var1 ^ var2 ){
 				
 				// in here?? the next line makes no sense...
+				// TODO: this needs to be debuged although it should not cause
+				// issues since types are tested for pointer equality and is
+				// necessary to ensure that such 'unfold' of the type variable
+				// will not be problematic.
 				table.push( t1, t2 ); // assume they are the same
 
 				if( var1 ){
@@ -828,7 +832,6 @@ var TypeChecker = (function(AST,assertF){
 						table.push( t1, t2 );
 					}
 					
-					
 					return equalsTo( t1.inner(), m1, t2.inner(), m2 );
 				}
 				case types.TypeVariable:
@@ -942,6 +945,7 @@ var TypeChecker = (function(AST,assertF){
 	 * @param {Type} t2
 	 * @return {Boolean} true if t1 <: t2 (if t1 can be used as t2).
 	 */
+	// FIXME: switch to equals kind of algorithm?
 	var subtypeOf = function( t1 , t2 ){
 		var table = new Table();
 

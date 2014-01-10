@@ -7,10 +7,4 @@ behavioral-ind.txt
 behavioral-typestate.txt
 list-adt.txt
 stack.txt
-# sharing examples
-sharing.txt
-busy-wait.txt
-counter.txt
-pipe.txt
-# the next was not in paper
-# monotonic-tree.txt
+case.txt

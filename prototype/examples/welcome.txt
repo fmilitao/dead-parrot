@@ -1,15 +1,15 @@
 /* WELCOME!
 
- Dead-Parrot is a prototype implementation of our language written entirely
- in javascript and should run directly in a modern web-browser (Google Chrome
- preferred).
+ Dead-Parrot is an experimental prototype implementation of the language from
+ "Substructural Typestates" and was written entirely in javascript. It should
+ run directly in a modern web-browser (Google Chrome preferred).
 
  Parsing and typechecking errors should be flagged on-the-fly.
 
  NOTES:
   - allows C-style comments.
-  - the languages uses a few IDIOMS for convenience (see idioms example).
-  - sharing support is still EXPERIMENTAL (i.e. work in progress).
+  - the languages uses a few idioms for convenience (see idioms example).
+  - parsing priorities are a bit messy...
 */
 
 import println
