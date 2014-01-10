@@ -1,3 +1,15 @@
+PROTOTYPE FIXES
+
+** help with error messages?
+
+** how to avoid reattaching the listeners?
+
+** improvement on the presentation of types?
+
+** fix subtyping and equals algorithms? how to test?
+
+traditional ADT with extra tests?
+
 PROTOTYPE:
 
 1. Examples should use initial empty line to not show typing info.
