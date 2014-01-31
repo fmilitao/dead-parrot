@@ -299,13 +299,6 @@ var Interpreter = (function( AST, assertF ){
 	  				}
 					return run(ast.exp, newEnv);
 				};
-			
-			case AST.kinds.FOCUS:
-			case AST.kinds.DEFOCUS:
-			case AST.kinds.SHARE:
-				return function(ast,env){
-					return new fct.Record();
-				};
 
 			case AST.kinds.CAP_STACK:
 			case AST.kinds.PACK:

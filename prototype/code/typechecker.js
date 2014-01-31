@@ -230,20 +230,6 @@ var TypeChecker = (function(AST,assertF){
 		}
 	);
 	
-	var RelyType = newType('RelyType',
-		function RelyType( rely, guarantee ){
-			this.rely = function(){ return rely; }
-			this.guarantee = function(){ return guarantee; }
-		}
-	);
-	
-	var GuaranteeType = newType('GuaranteeType',
-		function GuaranteeType( guarantee, rely ){
-			this.rely = function(){ return rely; }
-			this.guarantee = function(){ return guarantee; }
-		}
-	);
-	
 	// this is a "fake" type that is just convenient
 	var DelayedApp = newType('DelayedApp',
 		function DelayedApp( delayed_type, app_type ){
@@ -280,14 +266,6 @@ var TypeChecker = (function(AST,assertF){
 		
 		_add( types.BangType, function(){
 			return "!"+_wrap( this.inner() );
-		} );
-
-		_add( types.RelyType, function(){
-			return _wrap( this.rely() )+' => '+_wrap( this.guarantee() );
-		} );
-
-		_add( types.GuaranteeType, function(){
-			return _wrap( this.guarantee() )+' ; '+_wrap( this.rely() );
 		} );
 		
 		_add( types.SumType, function(){
@@ -390,14 +368,6 @@ var TypeChecker = (function(AST,assertF){
 		
 		_add( types.BangType, function(t,loc){
 			return isFree( t.inner(), loc );
-		});
-		
-		_add( types.RelyType, function(t,loc){
-			return isFree( t.rely(), loc ) && isFree( t.guarantee(), loc );
-		});
-		
-		_add( types.GuaranteeType, function(t,loc){
-			return isFree( t.guarantee(), loc ) && isFree( t.rely(), loc );
 		});
  
 		_add( types.SumType, function(t,loc){
@@ -502,12 +472,6 @@ var TypeChecker = (function(AST,assertF){
 				return new FunctionType( rec(t.argument()), rec(t.body()) );
 			case types.BangType:
 				return new BangType( rec(t.inner()) );
-			case types.RelyType: {
-				return new RelyType( rec(t.rely()), rec(t.guarantee()) );
-			}
-			case types.GuaranteeType: {
-				return new GuaranteeType( rec(t.guarantee()), rec(t.rely()) );
-			}
 			case types.SumType:{
 				var sum = new SumType();
 				var tags = t.tags();
@@ -847,14 +811,6 @@ var TypeChecker = (function(AST,assertF){
 						equalsTo( t1.body(), m1, t2.body(), m2 );
 				case types.BangType:
 					return equalsTo( t1.inner(), m1, t2.inner(), m2 );
-				case types.RelyType: {
-					return equalsTo( t1.rely(), m1, t2.rely(), m2 ) &&
-						equalsTo( t1.guarantee(), m1, t2.guarantee(), m2 );
-				}
-				case types.GuaranteeType: {
-					return equalsTo( t1.guarantee(), m1, t2.guarantee(), m2 ) &&
-						equalsTo( t1.rely(), m1, t2.rely(), m2 );
-				}
 				case types.SumType: {
 					var t1s = t1.tags();
 					var t2s = t2.tags();
@@ -1085,14 +1041,6 @@ var TypeChecker = (function(AST,assertF){
 					return subtype( t1.inner(), m1, t2.inner(), m2 );
 				case types.ReferenceType:
 					return subtype( t1.location(), m1, t2.location(), m2 );
-				case types.RelyType: {
-					return subtype( t1.rely(), m1, t2.rely(), m2 ) &&
-						subtype( t1.guarantee(), m1, t2.guarantee(), m2 );
-				}
-				case types.GuaranteeType: {
-					return subtype( t1.guarantee(), m1, t2.guarantee(), m2 ) &&
-						subtype( t1.rely(), m1, t2.rely(), m2 );
-				}
 				case types.FunctionType:
 					return subtype( t2.argument(), m2, t1.argument(), m1 )
 						&& subtype( t1.body(), m1, t2.body(), m2 );
@@ -1468,8 +1416,7 @@ var TypeChecker = (function(AST,assertF){
 		}
 		
 		this.setCap = function( c ){
-			error( ( c.type !== types.LocationVariable && 
-				c.type !== types.GuaranteeType ) || 'Error @setCap' );
+			error( ( c.type !== types.LocationVariable ) || 'Error @setCap' );
 
 			this.$caps.push( c );
 			return true;
@@ -1501,9 +1448,6 @@ var TypeChecker = (function(AST,assertF){
 						return true;
 				}
 				return false;
-			}
-			case types.RelyType:{
-				return cap.rely().location().name() === name;
 			}
 			default:
 				// another types disallowed, for now
@@ -1826,7 +1770,6 @@ var TypeChecker = (function(AST,assertF){
 	var unstackType = function(t, d, ast){
 		switch( t.type ){
 		case types.AlternativeType:
-		case types.RelyType:
 		case types.CapabilityType:
 		case types.TypeVariable:
 			assert( d.setCap( t ) || ('Duplicated capability for '+ t), ast );
@@ -1969,16 +1912,6 @@ var TypeChecker = (function(AST,assertF){
 				assert( (t === null || t.type === types.NoneType) ||
 					'Error @autoStack ', a );
 				return NoneType;
-			case types.RelyType: {
-				var cap = e.removeCap( function(c){
-					return subtypeOf(p,c);
-				});
-				assert( cap !== undefined || ('Missing capability '+p), a );
-				return cap;
-			}
-			case types.GuaranteeType:
-				assert( 'Error @autoStack, Guarantee...', a );
-				break;
 			default:
 				// other types just fall through, leave the given type
 				// in but make sure it is not null.
@@ -2069,116 +2002,16 @@ var TypeChecker = (function(AST,assertF){
 	}
 
 
-// attempts to bang the result of f() which should only happen
-// if it does not change the delta environment
-var tryBang = function(ast,env,f){ // tryBang : is a closure
-	var initial_size = env.size();
-	var result = f(ast,env);
-	if( initial_size === env.size() )
-		return new BangType(result);
-	return result;
-};
+	// attempts to bang the result of f() which should only happen
+	// if it does not change the delta environment
+	var tryBang = function(ast,env,f){ // tryBang : is a closure
+		var initial_size = env.size();
+		var result = f(ast,env);
+		if( initial_size === env.size() )
+			return new BangType(result);
+		return result;
+	};
 
-/**
- * Protocol Conformance
- */
-var checkProtocolConformance = function( s, a, b, ast ){
-	var visited = [];
-	var max_visited = 100;
-	
-	var contains = function(s,a,b){
-		for( var i=0; i<visited.length; ++i ){
-			var tmp = visited[i];
-			if( equals(s,tmp[0]) && equals(a,tmp[1]) && equals(b,tmp[2]) )
-				return true;
-		}
-		return false;
-	}
-	
-	var sim = function(s,p){
-		p = unAll(p,undefined,false,true);
-		// first protocol
-		if( p.type === types.NoneType )
-			return { s : s , p : p };
-
-		// now state
-		if( s.type === types.AlternativeType ){
-			var tmp_s = null;
-			var tmp_p = null;
-			var alts = s.inner();
-			for( var i=0;i<alts.length; ++i ){
-				//debugger;
-				var tmp = sim(alts[i],p);
-				if( tmp_s === null ){
-					tmp_s = tmp.s;
-					tmp_p = tmp.p;
-				}else{
-					assert( (equals( tmp_s, tmp.s ) && equals( tmp_p, tmp.p )) ||
-						('[Protocol Conformance] Alternatives mimatch.\n'+
-						'(1)\tstate:\t'+tmp_s+'\n\tstep:\t'+tmp_p+'\n'+
-						'(2)\tstate:\t'+tmp.s+'\n\tstep:\t'+tmp.p+'\n'), ast );
-				}
-			}
-			return { s : tmp_s , p : tmp_p };
-		}
-		
-		if( p.type === types.AlternativeType ){
-			var alts = p.inner();
-			for( var i=0; i<alts.length; ++i ){
-				try{
-//console.debug('attempt:: '+alts[i] +' s::'+s);
-					return sim(s,alts[i]);
-				}catch(e){
-					// assume it is an assertion error, continue to try with
-					// some other alternative
-					continue;
-				}
-			}
-			assert( '[Protocol Conformance] No matching alternative.\n'+
-				'state:\t'+s+'\n'+
-				'step:\t'+p, ast );
-		}
-		
-		var pp = unAll( p, undefined, false, true );
-		
-		assert( pp.type === types.RelyType ||
-			('Expecting RelyType, got: '+pp.type+'\n'+pp), ast);
-		
-		assert( subtypeOf( s, pp.rely() ) ||
-			('Invalid Step: '+s+' VS '+pp.rely()), ast );
-		
-		var next = pp.guarantee();
-		assert( next.type === types.GuaranteeType ||
-			('Expecting GuaranteeType, got: '+next.type), ast);
-		
-		return { s : next.guarantee() , p : next.rely() };		
-	}
-	
-	var work = [];
-	work.push( [s,a,b] );
-
-	while( work.length > 0 ){
-		var state = work.pop();
-		var _s = state[0];
-		var _a = state[1];
-		var _b = state[2];
-		
-		// already done
-		if( contains(_s,_a,_b) )
-			continue;
-//console.debug( 's:: '+_s+' p:: '+_a+' q:: '+_b);
-
-		visited.push( [_s,_a,_b] );
-		
-		var l = sim(_s,_a);
-		work.push( [l.s,l.p,_b] );
-			
-		var r = sim(_s,_b);
-		work.push( [r.s,_a,r.p] );
-		
-		assert( max_visited-- > 0 || 'ERROR: MAX VISITED', ast);
-	}
-};
 
 	// this wrapper function allows us to inspect the type and envs
 	// of some node, while leaving the checker mostly clean.
@@ -2719,80 +2552,7 @@ var checkProtocolConformance = function( s, a, b, ast ){
 				return rec;
 			};
 			
-			case AST.kinds.SHARE: 
-			return function( ast, env ){
-				var locs = ast.locs;
-				// FIXME assuming just one
-				var cap = env.removeNamedCap( locs[0] );
-				
-				assert( cap !== undefined || ("No capability to '"+locs[0]+"'"), ast );
-				
-				var left = check( ast.a, env );
-				var right = check( ast.b, env );
-				/* TODO:
-				 *  - protocol conformance, go through all possible
-				 * interleavings in composed type and ensure all alternatives
-				 * are allowed.
-				 */
-
-				checkProtocolConformance(cap, left, right, ast);
-				
-				env.setCap( unAll(left, undefined, false, true) );
-				env.setCap( unAll(right, undefined, false, true) );
-				// returns unit
-				return new BangType(new RecordType());
-			};
-			
-			case AST.kinds.FOCUS: 
-			return function( ast, env ){
-				var locs = ast.locs;
-				
-				var cap = env.removeNamedCap( locs[0] );
-				
-				assert( cap !== undefined || ("No capability to '"+locs[0]+"'"), ast );
-				assert( cap.type === types.RelyType || ('Expecting RelyType, got '+cap), ast);
-				
-				env.focus( cap );
-				
-				return new BangType(new RecordType());
-			};
-			
-			case AST.kinds.DEFOCUS: 
-			return function( ast, env ){
-				var dg = env.defocus_guarantee();
-				
-				var res = autoStack( null , dg.guarantee(), env, ast );
-				
-				assert( subtypeOf( res, dg.guarantee() ) ||
-					('Not at Guarantee, expecting "'+dg.guarantee()+'" got '+res),
-					ast );
-				
-				env.defocus();
-				
-				unstackType(
-					unAll( dg.rely(),ast, false, true) 
-					, env, ast );
-				return new BangType(new RecordType());
-			};
-			
 			// TYPES
-			case AST.kinds.RELY_TYPE: 
-			return function( ast, env ){
-				var rely = check( ast.left, env );
-				var guarantee = check( ast.right, env );
-				if( guarantee.type !== types.GuaranteeType ){
-					guarantee = new GuaranteeType( guarantee, NoneType );
-				}
-				return new RelyType( rely, guarantee );
-			};
-			
-			case AST.kinds.GUARANTEE_TYPE: 
-			return function( ast, env ){
-				var guarantee = check( ast.left, env );
-				var rely = check( ast.right, env );
-				return new GuaranteeType( guarantee, rely );
-			};
-			
 			case AST.kinds.REF_TYPE: 
 			return function( ast, env ){
 				var id = ast.text;

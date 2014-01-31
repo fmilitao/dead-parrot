@@ -8,8 +8,6 @@ PROTOTYPE FIXES
 
 ** fix subtyping and equals algorithms? how to test?
 
-traditional ADT with extra tests?
-
 PROTOTYPE:
 
 1. Examples should use initial empty line to not show typing info.
@@ -17,38 +15,7 @@ PROTOTYPE:
 3. How to show multiple levels of same capability?
 
 remember to disable Chrome's cache!
-
-========================================
-
-FIXME: same improvement to other type checker functions?
-Like equals and whatnot?
-
-// setup visitors to avoid big switch at runtime
-for( var i in AST.kinds ){
-	visitor[i] = getVisit();
-}
-
-var run = function(ast,env){
-	if( !visitor.hasOwnProperty( ast.kind ) )
-		throw error;
-	
-	return (visitor[ast.kind])(ast,env);
-}
-
--- avoid closures by defining function with argument?
-
-========================================
-
-TYPECHECKER, missing features: 
- - Missing Delta^G restrictions on environments.
- ensure no access to enclosing defocus-guarantee of environment inside 
- functions and foralls
-	Ensure no defocus guarantee on functions and forall abstraction
-
- - isEquals on environments must be cleaned
- 	Equals and subtypeOf functions must be cleaned they are messy... and buggy?
-
- - join multiple typing environments with (+)
+?worker=false for debugging...
 
 ========================================
 
@@ -80,7 +47,7 @@ TODO?
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-PENDING FIXES:
+Some ideas for improvements:
 	
 2. Non-syntax directed alternative open.
 	Currently the typechecker requires a "@p E" to know precisely where an

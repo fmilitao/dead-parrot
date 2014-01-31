@@ -49,7 +49,6 @@
 ":="                  return ':='
 "::"                  return '::'
 ":"                   return ':'
-"=>"                  return '=>'
 "="                   return '='
 "!"                   return '!'
 "["                   return '['
@@ -88,19 +87,11 @@ type_root :
 	;
 
 type_fun :
-	  type_rg
-	| type_fun '-o' type_rg
+	  type_cap
+	| type_fun '-o' type_cap
 		{ $$ = AST.makeFunType($1,$3,@$); }
 	| type_fun '[' type_root ']'
 		{ $$ = AST.makeDelayableTypeApp($1,$3,@$); }
-	;
-
-type_rg :
-	  type_cap
-	| type_cap '=>' type_rg
-		{ $$ = AST.makeRelyType($1,$3,@$); }
-	| type_cap ';' type_rg
-		{ $$ = AST.makeGuaranteeType($1,$3,@$); }
 	;
 
 type_cap :
@@ -225,19 +216,9 @@ typedef :
 	;
 	
 sequence :
-	sharing
-	| sharing ';' sequence
-		{ $$ = AST.makeLet(null,$1,$3,@$); }
-	;
-
-sharing :
 	nonsequence
-	| DEFOCUS
-		{ $$ = AST.makeDefocus(@$); }
-	| FOCUS ids_list
-		{ $$ = AST.makeFocus($2,@$); }
-	| SHARE ids_list AS type '||' type
-		{ $$ = AST.makeShare($2,$4,$6,@$); }
+	| nonsequence ';' sequence
+		{ $$ = AST.makeLet(null,$1,$3,@$); }
 	;
 
 nonsequence :

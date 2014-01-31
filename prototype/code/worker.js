@@ -258,7 +258,7 @@ var printEnvironment = function(env,ast,pos,r){
 	delta = delta.join(',\n    ');
 	
 	return "@"+(ast.line+1)+":"+ast.col+'-'+(ast.last_line+1)+':'+ast.last_col+' '
-		+ast.kind //+'\nType: '+toHTML(r) //FIXME too much to show?
+		+ast.kind //+'\nType: '+toHTML(r) //Is this too much to show?
 		+"<hr class='type_hr'/>"
 		+"\u0393 = "+gamma+"\n"+"\u0394 = "+delta;
 }
@@ -506,10 +506,6 @@ var toHTML = function (t){
 			return '<b>none</b>';
 		case types.DelayedApp:
 			return wq( wq( _toHTML(t.inner()) )+wQ('[')+ wq( toHTML(t.id()) )+wQ(']') );
-		case types.RelyType:
-			return wq( wq( _toHTML(t.rely()) )+wQ(' &#8658; ') + wq(_toHTML(t.guarantee())) );
-		case types.GuaranteeType:
-			return wq( wq( _toHTML(t.guarantee()) )+wQ(' ; ') + wq(_toHTML(t.rely())) );
 		default:
 			console.error( "Error @toHTML: " +t.type );
 			return null;

@@ -50,8 +50,6 @@ var AST = new function(){
 		'RECORD_TYPE',
 		'TUPLE_TYPE',
 		'TAGGED_TYPE',
-		'RELY_TYPE',
-		'GUARANTEE_TYPE',
 		'STAR_TYPE',
 		'PRIMITIVE_TYPE',
 		'NONE_TYPE',
@@ -84,9 +82,6 @@ var AST = new function(){
 		'NEW',
 		'DELETE',
 		'FUN',
-		'SHARE',
-		'FOCUS',
-		'DEFOCUS',
 		'TUPLE',
 		'LET_TUPLE'
 	);
@@ -107,15 +102,6 @@ var AST = new function(){
 	}
 	this.makeTuple = function(exp,info){
 		return aux( this.kinds.TUPLE, {exp:exp}, info);
-	}
-	this.makeFocus = function(locs,info){
-		return aux( this.kinds.FOCUS, {locs:locs}, info);
-	}
-	this.makeDefocus = function(info){
-		return aux( this.kinds.DEFOCUS, { }, info);
-	}
-	this.makeShare = function(locs,a,b,info){
-		return aux( this.kinds.SHARE, {locs:locs,a:a,b:b}, info);
 	}
 	
 	// expressions
@@ -203,12 +189,6 @@ var AST = new function(){
 	}
 	this.makeStackedType = function(left,right, info){
 		return aux( this.kinds.STACKED_TYPE, {left: left, right: right}, info);
-	}
-	this.makeRelyType = function(left,right, info){
-		return aux( this.kinds.RELY_TYPE, {left: left, right: right}, info);
-	}
-	this.makeGuaranteeType = function(left,right, info){
-		return aux( this.kinds.GUARANTEE_TYPE, {left: left, right: right}, info);
 	}
 	this.makeSumType = function(sums, info){
 		return aux( this.kinds.SUM_TYPE, {sums:sums}, info);
