@@ -179,6 +179,17 @@ var libLoader = function( file, ctx ){
 		return add;
 	}
 	
+	// concat: int -o int -o !int
+	if( file === 'concat' ){	
+		var add = new v.Function();
+		add.call = function(msg){
+			var tmp = new v.Function();
+			tmp.call = function(arg){ return msg+arg; }
+			return tmp;
+		};
+		return add;
+	}
+	
 	if( file === 'abort' ){
 		var abort = new v.Function();
 		abort.call = function(msg){
@@ -217,6 +228,19 @@ var libTyper = function( file, ctx ){
 				new v.FunctionType(
 					new v.PrimitiveType('int'),
 					new v.BangType(new v.PrimitiveType('int'))
+					) 
+			)
+		);
+	}
+	
+	// concat: !(string -o string -o !string)
+	if( file === 'concat' ){
+		return new v.BangType(
+			new v.FunctionType(
+				new v.PrimitiveType('string'),
+				new v.FunctionType(
+					new v.PrimitiveType('string'),
+					new v.BangType(new v.PrimitiveType('string'))
 					) 
 			)
 		);
@@ -301,22 +325,6 @@ var _printEnvironment = function(env,ast,pos){
 		}			
 		delta.push('<span class="type_name">'+id+'</span>'+": "+toHTML(val));
 	});
-
-	var e = env;
-	while( e !== null ){
-		if( e.$defocus_guarantee !== null ){
-			var tmp = _printEnvironment(e.$defocus_env).delta;
-			if( tmp.length > 0 ){
-				tmp.sort(); // ...same order
-				tmp = tmp.join(',\n\t\t');
-			}else{
-				tmp = '&#8709;';
-			}
-			delta.push( toHTML(e.$defocus_guarantee) +' &#9659; '+tmp );
-			break;
-		}
-		e = e.$parent;
-	}
 	
 	return { delta : delta, gamma : gamma };
 }

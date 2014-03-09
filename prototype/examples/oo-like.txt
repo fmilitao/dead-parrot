@@ -1,17 +1,5 @@
-/*
-//Attempt at modeling the following Java-like code (simple, without typestates):
 
-class Animal{ 
-  String name(){ return "X"; }
-  String toString(){ return "Mr."+this.name(); }
-}
-class Bird extends Animal {
-   String name(){ return "Bird"; }
-}
-
-// client code:
-(new Bird()).toString(); // "Mr.Bird"?
-*/
+import concat
 
 // Methods, stored in a capability for 'this'
 typedef M = forall t.(rw t (rec X. ![ name : [] :: rw t X -o string :: rw t X, toString : [] :: rw t X -o string :: rw t X ]))
@@ -19,7 +7,7 @@ typedef M = forall t.(rw t (rec X. ![ name : [] :: rw t X -o string :: rw t X, t
 let classAnimal = <t>fun( this : ref t ).
 	{
 		name = fun( _ : [] :: (M[t]) )."X",
-		toString = fun( _ : [] :: (M[t]) ).( !this.name({}) ) // no string concat operation
+		toString = fun( _ : [] :: (M[t]) ).(concat "Mr." (!this.name({})) )
    }
 in
 
@@ -40,11 +28,25 @@ in
 // client code 
 open <t,this> = new {} in
 	this := ( classBird[t] (this) );
-	!this.toString({}) // "Bird"
+	!this.toString({}) // "Mr.Bird"
 end
 
 end
 end
 
+/*
+//FIXME: work in progress...
+//Attempt at modeling the following Java-like code (simple, without typestates):
 
+class Animal{ 
+  String name(){ return "X"; }
+  String toString(){ return "Mr."+this.name(); }
+}
+class Bird extends Animal {
+   String name(){ return "Bird"; }
+}
+
+// client code:
+(new Bird()).toString(); // "Mr.Bird"?
+*/
 
