@@ -834,7 +834,7 @@ var TypeChecker = (function(AST,assertF){
 						equalsTo( t1.value(), m1, t2.value(), m2 );
 				case types.RecordType: {
 					var t1s = t1.getFields();
-					var t2s = t1.getFields();
+					var t2s = t2.getFields();
 					if( Object.keys(t1s).length !== Object.keys(t2s).length )
 						return false;
 					for( var i in t1s )
@@ -1736,9 +1736,61 @@ var TypeChecker = (function(AST,assertF){
 		}
 		return t;
 	}
+			// only for recursion, and returns same on fail unfold
+	var unAll2 = function(tt){
+		// the following are safeguards to bound execution
+		var see = [];
+		var seen = function(a){
+			//return see.indexOf( a ) !== -1;
+			for(var i=0;i<see.length;++i){
+				if(see[i] === a || equals(see[i],t) )
+					return true;
+			}
+			return false;
+		};
+		var visited = 0;
+		
+		var t = tt;
+		while( true ) {
+			// by unfold: rec X.A <: A[rec X.A/X]
+			if( t.type === types.RecursiveType ){
+				// these are not exactly perfect but two simple ways to check
+				// if we may be unfolding an unending recursive type
+				// counting is the easiest, the second is the most likely to
+				// catch such pointless loops earlier.
+				if( (++visited) >= 10  || seen( t ) )
+					return t; // cannot unfold more, give the same type
+				see.push( t );
+
+				// unfold
+				t = substitution(t.inner(),t.id(),t);
+				continue;
+			}
+			
+			if( t.type === types.DelayedApp ){
+				if( t.inner().type === types.RecursiveType && 
+					t.inner().inner().type === types.ForallType ){
+					var v = t.id();
+					var rec = t.inner();
+					
+					// expand inner recursion
+					t = substitution(rec.inner(),rec.id(),rec);
+					// do type application
+					t = substitution(t.inner(),t.id(),v);
+					continue;
+				}
+				
+			}
+			
+			break;
+		}
+		return t;
+	}
 		
 	// attempts to convert type to bang, if A <: !A
 	var purify = function(t){
+		t = unAll2(t);
+		
 		if( t.type !== types.BangType ){
 			var tmp = new BangType(t);
 			if( subtypeOf(t,tmp) )
