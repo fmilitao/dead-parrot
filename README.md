@@ -1,7 +1,10 @@
 # Research Prototype ("Dead Parrot") #
 ![Dead Parrot](https://raw.githubusercontent.com/fmilitao/dead-parrot/master/dp.png)
 
-**[Version a7782b5d05..](https://cdn.rawgit.com/fmilitao/dead-parrot/a7782b5d053187214402e341aa2f52730c45126f/prototype/editor.html)** (opens browser-based playground editor, includes examples)
+**[Version a7782b5d05..](https://cdn.rawgit.com/fmilitao/dead-parrot/a7782b5d053187214402e341aa2f52730c45126f/prototype/editor.html)**
+
+Link opens browser-based playground editor, includes examples.
+Served via rawgit, somewhat slow initialization.
 
 ([screenshot](https://raw.githubusercontent.com/fmilitao/dead-parrot/master/screenshot.png))
 
