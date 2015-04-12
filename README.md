@@ -1,9 +1,9 @@
 # Research Prototype ("Dead Parrot") #
-![https://dead-parrot.googlecode.com/svn/dp.png](https://dead-parrot.googlecode.com/svn/dp.png)
+![Dead Parrot](https://raw.githubusercontent.com/fmilitao/dead-parrot/master/dp.png)
 
 **[Latest Development Version](https://dead-parrot.googlecode.com/svn/trunk/prototype/editor.html)** (opens browser-based playground editor, includes examples)
 
-([screenshot](https://dead-parrot.googlecode.com/svn/screenshot.png))
+([screenshot](https://raw.githubusercontent.com/fmilitao/dead-parrot/master/dp.png))
 
 Paper describing the formal system:
 
@@ -15,7 +15,7 @@ Paper describing the formal system:
 
 **Note:** Written in javascript, designed for [Google Chrome](http://chrome.google.com). Performance and style issues may be experienced if using other browsers.
 
-**Update:** A fork of this project, [Deaf Parrot](https://code.google.com/p/deaf-parrot/), extends this work with sharing constructs (besides bug fixes, and other improvements).
+**Update:** A fork of this project, [Deaf Parrot](https://github.com/fmilitao/dead-parrot), extends this work with sharing constructs (besides bug fixes, and other improvements).
 
 ### Libraries ###
 
