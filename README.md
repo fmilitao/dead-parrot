@@ -1,13 +1,13 @@
 # Research Prototype ("Dead Parrot") #
-![Dead Parrot](https://raw.githubusercontent.com/fmilitao/dead-parrot/master/dp.png)
+![Dead Parrot](http://fmilitao.github.io/dead-parrot/dp.png)
 
-**[Online Demo](http://fmilitao.github.io/prototype/editor.html)**
+**[Online Demo](http://fmilitao.github.io/dead-parrot/prototype/editor.html)**
 
 Link opens browser-based playground editor, includes examples.
 
 Served via rawgit, somewhat slow initialization and file fetch.
 
-([screenshot](https://raw.githubusercontent.com/fmilitao/dead-parrot/master/screenshot.png))
+([screenshot](http://fmilitao.github.io/dead-parrot/screenshot.png))
 
 Paper describing the formal system:
 
