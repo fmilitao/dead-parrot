@@ -16,7 +16,6 @@ Paper describing the formal system:
 
 ---
 
-
 **Note:** Written in javascript, designed for [Google Chrome](http://chrome.google.com). Performance and style issues may be experienced if using other browsers.
 
 **Update:** A fork of this project, [Deaf Parrot](https://github.com/fmilitao/deaf-parrot), extends this work with sharing constructs (besides bug fixes, and other improvements).
