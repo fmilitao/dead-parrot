@@ -5,7 +5,6 @@
 
 Link opens browser-based playground editor, includes examples.
 
-Served via rawgit, somewhat slow initialization and file fetch.
 
 ([screenshot](http://fmilitao.github.io/dead-parrot/screenshot.png))
 
